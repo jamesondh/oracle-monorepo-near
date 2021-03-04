@@ -24,7 +24,7 @@ pub struct FluxOracle {
     pub whitelist_grace_period: u64,
 
     pub dri_registry: Vector<DataRequestInitiation>,
-    pub dri_challenges: HashMap<u64, u64>
+   // pub dri_challenges: HashMap<u64, u64>
 
     pub proposal_bond: u128,
     pub min_voters: u128,
@@ -221,7 +221,8 @@ impl FluxOracle {
             stakes : DataRequestStake {
                 total: 0,
                 outcomes: HashMap::default(),
-                users: HashMap::default()
+                users: HashMap::default(),
+                users_outcomes: HashMap::default()
             }
         };
         self.dri_registry.push(&dri);
@@ -243,49 +244,42 @@ impl FluxOracle {
         assert!(self._data_request_tvl(id), "FAILED");
     }
 
-    pub fn data_request_settlement(&mut self, id: U64, answer: Option<String>) {
+    /// Users can stake for a data request once (or they should unstake if thats possible)
+    /// If the DRI has any predefined outcomes, the answers should be one of the predefined ones
+    /// If the DRI does not have predefined outcomes, users can vote on answers freely
+    /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
+    pub fn data_request_settlement(&mut self, id: U64, answer: String) {
         // TODO
         // valdiate state of DRI
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        assert!(dri.stakes.users_outcomes.get(&env::predecessor_account_id()).is_none(), "ALREADY STAKED, withdraw first");
+        self._data_request_tvl(id);
 
         // TODO
         // receiving flux tokens
         let amount : u128 = 5;
 
-        self._data_request_tvl(id);
         dri.stakes.total += amount;
-
-        let original_user_stake : &u128 = dri.stakes.outcomes.get(&env::predecessor_account_id()).unwrap_or(&0);
-        dri.stakes.users.insert(env::predecessor_account_id(), original_user_stake + amount);
 
         match &dri.outcomes {
             Some(v) => {
-                assert!(answer.is_some(), "ERR_ANSWER");
-                let user_answer : String = answer.unwrap();
-                if !v.contains(&user_answer) {
+                if !v.contains(&answer) {
                     env::panic(b"invalid answer");
                 }
-
-                let original_outcome_stake : &u128 = dri.stakes.outcomes.get(&user_answer).unwrap_or(&0);
-                let new_outcome_stake : u128 = original_outcome_stake + amount;
-                dri.stakes.outcomes.insert(user_answer, new_outcome_stake);
-                // TODO tvl == settlement bond?
-                if (new_outcome_stake > dri.tvl) {
-                    // move to initial settlement
-                }
             },
-            None => {
-                assert!(answer.is_none(), "ERR_ANSWER");
-                // TODO tvl == settlement bond?
-                if (dri.stakes.total > dri.tvl) {
-                    // move to initial settlement
-                }
-            }
+            None => ()
         };
 
+        dri.stakes.users.insert(env::predecessor_account_id(), amount.clone());
+        dri.stakes.users_outcomes.insert(env::predecessor_account_id(), answer.clone());
 
+        let original_outcome_stake : &u128 = dri.stakes.outcomes.get(&answer).unwrap_or(&0);
+        let new_outcome_stake : u128 = original_outcome_stake + amount;
+        dri.stakes.outcomes.insert(answer, new_outcome_stake);
 
-
+        if (new_outcome_stake > dri.tvl) {
+            // move to initial settlement
+        }
     }
 
 }

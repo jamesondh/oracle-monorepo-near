@@ -40,8 +40,25 @@ pub struct RegistryEntry {
 pub struct DataRequestStake {
     pub total: u128,
     pub outcomes: HashMap<String, u128>,
-    pub users: HashMap<AccountId, u128>
+    pub users: HashMap<AccountId, u128>,
+    pub users_outcomes: HashMap<AccountId, String>
 }
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct DataRequestChallenge {
+    pub initiator: AccountId,
+    pub extra_info: Option<String>,
+    pub source: String,
+    pub outcomes: Option<Vec<String>>,
+    pub settlement_date: Timestamp,
+    pub challenge_period: Timestamp,
+    pub tvl: u128,
+    pub tvl_address: AccountId,
+    pub tvl_function: String,
+    pub stakes: DataRequestStake
+}
+
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
