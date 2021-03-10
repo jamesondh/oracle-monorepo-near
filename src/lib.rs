@@ -11,7 +11,7 @@ mod vote_types;
 mod proposal;
 mod flux_token;
 
-pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestStake };
+pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestStake, DataRequestChallenge, DataRequestContext };
 pub use proposal_status::{ ProposalStatus };
 use vote_types::{ Duration, WrappedBalance, WrappedDuration, Vote, Timestamp };
 
@@ -24,7 +24,7 @@ pub struct FluxOracle {
     pub whitelist_grace_period: u64,
 
     pub dri_registry: Vector<DataRequestInitiation>,
-   // pub dri_challenges: HashMap<u64, u64>
+    pub dri_challenges: HashMap<u64, Vector<DataRequestChallenge>>,
 
     pub proposal_bond: u128,
     pub min_voters: u128,
@@ -52,6 +52,7 @@ impl FluxOracle {
             whitelist_grace_period: 1,
 
             dri_registry: Vector::new(b"r".to_vec()),
+            dri_challenges: HashMap::default(),
 
             proposal_bond: 1,
             min_voters: 0,
@@ -213,8 +214,7 @@ impl FluxOracle {
             extra_info,
             source,
             outcomes,
-            settlement_date,
-            challenge_period,
+
             tvl_address,
             tvl_function,
             tvl : 0,
@@ -223,6 +223,11 @@ impl FluxOracle {
                 outcomes: HashMap::default(),
                 users: HashMap::default(),
                 users_outcomes: HashMap::default()
+            },
+            context: DataRequestContext {
+                start_date: settlement_date,
+                quorum_date: 0,
+                challenge_period
             }
         };
         self.dri_registry.push(&dri);
@@ -244,15 +249,44 @@ impl FluxOracle {
         assert!(self._data_request_tvl(id), "FAILED");
     }
 
+    pub fn data_request_finalize(&mut self, id: U64) {
+        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        let challenges = self.dri_challenges.get(&id.into());
+
+        let context : DataRequestContext = match challenges {
+            Some(v) => {
+                let last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
+                last_challenge.context
+            },
+            None => {
+                dri.context
+            }
+        };
+        assert!(context.quorum_date > 0, "QUORUM NOT REACHED");
+        assert!(env::block_timestamp() > context.quorum_date + context.challenge_period, "CHALLENGE_ACTIVE");
+
+        // set dri.answer = actual answer
+    }
+
+    pub fn data_request_finalize_claim(&mut self, id: U6) {
+        // calculate the amount of tokens the user
+    }
     /// Users can stake for a data request once (or they should unstake if thats possible)
     /// If the DRI has any predefined outcomes, the answers should be one of the predefined ones
     /// If the DRI does not have predefined outcomes, users can vote on answers freely
     /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
-    pub fn data_request_settlement(&mut self, id: U64, answer: String) {
+    pub fn data_request_stake(&mut self, id: U64, answer: String) {
+        // TODO
+        // support restaking
+        // support staking on multiple outomes
+
         // TODO
         // valdiate state of DRI
+
+        // OPEN stakes for challenger periods.
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         assert!(dri.stakes.users_outcomes.get(&env::predecessor_account_id()).is_none(), "ALREADY STAKED, withdraw first");
+        assert!(dri.context.quorum_date == 0, "ALREADY PASSED");
         self._data_request_tvl(id);
 
         // TODO
@@ -278,8 +312,12 @@ impl FluxOracle {
         dri.stakes.outcomes.insert(answer, new_outcome_stake);
 
         if (new_outcome_stake > dri.tvl) {
-            // move to initial settlement
+            dri.context.quorum_date = env::block_timestamp();
         }
+    }
+
+    pub fn data_request_challenge() {
+        // only able to challenge if in challenge period of DRI or latest challenge period
     }
 
 }

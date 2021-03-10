@@ -26,15 +26,6 @@ pub struct RegistryEntry {
     pub code_base_url: String
 }
 
-// description: String,
-// extra_info: Option<String>,
-// source: String,
-// outcomes: Option<Vec<String>>,
-// settlement_date: Timestamp,
-// challenge_period: Timestamp,
-// settlement_bond_address: AccountId,
-// settlement_cb: String
-
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct DataRequestStake {
@@ -42,23 +33,25 @@ pub struct DataRequestStake {
     pub outcomes: HashMap<String, u128>,
     pub users: HashMap<AccountId, u128>,
     pub users_outcomes: HashMap<AccountId, String>
+    // TODO, user to outcomes to stakes (user can stake on multiple answers)
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct DataRequestContext {
+    pub start_date: Timestamp,
+    pub quorum_date: Timestamp,
+    pub challenge_period: Duration,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct DataRequestChallenge {
     pub initiator: AccountId,
-    pub extra_info: Option<String>,
-    pub source: String,
-    pub outcomes: Option<Vec<String>>,
-    pub settlement_date: Timestamp,
-    pub challenge_period: Timestamp,
-    pub tvl: u128,
-    pub tvl_address: AccountId,
-    pub tvl_function: String,
-    pub stakes: DataRequestStake
+    pub outcome: String,
+    pub stakes: DataRequestStake,
+    pub context: DataRequestContext
 }
-
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -67,12 +60,11 @@ pub struct DataRequestInitiation {
     pub extra_info: Option<String>,
     pub source: String,
     pub outcomes: Option<Vec<String>>,
-    pub settlement_date: Timestamp,
-    pub challenge_period: Timestamp,
     pub tvl: u128,
     pub tvl_address: AccountId,
     pub tvl_function: String,
-    pub stakes: DataRequestStake
+    pub stakes: DataRequestStake,
+    pub context: DataRequestContext
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
