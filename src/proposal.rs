@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
@@ -30,10 +31,33 @@ pub struct RegistryEntry {
 #[serde(crate = "near_sdk::serde")]
 pub struct DataRequestStake {
     pub total: u128,
-    pub outcomes: HashMap<String, u128>,
-    pub users: HashMap<AccountId, u128>,
-    pub users_outcomes: HashMap<AccountId, String>
+    pub outcomes: HashSet<String>,
+    pub outcome_stakes: HashMap<String, u128>,
+   //pub users: HashMap<AccountId, u128>,
+    pub user_outcome_stake: HashMap<AccountId, HashMap<String, u128>>
     // TODO, user to outcomes to stakes (user can stake on multiple answers)
+}
+
+impl DataRequestStake {
+    pub fn winning_outcome(&self) -> Option<String> {
+        if self.outcomes.len() == 0 {
+            None
+        } else {
+            let mut winning_outcome_answer : String = "".to_string();
+            let mut winning_outcome_value : u128 = 0;
+
+            for outcome in &self.outcomes {
+                let value : &u128 = self.outcome_stakes.get(outcome).unwrap();
+
+                // todo, equal?
+                if *value > winning_outcome_value {
+                    winning_outcome_answer = outcome.to_string();
+                }
+            }
+
+            Some(winning_outcome_answer)
+        }
+    }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
@@ -42,6 +66,8 @@ pub struct DataRequestContext {
     pub start_date: Timestamp,
     pub quorum_date: Timestamp,
     pub challenge_period: Duration,
+    pub finalized_at: Timestamp,
+    pub quorum_amount: u128,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
@@ -59,13 +85,25 @@ pub struct DataRequestInitiation {
     pub initiator: AccountId,
     pub extra_info: Option<String>,
     pub source: String,
+    pub majority_outcome: Option<String>,
     pub outcomes: Option<Vec<String>>,
-    pub tvl: u128,
     pub tvl_address: AccountId,
     pub tvl_function: String,
     pub stakes: DataRequestStake,
     pub context: DataRequestContext
 }
+
+impl DataRequestInitiation {
+    pub fn validate_answer(&self, answer: &String) -> bool {
+        match &self.outcomes {
+            Some(v) => {
+                v.contains(answer)
+            },
+            None => { true }
+        }
+    }
+}
+
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
