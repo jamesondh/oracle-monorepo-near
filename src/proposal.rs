@@ -27,7 +27,7 @@ pub struct RegistryEntry {
     pub code_base_url: String
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct DataRequestStake {
     pub total: u128,
@@ -66,7 +66,6 @@ pub struct DataRequestContext {
     pub start_date: Timestamp,
     pub quorum_date: Timestamp,
     pub challenge_period: Duration,
-    pub finalized_at: Timestamp,
     pub quorum_amount: u128,
 }
 
@@ -90,7 +89,9 @@ pub struct DataRequestInitiation {
     pub tvl_address: AccountId,
     pub tvl_function: String,
     pub stakes: DataRequestStake,
-    pub context: DataRequestContext
+    pub context: DataRequestContext,
+    pub validity_bond: u128,
+    pub finalized_at: Timestamp
 }
 
 impl DataRequestInitiation {

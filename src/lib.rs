@@ -28,6 +28,7 @@ pub struct FluxOracle {
     pub dri_challenges: HashMap<u64, Vector<DataRequestChallenge>>,
 
     pub proposal_bond: u128,
+    pub validity_bond: u128,
     pub min_voters: u128,
     pub min_voters_agree: u128,
     pub token: flux_token::FLX,
@@ -56,6 +57,7 @@ impl FluxOracle {
             dri_challenges: HashMap::default(),
 
             proposal_bond: 1,
+            validity_bond: 1,
             min_voters: 0,
             min_voters_agree: 1,
             token: flux_token::FLX{address},
@@ -227,11 +229,12 @@ impl FluxOracle {
             },
             context: DataRequestContext {
                 quorum_amount: 0,
-                finalized_at: 0,
                 start_date: settlement_date,
                 quorum_date: 0,
                 challenge_period
-            }
+            },
+            validity_bond: self.validity_bond,
+            finalized_at: 0
         };
         self.dri_registry.push(&dri);
     }
@@ -260,13 +263,9 @@ impl FluxOracle {
             Some(v) => {
                 let mut last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
                 dri.majority_outcome = Some(last_challenge.outcome);
-                // TODO this is duplicate code
-                last_challenge.context.finalized_at = env::block_timestamp();
                 last_challenge.context
             },
             None => {
-                // TODO this is duplicate code
-                dri.context.finalized_at = env::block_timestamp();
                 // TODO test
                 // if there is no majority outcome (somehow)
                 // can be done if quorum == 0 + users are allowed to check on quorum without voting
@@ -274,6 +273,7 @@ impl FluxOracle {
                 dri.context
             }
         };
+        dri.finalized_at = env::block_timestamp();
         assert!(context.quorum_date > 0, "QUORUM NOT REACHED");
         assert!(env::block_timestamp() > context.quorum_date + context.challenge_period, "CHALLENGE_PERIOD_ACTIVE");
     }
@@ -281,8 +281,70 @@ impl FluxOracle {
     pub fn data_request_finalize_claim(&mut self, id: U64) {
         // calculate the amount of tokens the user
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        let final_outcome : String = dri.majority_outcome.unwrap();
+        assert!(dri.finalized_at != 0);
 
+        let final_outcome : String = dri.majority_outcome.unwrap();
+        let mut challenges = self.dri_challenges.get(&id.into());
+
+        let mut user_amount : u128 = 0;
+        let mut rounds_share_validity = 0;
+
+        if dri.stakes.winning_outcome().unwrap() == final_outcome {
+            // divide validity bond among round 0 stakers
+            user_amount += dri.validity_bond * dri.stakes.user_outcome_stake.
+                get(&env::predecessor_account_id()).unwrap().
+                get(&final_outcome).unwrap() / dri.stakes.outcome_stakes.get(&final_outcome).unwrap();
+        } else {
+            match challenges {
+                Some(v) => {
+                    for n in (0..v.len()) {
+                        if v.get(n).unwrap().outcome == final_outcome {
+                            rounds_share_validity += 1;
+                        }
+                    }
+                },
+                None => ()
+            }
+        }
+
+        match challenges {
+            Some(v) => {
+                // loop over challenges backwards (last challenge, first)
+                //  if answer == final_outcome
+                //      payout next index
+                //      OR payout original DRS
+                for n in (0..v.len()).rev() {
+                    if v.get(n).unwrap().outcome != final_outcome {
+                        continue
+                    }
+                    if(rounds_share_validity > 0) {
+                        // share validity bond
+                        user_amount += dri.validity_bond * dri.stakes.user_outcome_stake.
+                            get(&env::predecessor_account_id()).unwrap().
+                            get(&final_outcome).unwrap() / dri.stakes.outcome_stakes.get(&final_outcome).unwrap() / rounds_share_validity;
+                    }
+
+                    let winning_stake : DataRequestStake = v.get(n).unwrap().stakes;
+
+                    let losing_stake : DataRequestStake = if n == 0 {
+                        dri.stakes.clone()
+                    } else {
+                        v.get(n-1).unwrap().stakes
+                    };
+
+                    // original winning stake
+                    user_amount += winning_stake.user_outcome_stake.
+                      get(&env::predecessor_account_id()).unwrap().
+                      get(&final_outcome).unwrap();
+
+                    // add losing stakes
+                    user_amount += user_amount * losing_stake.outcome_stakes.get(
+                        &losing_stake.winning_outcome().unwrap()
+                    ).unwrap() / winning_stake.total;
+                }
+            },
+            None => ()
+        };
     }
 
     // Challenge answer is used for the following scenario
@@ -402,7 +464,6 @@ impl FluxOracle {
             },
             context: DataRequestContext {
                 quorum_amount: 0, // todo calculate
-                finalized_at: 0,
                 start_date: env::block_timestamp(),
                 quorum_date: 0,
                 challenge_period: 0// todo challenge_period
