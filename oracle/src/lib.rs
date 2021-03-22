@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -47,7 +48,7 @@ impl FluxOracle {
         address: AccountId,
         vote_period: WrappedDuration
     ) -> Self {
-        let oracle = Self {
+        Self {
             whitelist: HashMap::default(),
             whitelist_proposals: Vector::new(b"p".to_vec()),
             whitelist_grace_period: 1,
@@ -60,8 +61,7 @@ impl FluxOracle {
             min_voters_agree: 1,
             token: flux_token::FLX{address},
             vote_period: vote_period.into()
-        };
-        oracle
+        }
     }
 
 
@@ -183,7 +183,6 @@ impl FluxOracle {
         challenge_period: Timestamp,
         tvl_address: AccountId,
         tvl_function: String
-
     ) {
         if !self.whitelist.contains_key(&env::predecessor_account_id()) {
             env::panic(b"not whitelisted");
@@ -239,7 +238,7 @@ impl FluxOracle {
         // assert tvl > 0
 
         dri.rounds.get(0).unwrap().quorum_amount = 5;
-        return true
+        true
     }
 
     pub fn data_request_tvl(&mut self, id: U64) {
