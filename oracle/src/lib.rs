@@ -12,7 +12,7 @@ mod vote_types;
 mod proposal;
 mod flux_token;
 
-pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestStake, DataRequestChallenge, DataRequestContext };
+pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestRound };
 pub use proposal_status::{ ProposalStatus };
 use vote_types::{ Duration, WrappedBalance, WrappedDuration, Vote, Timestamp };
 
@@ -25,7 +25,6 @@ pub struct FluxOracle {
     pub whitelist_grace_period: u64,
 
     pub dri_registry: Vector<DataRequestInitiation>,
-    pub dri_challenges: HashMap<u64, Vector<DataRequestChallenge>>,
 
     pub proposal_bond: u128,
     pub validity_bond: u128,
@@ -54,7 +53,6 @@ impl FluxOracle {
             whitelist_grace_period: 1,
 
             dri_registry: Vector::new(b"r".to_vec()),
-            dri_challenges: HashMap::default(),
 
             proposal_bond: 1,
             validity_bond: 1,
@@ -212,42 +210,44 @@ impl FluxOracle {
         // TODO
         // check if validity bond attached (USDC)
         // add validity bond amount to DRI storage
-        let dri = DataRequestInitiation {
-            initiator: env::predecessor_account_id(),
+        let mut dri = DataRequestInitiation {
             extra_info,
             source,
             outcomes,
             majority_outcome: None,
             tvl_address,
             tvl_function,
-            stakes : DataRequestStake {
-                total: 0,
-                outcomes: HashSet::default(),
-                outcome_stakes: HashMap::default(),
-                //users: HashMap::default(),
-                user_outcome_stake: HashMap::default()
-            },
-            context: DataRequestContext {
-                quorum_amount: 0,
-                start_date: settlement_date,
-                quorum_date: 0,
-                challenge_period
-            },
+            rounds: Vector::new(b"r".to_vec()),
+
             validity_bond: self.validity_bond,
             finalized_at: 0
         };
+        dri.rounds.push(&DataRequestRound {
+            initiator: env::predecessor_account_id(),
+
+            total: 0,
+            outcomes: HashSet::default(),
+            outcome_stakes: HashMap::default(),
+            user_outcome_stake: HashMap::default(),
+
+            quorum_amount: 0,
+            start_date: settlement_date,
+            quorum_date: 0,
+            challenge_period
+        });
         self.dri_registry.push(&dri);
     }
 
+    // @returns `tvl` = `total value locked` behind this DataRequest
     fn _data_request_tvl(&mut self, id: U64) -> bool {
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        if dri.context.quorum_amount != 0 {
+        if dri.rounds.get(0).unwrap().quorum_amount != 0 {
             return false;
         }
         // calculate tvl by dri.tvl_address, dri.tvl_function
         // assert tvl > 0
 
-        dri.context.quorum_amount = 5;
+        dri.rounds.get(0).unwrap().quorum_amount = 5;
         return true
     }
 
@@ -256,95 +256,64 @@ impl FluxOracle {
     }
 
     pub fn data_request_finalize(&mut self, id: U64) {
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        let mut challenges = self.dri_challenges.get(&id.into());
+        let mut dri: DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
 
-        let context : DataRequestContext = match challenges {
-            Some(v) => {
-                let mut last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
-                dri.majority_outcome = Some(last_challenge.outcome);
-                last_challenge.context
-            },
-            None => {
-                // TODO test
-                // if there is no majority outcome (somehow)
-                // can be done if quorum == 0 + users are allowed to check on quorum without voting
-                dri.majority_outcome = dri.stakes.winning_outcome();
-                dri.context
-            }
-        };
+        let current_round: DataRequestRound = dri.rounds.iter().last().unwrap();
+        dri.majority_outcome = current_round.winning_outcome();
         dri.finalized_at = env::block_timestamp();
-        assert!(context.quorum_date > 0, "QUORUM NOT REACHED");
-        assert!(env::block_timestamp() > context.quorum_date + context.challenge_period, "CHALLENGE_PERIOD_ACTIVE");
+        assert!(current_round.quorum_date > 0, "QUORUM NOT REACHED");
+        assert!(env::block_timestamp() > current_round.quorum_date + current_round.challenge_period, "CHALLENGE_PERIOD_ACTIVE");
     }
 
     pub fn data_request_finalize_claim(&mut self, id: U64) {
         // calculate the amount of tokens the user
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        assert!(dri.finalized_at != 0);
+        assert!(dri.finalized_at != 0, "DataRequest is already finalized");
 
         let final_outcome : String = dri.majority_outcome.unwrap();
-        let mut challenges = self.dri_challenges.get(&id.into());
-
         let mut user_amount : u128 = 0;
         let mut rounds_share_validity = 0;
 
-        if dri.stakes.winning_outcome().unwrap() == final_outcome {
+        let round_zero : DataRequestRound = dri.rounds.get(0).unwrap();
+        // If the initial round was the right answer, receives full validity bond
+        if round_zero.winning_outcome().unwrap() == final_outcome {
             // divide validity bond among round 0 stakers
-            user_amount += dri.validity_bond * dri.stakes.user_outcome_stake.
+            user_amount += dri.validity_bond * round_zero.user_outcome_stake.
                 get(&env::predecessor_account_id()).unwrap().
-                get(&final_outcome).unwrap() / dri.stakes.outcome_stakes.get(&final_outcome).unwrap();
+                get(&final_outcome).unwrap() / round_zero.outcome_stakes.get(&final_outcome).unwrap();
         } else {
-            match challenges {
-                Some(v) => {
-                    for n in (0..v.len()) {
-                        if v.get(n).unwrap().outcome == final_outcome {
-                            rounds_share_validity += 1;
-                        }
-                    }
-                },
-                None => ()
+            // loop over all the other round and divide validity bond over round who where right
+            for n in (1..dri.rounds.len()) {
+                if dri.rounds.get(n).unwrap().winning_outcome().unwrap() == final_outcome {
+                    rounds_share_validity += 1;
+                }
             }
         }
 
-        match challenges {
-            Some(v) => {
-                // loop over challenges backwards (last challenge, first)
-                //  if answer == final_outcome
-                //      payout next index
-                //      OR payout original DRS
-                for n in (0..v.len()).rev() {
-                    if v.get(n).unwrap().outcome != final_outcome {
-                        continue
-                    }
-                    if(rounds_share_validity > 0) {
-                        // share validity bond
-                        user_amount += dri.validity_bond * dri.stakes.user_outcome_stake.
-                            get(&env::predecessor_account_id()).unwrap().
-                            get(&final_outcome).unwrap() / dri.stakes.outcome_stakes.get(&final_outcome).unwrap() / rounds_share_validity;
-                    }
+        for n in (1..dri.rounds.len()) {
+            let current_round : DataRequestRound = dri.rounds.get(n).unwrap();
+            if current_round.winning_outcome().unwrap() != final_outcome {
+                continue;
+            }
 
-                    let winning_stake : DataRequestStake = v.get(n).unwrap().stakes;
+            if(rounds_share_validity > 0) {
+                // share validity bond
+                user_amount += dri.validity_bond * current_round.user_outcome_stake.
+                    get(&env::predecessor_account_id()).unwrap().
+                    get(&final_outcome).unwrap() / current_round.outcome_stakes.get(&final_outcome).unwrap() / rounds_share_validity;
+            }
 
-                    let losing_stake : DataRequestStake = if n == 0 {
-                        dri.stakes.clone()
-                    } else {
-                        v.get(n-1).unwrap().stakes
-                    };
+            let losing_round : DataRequestRound = dri.rounds.get(n).unwrap();
+            // original winning stake
+            user_amount += current_round.user_outcome_stake.
+              get(&env::predecessor_account_id()).unwrap().
+              get(&final_outcome).unwrap();
 
-                    // original winning stake
-                    user_amount += winning_stake.user_outcome_stake.
-                      get(&env::predecessor_account_id()).unwrap().
-                      get(&final_outcome).unwrap();
-
-                    // add losing stakes
-                    user_amount += user_amount * losing_stake.outcome_stakes.get(
-                        &losing_stake.winning_outcome().unwrap()
-                    ).unwrap() / winning_stake.total;
-                }
-            },
-            None => ()
-        };
+            // add losing stakes
+            user_amount += user_amount * losing_round.outcome_stakes.get(
+                &losing_round.winning_outcome().unwrap()
+            ).unwrap() / current_round.total;
+        }
     }
 
     // Challenge answer is used for the following scenario
@@ -362,58 +331,39 @@ impl FluxOracle {
         assert!(dri.validate_answer(&answer), "invalid answer");
         self._data_request_tvl(id);
 
-        let mut challenges = self.dri_challenges.get(&id.into());
-        // Get latest context on data request
-        let mut context : DataRequestContext = match challenges {
-            Some(v) => {
-                let last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
-                assert!(last_challenge.outcome == answer);
-                last_challenge.context
-            },
-            None => {
-                dri.context
-            }
-        };
-        assert!(context.start_date > env::block_timestamp(), "NOT STARTED");
-        assert!(context.quorum_date == 0, "ALREADY PASSED");
-
-        // Get latest stakes on data request
-        let mut stakes : DataRequestStake = match challenges {
-            Some(v) => {
-                let mut last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
-                last_challenge.stakes
-            },
-            None => {
-                dri.stakes
-            }
-        };
+        let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
+        if (dri.rounds.len() > 1) {
+            assert!(*round.outcomes.iter().next().unwrap() == answer);
+        }
+        assert!(round.start_date > env::block_timestamp(), "NOT STARTED");
+        assert!(round.quorum_date == 0, "ALREADY PASSED");
 
         // TODO
         // receiving flux tokens
         let amount : u128 = 5;
-        stakes.total += amount;
+        round.total += amount;
 
-        let new_outcome_stake : u128 = match stakes.outcome_stakes.get_mut(&answer) {
+        let new_outcome_stake : u128 = match round.outcome_stakes.get_mut(&answer) {
             Some(v) => {
                 *v += amount;
                 *v
             },
             None => {
-                stakes.outcome_stakes.insert(answer.clone(), amount);
+                round.outcome_stakes.insert(answer.clone(), amount);
                 amount
             }
         };
-        if (new_outcome_stake > context.quorum_amount) {
-            context.quorum_date = env::block_timestamp();
+        if (new_outcome_stake > round.quorum_amount) {
+            round.quorum_date = env::block_timestamp();
         }
 
-        let user_entries : &mut HashMap<String, u128> = match stakes.user_outcome_stake.get_mut(&env::predecessor_account_id()) {
+        let user_entries : &mut HashMap<String, u128> = match round.user_outcome_stake.get_mut(&env::predecessor_account_id()) {
             Some(v) => {
                 v
             }
             None => {
-                stakes.user_outcome_stake.insert(env::predecessor_account_id(), HashMap::default());
-                stakes.user_outcome_stake.get_mut(&env::predecessor_account_id()).unwrap()
+                round.user_outcome_stake.insert(env::predecessor_account_id(), HashMap::default());
+                round.user_outcome_stake.get_mut(&env::predecessor_account_id()).unwrap()
             }
         };
 
@@ -432,42 +382,31 @@ impl FluxOracle {
         // Challenge answer should be valid in relation to the initial data request
         assert!(dri.validate_answer(&answer), "invalid answer");
 
-        let challenges = self.dri_challenges.get(&id.into());
+
+        let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
         // Get the latest answer on the proposal, challenge answer should differ from the latest answer
-        let context : DataRequestContext = match challenges {
-            Some(v) => {
-                let mut last_challenge : DataRequestChallenge = v.get(v.len() - 1).expect("FATAL INDEX");
-                assert!(last_challenge.outcome != answer, "EQ_CHALLENGE");
-                last_challenge.context
-            },
-            None => {
-                assert!(dri.stakes.winning_outcome().unwrap() != answer, "EQ_CHALLENGE");
-                dri.context
-            }
-        };
+        assert!(round.winning_outcome().unwrap() != answer, "EQ_CHALLENGE");
 
         // Only continue if the last answer is challengeable
-        assert!(context.quorum_date > 0, "No quorum on previos round");
-        assert!(env::block_timestamp() < context.quorum_date + context.challenge_period, "Challenge period expired");
+        assert!(round.quorum_date > 0, "No quorum on previos round");
+        assert!(env::block_timestamp() < round.quorum_date + round.challenge_period, "Challenge period expired");
 
         // Add new challenge
-        let mut challenges = self.dri_challenges.get(&id.into()).unwrap().to_vec();
-        challenges.push(DataRequestChallenge {
+        let mut outcomes =  HashSet::new();
+        outcomes.insert(answer);
+        dri.rounds.push(&DataRequestRound {
             initiator: env::predecessor_account_id(),
-            outcome: answer,
-            stakes : DataRequestStake {
-                total: 0,
-                outcomes: HashSet::default(),
-                outcome_stakes: HashMap::default(),
-                //users: HashMap::default(),
-                user_outcome_stake: HashMap::default()
-            },
-            context: DataRequestContext {
-                quorum_amount: 0, // todo calculate
-                start_date: env::block_timestamp(),
-                quorum_date: 0,
-                challenge_period: 0// todo challenge_period
-            }
+
+            total: 0,
+            outcomes,
+            outcome_stakes: HashMap::default(),
+            //users: HashMap::default(),
+            user_outcome_stake: HashMap::default(),
+
+            quorum_amount: 0, // todo calculate
+            start_date: env::block_timestamp(),
+            quorum_date: 0,
+            challenge_period: 0// todo challenge_period
         })
     }
 

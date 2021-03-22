@@ -5,6 +5,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{ AccountId, Balance, env };
 use near_sdk::{ json_types::{U64, U128} };
+use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
+
 use crate::vote_types::{ WrappedBalance, WrappedDuration, Duration, Vote, Timestamp };
 use crate::policy_item::{ PolicyItem };
 use crate::proposal_status::{ ProposalStatus };
@@ -27,18 +29,7 @@ pub struct RegistryEntry {
     pub code_base_url: String
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct DataRequestStake {
-    pub total: u128,
-    pub outcomes: HashSet<String>,
-    pub outcome_stakes: HashMap<String, u128>,
-   //pub users: HashMap<AccountId, u128>,
-    pub user_outcome_stake: HashMap<AccountId, HashMap<String, u128>>
-    // TODO, user to outcomes to stakes (user can stake on multiple answers)
-}
-
-impl DataRequestStake {
+impl DataRequestRound {
     pub fn winning_outcome(&self) -> Option<String> {
         if self.outcomes.len() == 0 {
             None
@@ -62,34 +53,32 @@ impl DataRequestStake {
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct DataRequestContext {
+pub struct DataRequestRound {
+    pub initiator: AccountId,
+    // context
     pub start_date: Timestamp,
     pub quorum_date: Timestamp,
     pub challenge_period: Duration,
     pub quorum_amount: u128,
+
+    // // stakes
+    pub total: u128,
+    pub outcomes: HashSet<String>,
+    pub outcome_stakes: HashMap<String, u128>,
+    pub user_outcome_stake: HashMap<AccountId, HashMap<String, u128>>
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct DataRequestChallenge {
-    pub initiator: AccountId,
-    pub outcome: String,
-    pub stakes: DataRequestStake,
-    pub context: DataRequestContext
-}
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(BorshSerialize, BorshDeserialize)]
+//#[serde(crate = "near_sdk::serde")]
 pub struct DataRequestInitiation {
-    pub initiator: AccountId,
     pub extra_info: Option<String>,
     pub source: String,
     pub majority_outcome: Option<String>,
     pub outcomes: Option<Vec<String>>,
     pub tvl_address: AccountId,
     pub tvl_function: String,
-    pub stakes: DataRequestStake,
-    pub context: DataRequestContext,
+    pub rounds: Vector<DataRequestRound>,
     pub validity_bond: u128,
     pub finalized_at: Timestamp
 }
