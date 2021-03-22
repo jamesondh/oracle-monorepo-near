@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{ AccountId, Balance, env };
-use near_sdk::{ json_types::{U64, U128} };
-use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::serde::{ Deserialize, Serialize };
+use near_sdk::{ AccountId };
+use near_sdk::collections::{ Vector };
 
-use crate::vote_types::{ WrappedBalance, WrappedDuration, Duration, Vote, Timestamp };
+use crate::vote_types::{ Duration, Vote, Timestamp };
 use crate::policy_item::{ PolicyItem };
 use crate::proposal_status::{ ProposalStatus };
 
@@ -35,7 +34,7 @@ impl DataRequestRound {
             None
         } else {
             let mut winning_outcome_answer : String = "".to_string();
-            let mut winning_outcome_value : u128 = 0;
+            let winning_outcome_value : u128 = 0;
 
             for outcome in &self.outcomes {
                 let value : &u128 = self.outcome_stakes.get(outcome).unwrap();
@@ -118,7 +117,7 @@ pub struct Proposal {
 impl Proposal {
 
     /// Compute new vote status given council size and current timestamp.
-    pub fn vote_status(&self, policy: &PolicyItem, num_council: u64) -> ProposalStatus {
+    pub fn vote_status(&self, _policy: &PolicyItem, _num_council: u64) -> ProposalStatus {
         // let needed_votes = policy.num_votes(num_council);
 
         // if self.vote_yes >= needed_votes {
