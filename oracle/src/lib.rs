@@ -2,10 +2,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use near_sdk::{ AccountId, Balance, Gas, env, near_bindgen, Promise, PromiseOrValue };
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
-use near_sdk::json_types::{U64, U128};
+use near_sdk::{ AccountId, env, near_bindgen };
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::collections::{ Vector };
+use near_sdk::json_types::{ U64, U128 };
 
 mod proposal_status;
 mod policy_item;
@@ -20,7 +20,7 @@ use vote_types::{ Duration, WrappedDuration, Vote, Timestamp };
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
-pub struct FluxOracle {
+pub struct Contract {
     pub whitelist: HashMap<AccountId, RegistryEntry>,
     pub whitelist_proposals: Vector<Proposal>,
     pub whitelist_grace_period: u64,
@@ -31,21 +31,20 @@ pub struct FluxOracle {
     pub validity_bond: u128,
     pub min_voters: u128,
     pub min_voters_agree: u128,
-    pub token: mock_token::FLX,
+    pub token: mock_token::Token,
     pub vote_period: Duration
 }
 
-impl Default for FluxOracle {
+impl Default for Contract {
     fn default() -> Self {
-        env::panic(b"FluxOracle should be initialized before usage")
+        env::panic(b"Contract should be initialized before usage")
     }
 }
 
 #[near_bindgen]
-impl FluxOracle {
+impl Contract {
     #[init]
     pub fn new(
-        address: AccountId,
         vote_period: WrappedDuration
     ) -> Self {
         Self {
@@ -59,7 +58,7 @@ impl FluxOracle {
             validity_bond: 1,
             min_voters: 0,
             min_voters_agree: 1,
-            token: mock_token::FLX{address},
+            token: mock_token::Token::default_new(),
             vote_period: vote_period.into()
         }
     }
@@ -85,7 +84,9 @@ impl FluxOracle {
         // TODO
         // Implement receiver method (instead of transfer from)
         // https://github.com/near/core-contracts/blob/w-near-141/w-near-141/src/fungible_token_core.rs#L81
-        self.token.transfer_from(env::predecessor_account_id(), env::current_account_id(), self.proposal_bond);
+        
+        // TODO: `transfer_call` or `transfer`
+        // self.token.transfer_from(env::predecessor_account_id(), env::current_account_id(), self.proposal_bond);
 
         let registry_entry = RegistryEntry {
             interface_name,
@@ -123,7 +124,7 @@ impl FluxOracle {
         // TODO
         // Implement receiver method (instead of transfer from)
         // https://github.com/near/core-contracts/blob/w-near-141/w-near-141/src/fungible_token_core.rs#L81
-        let weight : u128 = self.token.get_balance(env::predecessor_account_id()).into();
+        let weight : u128 = self.token.get_balance_expect(env::predecessor_account_id()).into();
         match vote {
             Vote::Yes => proposal.vote_yes += weight,
             Vote::No => proposal.vote_no += weight,
@@ -398,6 +399,16 @@ impl FluxOracle {
             quorum_date: 0,
             challenge_period: 0// todo challenge_period
         })
+    }
+
+    // @returns amount of unused tokens
+    pub fn on_transfer_call(
+        &mut self, 
+        sender: AccountId, 
+        amount: U128, 
+        msg: String
+    ) -> U128 {
+        0.into()
     }
 
 }
