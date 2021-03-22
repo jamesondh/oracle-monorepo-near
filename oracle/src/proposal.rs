@@ -30,7 +30,7 @@ pub struct RegistryEntry {
 
 impl DataRequestRound {
     pub fn winning_outcome(&self) -> Option<String> {
-        if self.outcomes.len() == 0 {
+        if self.outcomes.is_empty() {
             None
         } else {
             let mut winning_outcome_answer : String = "".to_string();
