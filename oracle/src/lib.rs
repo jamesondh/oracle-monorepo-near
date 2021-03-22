@@ -2,16 +2,16 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use near_sdk::{ AccountId, env, near_bindgen };
-use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::collections::{ Vector };
-use near_sdk::json_types::{ U64 };
+use near_sdk::{ AccountId, Balance, Gas, env, near_bindgen, Promise, PromiseOrValue };
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
+use near_sdk::json_types::{U64, U128};
 
 mod proposal_status;
 mod policy_item;
 mod vote_types;
 mod proposal;
-mod flux_token;
+mod mock_token;
 
 pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestRound };
 pub use proposal_status::{ ProposalStatus };
