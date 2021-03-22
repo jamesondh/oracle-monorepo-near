@@ -99,7 +99,7 @@ impl DataRequestInitiation {
 #[serde(crate = "near_sdk::serde")]
 #[serde(tag = "type")]
 pub enum ProposalKind {
-    AddWhitelist { target: RegistryEntry },
+    AddWhitelist(RegistryEntry),
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
