@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use near_sdk::{ ext_contract, AccountId, Balance, Gas, env, near_bindgen, Promise, PromiseOrValue};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
-use near_sdk::json_types::{U64, U128};
+use near_sdk::{ AccountId, env, near_bindgen};
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::collections::{ Vector };
+use near_sdk::json_types::{ U64 };
 
 mod proposal_status;
 mod policy_item;
@@ -14,7 +14,7 @@ mod flux_token;
 
 pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestRound };
 pub use proposal_status::{ ProposalStatus };
-use vote_types::{ Duration, WrappedBalance, WrappedDuration, Vote, Timestamp };
+use vote_types::{ Duration, WrappedDuration, Vote, Timestamp };
 
 
 #[near_bindgen]
@@ -47,7 +47,7 @@ impl FluxOracle {
         address: AccountId,
         vote_period: WrappedDuration
     ) -> Self {
-        let mut oracle = Self {
+        let oracle = Self {
             whitelist: HashMap::default(),
             whitelist_proposals: Vector::new(b"p".to_vec()),
             whitelist_grace_period: 1,
@@ -87,19 +87,19 @@ impl FluxOracle {
         // https://github.com/near/core-contracts/blob/w-near-141/w-near-141/src/fungible_token_core.rs#L81
         self.token.transfer_from(env::predecessor_account_id(), env::current_account_id(), self.proposal_bond);
 
+        let registry_entry = RegistryEntry {
+            interface_name,
+            contract_entry,
+            callback,
+            tvs_method,
+            rvs_method,
+            code_base_url
+        };
+
         let p = Proposal {
             status: ProposalStatus::Vote,
             proposer: env::predecessor_account_id(),
-            kind: ProposalKind::AddWhitelist{
-                target: RegistryEntry {
-                    interface_name,
-                    contract_entry,
-                    callback,
-                    tvs_method,
-                    rvs_method,
-                    code_base_url
-                }
-            },
+            kind: ProposalKind::AddWhitelist(registry_entry),
             vote_period_end: env::block_timestamp() + self.vote_period,
             vote_yes: 0,
             vote_no: 0,
@@ -119,12 +119,6 @@ impl FluxOracle {
             "Proposal not active voting"
         );
         assert!(proposal.vote_period_end <= env::block_timestamp(), "timestamp");
-        match proposal.kind {
-            ProposalKind::AddWhitelist{ ref target } => (),
-            _ => {
-                env::panic(b"Proposal not add white list");
-            }
-        }
 
         // TODO
         // Implement receiver method (instead of transfer from)
@@ -165,7 +159,7 @@ impl FluxOracle {
     }
 
     pub fn whitelist_execute(&mut self,  whitelist_proposal_id: U64) {
-        let mut proposal = self.whitelist_proposals.get(whitelist_proposal_id.into()).expect("No proposal with such id");
+        let proposal = self.whitelist_proposals.get(whitelist_proposal_id.into()).expect("No proposal with such id");
         assert_eq!(
             proposal.status,
             ProposalStatus::Success,
@@ -174,17 +168,14 @@ impl FluxOracle {
         assert!(proposal.finalized_at + self.whitelist_grace_period <= env::block_timestamp(), "grace period");
 
         match proposal.kind {
-            ProposalKind::AddWhitelist{ target } => {
+            ProposalKind::AddWhitelist(target) => {
                 self.whitelist.insert(target.contract_entry.clone(), target);
-            },
-            _ => {
-                env::panic(b"fatal");
             }
         }
     }
 
     pub fn data_request_initiation(&mut self,
-        description: String,
+        _description: String, // TODO: log
         extra_info: Option<String>,
         source: String,
         outcomes: Option<Vec<String>>,
@@ -240,7 +231,7 @@ impl FluxOracle {
 
     // @returns `tvl` = `total value locked` behind this DataRequest
     fn _data_request_tvl(&mut self, id: U64) -> bool {
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         if dri.rounds.get(0).unwrap().quorum_amount != 0 {
             return false;
         }
@@ -267,7 +258,7 @@ impl FluxOracle {
 
     pub fn data_request_finalize_claim(&mut self, id: U64) {
         // calculate the amount of tokens the user
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         assert!(dri.finalized_at != 0, "DataRequest is already finalized");
 
         let final_outcome : String = dri.majority_outcome.unwrap();
@@ -283,20 +274,20 @@ impl FluxOracle {
                 get(&final_outcome).unwrap() / round_zero.outcome_stakes.get(&final_outcome).unwrap();
         } else {
             // loop over all the other round and divide validity bond over round who where right
-            for n in (1..dri.rounds.len()) {
+            for n in 1..dri.rounds.len() {
                 if dri.rounds.get(n).unwrap().winning_outcome().unwrap() == final_outcome {
                     rounds_share_validity += 1;
                 }
             }
         }
 
-        for n in (1..dri.rounds.len()) {
+        for n in 1..dri.rounds.len() {
             let current_round : DataRequestRound = dri.rounds.get(n).unwrap();
             if current_round.winning_outcome().unwrap() != final_outcome {
                 continue;
             }
 
-            if(rounds_share_validity > 0) {
+            if rounds_share_validity > 0 {
                 // share validity bond
                 user_amount += dri.validity_bond * current_round.user_outcome_stake.
                     get(&env::predecessor_account_id()).unwrap().
@@ -327,12 +318,12 @@ impl FluxOracle {
     /// If the DRI does not have predefined outcomes, users can vote on answers freely
     /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
     pub fn data_request_stake(&mut self, id: U64, answer: String) {
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         assert!(dri.validate_answer(&answer), "invalid answer");
         self._data_request_tvl(id);
 
         let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
-        if (dri.rounds.len() > 1) {
+        if dri.rounds.len() > 1 {
             assert!(*round.outcomes.iter().next().unwrap() == answer);
         }
         assert!(round.start_date > env::block_timestamp(), "NOT STARTED");
@@ -353,7 +344,7 @@ impl FluxOracle {
                 amount
             }
         };
-        if (new_outcome_stake > round.quorum_amount) {
+        if new_outcome_stake > round.quorum_amount {
             round.quorum_date = env::block_timestamp();
         }
 
@@ -383,7 +374,7 @@ impl FluxOracle {
         assert!(dri.validate_answer(&answer), "invalid answer");
 
 
-        let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
+        let round : DataRequestRound = dri.rounds.iter().last().unwrap();
         // Get the latest answer on the proposal, challenge answer should differ from the latest answer
         assert!(round.winning_outcome().unwrap() != answer, "EQ_CHALLENGE");
 
