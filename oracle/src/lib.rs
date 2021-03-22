@@ -238,6 +238,7 @@ impl FluxOracle {
         self.dri_registry.push(&dri);
     }
 
+    // @returns `tvl` = `total value locked` behind this DataRequest
     fn _data_request_tvl(&mut self, id: U64) -> bool {
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         if dri.rounds.get(0).unwrap().quorum_amount != 0 {
@@ -255,9 +256,9 @@ impl FluxOracle {
     }
 
     pub fn data_request_finalize(&mut self, id: U64) {
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+        let mut dri: DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
 
-        let current_round : DataRequestRound = dri.rounds.iter().last().unwrap();
+        let current_round: DataRequestRound = dri.rounds.iter().last().unwrap();
         dri.majority_outcome = current_round.winning_outcome();
         dri.finalized_at = env::block_timestamp();
         assert!(current_round.quorum_date > 0, "QUORUM NOT REACHED");
@@ -267,7 +268,7 @@ impl FluxOracle {
     pub fn data_request_finalize_claim(&mut self, id: U64) {
         // calculate the amount of tokens the user
         let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        assert!(dri.finalized_at != 0);
+        assert!(dri.finalized_at != 0, "DataRequest is already finalized");
 
         let final_outcome : String = dri.majority_outcome.unwrap();
         let mut user_amount : u128 = 0;
