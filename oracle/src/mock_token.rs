@@ -1,5 +1,5 @@
 use crate::Contract;
-use near_sdk::{ AccountId, env, Balance };
+use near_sdk::{ AccountId, env };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{U128};
 use near_sdk::collections::{LookupMap};
@@ -82,16 +82,11 @@ impl FLXExternal for Contract {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
-    use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, VMContext};
+    use near_sdk::{ MockedBlockchain };
+    use near_sdk::{ testing_env, VMContext };
 
     use super::*;
 
-    const ZERO_U128: Balance = 0u128;
-
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
@@ -101,9 +96,7 @@ mod mock_token_basic_tests {
     fn token() -> AccountId {
         "token.near".to_string()
     }
-    fn invalid_account_id() -> AccountId {
-        "".to_string()
-    }
+
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
