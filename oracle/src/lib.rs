@@ -31,7 +31,7 @@ pub struct FluxOracle {
     pub validity_bond: u128,
     pub min_voters: u128,
     pub min_voters_agree: u128,
-    pub token: flux_token::FLX,
+    pub token: mock_token::FLX,
     pub vote_period: Duration
 }
 
@@ -59,7 +59,7 @@ impl FluxOracle {
             validity_bond: 1,
             min_voters: 0,
             min_voters_agree: 1,
-            token: flux_token::FLX{address},
+            token: mock_token::FLX{address},
             vote_period: vote_period.into()
         }
     }
