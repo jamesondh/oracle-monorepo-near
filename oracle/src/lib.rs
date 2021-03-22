@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use near_sdk::{ AccountId, env, near_bindgen};
+use near_sdk::{ AccountId, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector };
 use near_sdk::json_types::{ U64 };

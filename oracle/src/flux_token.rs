@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use near_sdk::{ ext_contract, AccountId, Balance, Gas, env, near_bindgen, Promise, PromiseOrValue};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::collections::{UnorderedSet, Vector, UnorderedMap};
-use near_sdk::json_types::{U64, U128};
+use near_sdk::{ ext_contract, AccountId, Promise };
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::serde::{ Deserialize, Serialize };
+use near_sdk::json_types::{U128};
 
 const TX_GAS: u64 = 5_000_000_000_000;
 
@@ -48,7 +45,7 @@ impl FLX {
         )
     }
 
-    pub fn get_balance(&self, owner_id: AccountId) -> U128 {
+    pub fn get_balance(&self, _owner_id: AccountId) -> U128 {
         // let balance : U128 = nep21::get_balance(
         //     owner_id,
         //     &self.address,

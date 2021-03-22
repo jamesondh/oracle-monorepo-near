@@ -1,5 +1,5 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::serde::{ Deserialize, Serialize };
 
 use crate::vote_types::{ WrappedBalance, NumOrRatio };
 
@@ -12,7 +12,7 @@ pub struct PolicyItem {
 }
 
 impl PolicyItem {
-    pub fn num_votes(&self, num_council: u64) -> u128 {
+    pub fn num_votes(&self, _num_council: u64) -> u128 {
         5
         // match self.votes {
         //     NumOrRatio::Number(num_votes) => num_votes,
