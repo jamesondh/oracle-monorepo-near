@@ -12,6 +12,10 @@ mod policy_item;
 mod vote_types;
 mod proposal;
 mod mock_token;
+mod fungible_token_receiver;
+mod callback_args;
+
+use callback_args::*;
 
 pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestRound };
 pub use proposal_status::{ ProposalStatus };
@@ -175,19 +179,11 @@ impl Contract {
         }
     }
 
-    pub fn data_request_initiation(&mut self,
-        _description: String, // TODO: log
-        extra_info: Option<String>,
-        source: String,
-        outcomes: Option<Vec<String>>,
-        settlement_date: Timestamp,
-        challenge_period: Timestamp,
-        tvl_address: AccountId,
-        tvl_function: String
-    ) {
+    fn dr_new(&mut self, _sender: AccountId, _payload: NewDataRequestArgs) -> u128 {
         if !self.whitelist.contains_key(&env::predecessor_account_id()) {
             env::panic(b"not whitelisted");
         }
+        
         // TODO
         // validate fields
 
@@ -201,32 +197,39 @@ impl Contract {
         // TODO
         // check if validity bond attached (USDC)
         // add validity bond amount to DRI storage
-        let mut dri = DataRequestInitiation {
-            extra_info,
-            source,
-            outcomes,
-            majority_outcome: None,
-            tvl_address,
-            tvl_function,
-            rounds: Vector::new(b"r".to_vec()),
 
-            validity_bond: self.validity_bond,
-            finalized_at: 0
-        };
-        dri.rounds.push(&DataRequestRound {
-            initiator: env::predecessor_account_id(),
+        // TODO: Should be done with DataRequest::new
+        // let mut dri = DataRequestInitiation {
+        //     extra_info,
+        //     source,
+        //     outcomes,
+        //     majority_outcome: None,
+        //     tvl_address,
+        //     tvl_function,
+        //     rounds: Vector::new(b"r".to_vec()),
 
-            total: 0,
-            outcomes: HashSet::default(),
-            outcome_stakes: HashMap::default(),
-            user_outcome_stake: HashMap::default(),
+        //     validity_bond: self.validity_bond,
+        //     finalized_at: 0
+        // };
 
-            quorum_amount: 0,
-            start_date: settlement_date,
-            quorum_date: 0,
-            challenge_period
-        });
-        self.dri_registry.push(&dri);
+        // TODO: Should be done in DataRequest::new
+        // dri.rounds.push(&DataRequestRound {
+        //     initiator: env::predecessor_account_id(),
+
+        //     total: 0,
+        //     outcomes: HashSet::default(),
+        //     outcome_stakes: HashMap::default(),
+        //     user_outcome_stake: HashMap::default(),
+
+        //     quorum_amount: 0,
+        //     start_date: settlement_date,
+        //     quorum_date: 0,
+        //     challenge_period
+        // });
+        // self.dri_registry.push(&dri);
+
+        // TODO: return unspent tokens
+        0
     }
 
     // @returns `tvl` = `total value locked` behind this DataRequest
@@ -246,7 +249,7 @@ impl Contract {
         assert!(self._data_request_tvl(id), "FAILED");
     }
 
-    pub fn data_request_finalize(&mut self, id: U64) {
+    pub fn dr_finalize(&mut self, id: U64) {
         let mut dri: DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
 
         let current_round: DataRequestRound = dri.rounds.iter().last().unwrap();
@@ -256,7 +259,7 @@ impl Contract {
         assert!(env::block_timestamp() > current_round.quorum_date + current_round.challenge_period, "CHALLENGE_PERIOD_ACTIVE");
     }
 
-    pub fn data_request_finalize_claim(&mut self, id: U64) {
+    pub fn dr_claim(&mut self, id: U64) {
         // calculate the amount of tokens the user
         let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
         assert!(dri.finalized_at != 0, "DataRequest is already finalized");
@@ -307,6 +310,7 @@ impl Contract {
         }
     }
 
+    // TODO: add amount
     // Challenge answer is used for the following scenario
     //     e.g.
     //     t = 0, challenge X is active
@@ -317,30 +321,28 @@ impl Contract {
     /// If the DRI has any predefined outcomes, the answers should be one of the predefined ones
     /// If the DRI does not have predefined outcomes, users can vote on answers freely
     /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
-    pub fn data_request_stake(&mut self, id: U64, answer: String) {
-        let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        assert!(dri.validate_answer(&answer), "invalid answer");
-        self._data_request_tvl(id);
+    fn dr_stake(&mut self, _sender: AccountId, amount: U128, payload: StakeDataRequestArgs) -> u128 {
+        let amount: u128 = amount.into();
+        let dri : DataRequestInitiation = self.dri_registry.get(payload.id.into()).expect("No dri with such id");
+        assert!(dri.validate_answer(&payload.answer), "invalid answer");
+        self._data_request_tvl(payload.id);
 
         let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
         if dri.rounds.len() > 1 {
-            assert!(*round.outcomes.iter().next().unwrap() == answer);
+            assert!(*round.outcomes.iter().next().unwrap() == payload.answer);
         }
         assert!(round.start_date > env::block_timestamp(), "NOT STARTED");
         assert!(round.quorum_date == 0, "ALREADY PASSED");
 
-        // TODO
-        // receiving flux tokens
-        let amount : u128 = 5;
         round.total += amount;
 
-        let new_outcome_stake : u128 = match round.outcome_stakes.get_mut(&answer) {
+        let new_outcome_stake : u128 = match round.outcome_stakes.get_mut(&payload.answer) {
             Some(v) => {
                 *v += amount;
                 *v
             },
             None => {
-                round.outcome_stakes.insert(answer.clone(), amount);
+                round.outcome_stakes.insert(payload.answer.clone(), amount);
                 amount
             }
         };
@@ -358,14 +360,17 @@ impl Contract {
             }
         };
 
-        match user_entries.get_mut(&answer) {
+        match user_entries.get_mut(&payload.answer) {
             Some(v) => {
                 *v += amount;
             }
             None => {
-                user_entries.insert(answer, amount);
+                user_entries.insert(payload.answer, amount);
             }
         }
+
+        // TODO: return unspent tokens
+        0
     }
 
     pub fn data_request_challenge(&mut self, id: U64, answer: String) {
@@ -400,17 +405,6 @@ impl Contract {
             challenge_period: 0// todo challenge_period
         })
     }
-
-    // @returns amount of unused tokens
-    pub fn on_transfer_call(
-        &mut self, 
-        sender: AccountId, 
-        amount: U128, 
-        msg: String
-    ) -> U128 {
-        0.into()
-    }
-
 }
 
 

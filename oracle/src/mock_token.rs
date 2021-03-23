@@ -1,4 +1,5 @@
 use crate::Contract;
+use crate::fungible_token_receiver::FungibleTokenReceiver;
 use near_sdk::{ AccountId, env };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{U128};
@@ -69,10 +70,10 @@ impl FLXExternal for Contract {
         amount: U128, 
         msg: String
     ) {
-        self.token.internal_transfer(env::predecessor_account_id(), receiver_id, amount.into());
-        let tokens_unspent: u128 = self.on_transfer_call(env::predecessor_account_id(), amount.into(), msg).into();
+        self.token.internal_transfer(env::predecessor_account_id(), receiver_id, amount);
+        let tokens_unspent: u128 = self.ft_on_transfer(env::predecessor_account_id(), amount, msg).into();
         if tokens_unspent > 0 {
-            self.token.deposit(env::predecessor_account_id(), tokens_unspent.into());
+            self.token.deposit(env::predecessor_account_id(), tokens_unspent);
         }
     }
 }
@@ -84,9 +85,9 @@ impl FLXExternal for Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-
+    use near_sdk::{ serde_json::json };
     use super::*;
-
+    
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
@@ -144,14 +145,22 @@ mod mock_token_basic_tests {
     }
     
     #[test]
-    fn transfer_call_works() {
+    #[should_panic(expected = "No dri with such id")]
+    fn transfer_call_finalize_works() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(1000.into());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = 10000;
-        contract.transfer_call(bob(), send_amount.into(), "".to_string());
+        let msg = json!({
+            "StakeDataRequest": {
+                "id": "0",
+                "answer": "42"
+            }
+           
+        });
+        contract.transfer_call(bob(), send_amount.into(), msg.to_string());
         let bob_balance: u128 = contract.token.get_balance_expect(bob()).into();
         let carol_new_balance: u128 = contract.token.get_balance_expect(carol()).into();
         
