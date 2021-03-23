@@ -368,7 +368,7 @@ impl Contract {
 
     // TODO: Pass in round as a param for challenges to avoid race conditions
     // TODO: Consume and account for amount
-    fn dr_challenge(&mut self, sender: AccountId, amount: U128, payload: ChallengeDataRequestArgs) -> u128 {
+    fn dr_challenge(&mut self, _sender: AccountId, _amount: U128, payload: ChallengeDataRequestArgs) -> u128 {
         let mut dri : DataRequestInitiation = self.dri_registry.get(payload.id.into()).expect("No dri with such id");
         // Challenge answer should be valid in relation to the initial data request
         assert!(dri.validate_answer(&payload.answer), "invalid answer");
