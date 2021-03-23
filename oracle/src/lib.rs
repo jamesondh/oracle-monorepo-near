@@ -14,6 +14,7 @@ mod proposal;
 mod mock_token;
 mod fungible_token_receiver;
 mod callback_args;
+mod mock_requestor;
 
 use callback_args::*;
 
@@ -232,21 +233,11 @@ impl Contract {
         0
     }
 
-    // @returns `tvl` = `total value locked` behind this DataRequest
-    fn _data_request_tvl(&mut self, id: U64) -> bool {
-        let dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
-        if dri.rounds.get(0).unwrap().quorum_amount != 0 {
-            return false;
-        }
-        // calculate tvl by dri.tvl_address, dri.tvl_function
-        // assert tvl > 0
-
-        dri.rounds.get(0).unwrap().quorum_amount = 5;
-        true
-    }
-
-    pub fn data_request_tvl(&mut self, id: U64) {
-        assert!(self._data_request_tvl(id), "FAILED");
+    fn dr_tvl(&self, id: U64) -> u128 {
+        // TODO: Get DataRequest
+        // TODO: Get owner
+        // TODO: Call get_tvl_for_request for owner
+        self.get_tvl_for_request(id).into()
     }
 
     pub fn dr_finalize(&mut self, id: U64) {
@@ -310,7 +301,6 @@ impl Contract {
         }
     }
 
-    // TODO: add amount
     // Challenge answer is used for the following scenario
     //     e.g.
     //     t = 0, challenge X is active
@@ -325,7 +315,8 @@ impl Contract {
         let amount: u128 = amount.into();
         let dri : DataRequestInitiation = self.dri_registry.get(payload.id.into()).expect("No dri with such id");
         assert!(dri.validate_answer(&payload.answer), "invalid answer");
-        self._data_request_tvl(payload.id);
+        
+        let _tvl = self.dr_tvl(payload.id); // TODO: replace existing tvl logic
 
         let mut round : DataRequestRound = dri.rounds.iter().last().unwrap();
         if dri.rounds.len() > 1 {
@@ -410,4 +401,4 @@ impl Contract {
 
 // todo
 // keep whitelist of account ids
-// voting process
+// voting processƒ
