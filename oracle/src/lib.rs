@@ -180,66 +180,6 @@ impl Contract {
         }
     }
 
-    fn dr_new(&mut self, _sender: AccountId, _payload: NewDataRequestArgs) -> u128 {
-        if !self.whitelist.contains_key(&env::predecessor_account_id()) {
-            env::panic(b"not whitelisted");
-        }
-        
-        // TODO
-        // validate fields
-
-        // TODO
-        // settlement callback is basically code injection
-        // reentry / malicious behaviour needs to be taken care of
-
-        // TODO
-        // validate MIN < challenge_period < MAX
-
-        // TODO
-        // check if validity bond attached (USDC)
-        // add validity bond amount to DRI storage
-
-        // TODO: Should be done with DataRequest::new
-        // let mut dri = DataRequestInitiation {
-        //     extra_info,
-        //     source,
-        //     outcomes,
-        //     majority_outcome: None,
-        //     tvl_address,
-        //     tvl_function,
-        //     rounds: Vector::new(b"r".to_vec()),
-
-        //     validity_bond: self.validity_bond,
-        //     finalized_at: 0
-        // };
-
-        // TODO: Should be done in DataRequest::new
-        // dri.rounds.push(&DataRequestRound {
-        //     initiator: env::predecessor_account_id(),
-
-        //     total: 0,
-        //     outcomes: HashSet::default(),
-        //     outcome_stakes: HashMap::default(),
-        //     user_outcome_stake: HashMap::default(),
-
-        //     quorum_amount: 0,
-        //     start_date: settlement_date,
-        //     quorum_date: 0,
-        //     challenge_period
-        // });
-        // self.dri_registry.push(&dri);
-
-        // TODO: return unspent tokens
-        0
-    }
-
-    fn dr_tvl(&self, id: U64) -> u128 {
-        // TODO: Get DataRequest
-        // TODO: Get owner
-        // TODO: Call get_tvl_for_request for owner
-        self.get_tvl_for_request(id).into()
-    }
-
     pub fn dr_finalize(&mut self, id: U64) {
         let mut dri: DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
 
@@ -299,6 +239,68 @@ impl Contract {
                 &losing_round.winning_outcome().unwrap()
             ).unwrap() / current_round.total;
         }
+    }
+}
+
+impl Contract {
+    fn dr_tvl(&self, id: U64) -> u128 {
+        // TODO: Get DataRequest
+        // TODO: Get owner
+        // TODO: Call get_tvl_for_request for owner
+        self.get_tvl_for_request(id).into()
+    }
+
+    fn dr_new(&mut self, _sender: AccountId, _payload: NewDataRequestArgs) -> u128 {
+        if !self.whitelist.contains_key(&env::predecessor_account_id()) {
+            env::panic(b"not whitelisted");
+        }
+        
+        // TODO
+        // validate fields
+
+        // TODO
+        // settlement callback is basically code injection
+        // reentry / malicious behaviour needs to be taken care of
+
+        // TODO
+        // validate MIN < challenge_period < MAX
+
+        // TODO
+        // check if validity bond attached (USDC)
+        // add validity bond amount to DRI storage
+
+        // TODO: Should be done with DataRequest::new
+        // let mut dri = DataRequestInitiation {
+        //     extra_info,
+        //     source,
+        //     outcomes,
+        //     majority_outcome: None,
+        //     tvl_address,
+        //     tvl_function,
+        //     rounds: Vector::new(b"r".to_vec()),
+
+        //     validity_bond: self.validity_bond,
+        //     finalized_at: 0
+        // };
+
+        // TODO: Should be done in DataRequest::new
+        // dri.rounds.push(&DataRequestRound {
+        //     initiator: env::predecessor_account_id(),
+
+        //     total: 0,
+        //     outcomes: HashSet::default(),
+        //     outcome_stakes: HashMap::default(),
+        //     user_outcome_stake: HashMap::default(),
+
+        //     quorum_amount: 0,
+        //     start_date: settlement_date,
+        //     quorum_date: 0,
+        //     challenge_period
+        // });
+        // self.dri_registry.push(&dri);
+
+        // TODO: return unspent tokens
+        0
     }
 
     // Challenge answer is used for the following scenario
@@ -364,15 +366,17 @@ impl Contract {
         0
     }
 
-    pub fn data_request_challenge(&mut self, id: U64, answer: String) {
-        let mut dri : DataRequestInitiation = self.dri_registry.get(id.into()).expect("No dri with such id");
+    // TODO: Pass in round as a param for challenges to avoid race conditions
+    // TODO: Consume and account for amount
+    fn dr_challenge(&mut self, sender: AccountId, amount: U128, payload: ChallengeDataRequestArgs) -> u128 {
+        let mut dri : DataRequestInitiation = self.dri_registry.get(payload.id.into()).expect("No dri with such id");
         // Challenge answer should be valid in relation to the initial data request
-        assert!(dri.validate_answer(&answer), "invalid answer");
+        assert!(dri.validate_answer(&payload.answer), "invalid answer");
 
 
         let round : DataRequestRound = dri.rounds.iter().last().unwrap();
         // Get the latest answer on the proposal, challenge answer should differ from the latest answer
-        assert!(round.winning_outcome().unwrap() != answer, "EQ_CHALLENGE");
+        assert!(round.winning_outcome().unwrap() != payload.answer, "EQ_CHALLENGE");
 
         // Only continue if the last answer is challengeable
         assert!(round.quorum_date > 0, "No quorum on previos round");
@@ -380,7 +384,7 @@ impl Contract {
 
         // Add new challenge
         let mut outcomes =  HashSet::new();
-        outcomes.insert(answer);
+        outcomes.insert(payload.answer);
         dri.rounds.push(&DataRequestRound {
             initiator: env::predecessor_account_id(),
 
@@ -394,11 +398,9 @@ impl Contract {
             start_date: env::block_timestamp(),
             quorum_date: 0,
             challenge_period: 0// todo challenge_period
-        })
+        });
+        // TODO: return unused stake
+        0
     }
+
 }
-
-
-// todo
-// keep whitelist of account ids
-// voting processƒ

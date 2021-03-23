@@ -6,6 +6,7 @@ use near_sdk::serde_json;
 pub enum Payload {
     NewDataRequest(NewDataRequestArgs),
     StakeDataRequest(StakeDataRequestArgs),
+    ChallengeDataRequest(ChallengeDataRequestArgs)
 }
 
 pub trait FungibleTokenReceiver { 
@@ -25,7 +26,8 @@ impl FungibleTokenReceiver for Contract {
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
         match payload {
             Payload::NewDataRequest(payload) => self.dr_new(sender, payload),
-            Payload::StakeDataRequest(payload) => self.dr_stake(sender, amount, payload)
+            Payload::StakeDataRequest(payload) => self.dr_stake(sender, amount, payload),
+            Payload::ChallengeDataRequest(payload) => self.dr_challenge(sender, amount, payload)
         }.into()
     }
 }

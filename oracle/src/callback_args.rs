@@ -13,8 +13,16 @@ pub struct NewDataRequestArgs {
     pub tvl_function: String,
 }
 
+
+// TODO: Try and merge stake + challenge
 #[derive(Serialize, Deserialize)]
 pub struct StakeDataRequestArgs {
+    pub id: U64,
+    pub answer: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ChallengeDataRequestArgs {
     pub id: U64,
     pub answer: String,
 }
