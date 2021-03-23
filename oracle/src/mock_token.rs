@@ -15,7 +15,6 @@ pub struct Token {
 }
 
 impl Token {
-
     pub fn default_new() -> Self {
         let mut balances = LookupMap::new(b"ftb".to_vec());
         balances.insert(&env::predecessor_account_id(), &DEFAULT_BALANCE);
