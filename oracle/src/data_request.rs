@@ -6,27 +6,7 @@ use near_sdk::serde::{ Deserialize, Serialize };
 use near_sdk::{ AccountId };
 use near_sdk::collections::{ Vector };
 
-use crate::vote_types::{ Duration, Vote, Timestamp };
-use crate::policy_item::{ PolicyItem };
-use crate::proposal_status::{ ProposalStatus };
-
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct ProposalInput {
-    pub description: String,
-    pub kind: ProposalKind,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct RegistryEntry {
-    pub interface_name: String,
-    pub contract_entry: AccountId,
-    pub callback: String,
-    pub tvs_method: String,
-    pub rvs_method: String,
-    pub code_base_url: String
-}
+use crate::types::{ Duration, Timestamp };
 
 impl DataRequestRound {
     pub fn winning_outcome(&self) -> Option<String> {
@@ -90,42 +70,5 @@ impl DataRequestInitiation {
             },
             None => { true }
         }
-    }
-}
-
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[serde(tag = "type")]
-pub enum ProposalKind {
-    AddWhitelist(RegistryEntry),
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct Proposal {
-    pub status: ProposalStatus,
-    pub proposer: AccountId,
-    pub kind: ProposalKind,
-    pub vote_period_end: Duration,
-    pub vote_yes: u128,
-    pub vote_no: u128,
-    pub votes: HashMap<AccountId, Vote>,
-    pub finalized_at: u64
-}
-
-impl Proposal {
-
-    /// Compute new vote status given council size and current timestamp.
-    pub fn vote_status(&self, _policy: &PolicyItem, _num_council: u64) -> ProposalStatus {
-        // let needed_votes = policy.num_votes(num_council);
-
-        // if self.vote_yes >= needed_votes {
-        ProposalStatus::Success
-        // } else if env::block_timestamp() < self.vote_period_end {
-        //     ProposalStatus::Vote
-        // } else {
-        //     ProposalStatus::Reject
-        // }
     }
 }

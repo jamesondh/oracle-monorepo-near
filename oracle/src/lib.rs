@@ -1,43 +1,36 @@
 #![allow(clippy::too_many_arguments)]
+// TODO: Remove Rust native types
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 use near_sdk::{ AccountId, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector };
-use near_sdk::json_types::{ U64, U128 };
+use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 
-mod proposal_status;
-mod policy_item;
-mod vote_types;
-mod proposal;
+mod types;
+mod data_request;
 mod mock_token;
 mod fungible_token_receiver;
 mod callback_args;
 mod mock_requestor;
+mod whitelist;
 
 use callback_args::*;
 
-pub use proposal::{ Proposal, ProposalInput, ProposalKind, RegistryEntry, DataRequestInitiation, DataRequestRound };
-pub use proposal_status::{ ProposalStatus };
-use vote_types::{ Duration, WrappedDuration, Vote, Timestamp };
-
+use types::{ Timestamp };
+use data_request::{ DataRequestInitiation, DataRequestRound};
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
 pub struct Contract {
-    pub whitelist: HashMap<AccountId, RegistryEntry>,
-    pub whitelist_proposals: Vector<Proposal>,
-    pub whitelist_grace_period: u64,
+    pub whitelist: whitelist::Whitelist,
 
     pub dri_registry: Vector<DataRequestInitiation>,
 
-    pub proposal_bond: u128,
-    pub validity_bond: u128,
-    pub min_voters: u128,
-    pub min_voters_agree: u128,
+    pub validity_bond: U128,
+
     pub token: mock_token::Token,
-    pub vote_period: Duration
 }
 
 impl Default for Contract {
@@ -50,133 +43,14 @@ impl Default for Contract {
 impl Contract {
     #[init]
     pub fn new(
-        vote_period: WrappedDuration
+        initial_whitelist: Option<Vec<ValidAccountId>>
     ) -> Self {
+
         Self {
-            whitelist: HashMap::default(),
-            whitelist_proposals: Vector::new(b"p".to_vec()),
-            whitelist_grace_period: 1,
-
+            whitelist: whitelist::Whitelist::new(initial_whitelist),
             dri_registry: Vector::new(b"r".to_vec()),
-
-            proposal_bond: 1,
-            validity_bond: 1,
-            min_voters: 0,
-            min_voters_agree: 1,
+            validity_bond: 1.into(),
             token: mock_token::Token::default_new(),
-            vote_period: vote_period.into()
-        }
-    }
-
-
-    // rest of arguments? Or just proposal struct as argument
-    // pub fn whitelist_proposal(&mut self, proposal: Proposal)
-    pub fn whitelist_proposal(&mut self,
-        contract_entry: AccountId,
-        interface_name: String,
-        callback: String,
-        tvs_method: String,
-        rvs_method: String,
-        code_base_url: String
-    ) -> U64 {
-        // TODO
-        // assert fields (e.g. non empty string)
-
-        // TODO
-        // do we want to link proposals to proposal_bond?
-        // bij het updaten van proposal_bond zal dan de orginele proposal worden returned
-
-        // TODO
-        // Implement receiver method (instead of transfer from)
-        // https://github.com/near/core-contracts/blob/w-near-141/w-near-141/src/fungible_token_core.rs#L81
-        
-        // TODO: `transfer_call` or `transfer`
-        // self.token.transfer_from(env::predecessor_account_id(), env::current_account_id(), self.proposal_bond);
-
-        let registry_entry = RegistryEntry {
-            interface_name,
-            contract_entry,
-            callback,
-            tvs_method,
-            rvs_method,
-            code_base_url
-        };
-
-        let p = Proposal {
-            status: ProposalStatus::Vote,
-            proposer: env::predecessor_account_id(),
-            kind: ProposalKind::AddWhitelist(registry_entry),
-            vote_period_end: env::block_timestamp() + self.vote_period,
-            vote_yes: 0,
-            vote_no: 0,
-            votes: HashMap::default(),
-            finalized_at: 0
-        };
-
-        self.whitelist_proposals.push(&p);
-        U64(self.whitelist_proposals.len() - 1)
-    }
-
-    pub fn whitelist_vote(&mut self, whitelist_proposal_id: U64, vote: Vote) {
-        let mut proposal = self.whitelist_proposals.get(whitelist_proposal_id.into()).expect("No proposal with such id");
-        assert_eq!(
-            proposal.status,
-            ProposalStatus::Vote,
-            "Proposal not active voting"
-        );
-        assert!(proposal.vote_period_end <= env::block_timestamp(), "timestamp");
-
-        // TODO
-        // Implement receiver method (instead of transfer from)
-        // https://github.com/near/core-contracts/blob/w-near-141/w-near-141/src/fungible_token_core.rs#L81
-        let weight : u128 = self.token.get_balance_expect(env::predecessor_account_id()).into();
-        match vote {
-            Vote::Yes => proposal.vote_yes += weight,
-            Vote::No => proposal.vote_no += weight,
-        }
-        proposal.votes.insert(env::predecessor_account_id(), vote);
-        // TODO just don;t update status?
-        //proposal.status = proposal.vote_status(&self.policy, self.council.len());
-        self.whitelist_proposals.replace(whitelist_proposal_id.into(), &proposal);
-    }
-
-    pub fn whitelist_finalize(&mut self, whitelist_proposal_id: U64) {
-        let mut proposal = self.whitelist_proposals.get(whitelist_proposal_id.into()).expect("No proposal with such id");
-        assert_eq!(
-            proposal.status,
-            ProposalStatus::Vote,
-            "Proposal not active voting"
-        );
-
-        // Does at least 10% of flux tokens need to vote and 70% should be yes? ( so 7% on yes )
-        // or does at least 10% of flux tokens need to vote on yes? ( + keep 70% ratio )
-
-        //assert proposal.vote_yes > self.min_voters
-        //assert proposal.min_voters_agree
-        // finalize
-        // else
-        // if timestamp expired
-        // reject
-        // else
-        // env::panic()
-        proposal.status = ProposalStatus::Success;
-        proposal.finalized_at = env::block_timestamp();
-        self.whitelist_proposals.replace(whitelist_proposal_id.into(), &proposal);
-    }
-
-    pub fn whitelist_execute(&mut self,  whitelist_proposal_id: U64) {
-        let proposal = self.whitelist_proposals.get(whitelist_proposal_id.into()).expect("No proposal with such id");
-        assert_eq!(
-            proposal.status,
-            ProposalStatus::Success,
-            "Proposal not success"
-        );
-        assert!(proposal.finalized_at + self.whitelist_grace_period <= env::block_timestamp(), "grace period");
-
-        match proposal.kind {
-            ProposalKind::AddWhitelist(target) => {
-                self.whitelist.insert(target.contract_entry.clone(), target);
-            }
         }
     }
 
@@ -251,7 +125,7 @@ impl Contract {
     }
 
     fn dr_new(&mut self, _sender: AccountId, _payload: NewDataRequestArgs) -> u128 {
-        if !self.whitelist.contains_key(&env::predecessor_account_id()) {
+        if !self.whitelist.contains(env::predecessor_account_id()) {
             env::panic(b"not whitelisted");
         }
         
