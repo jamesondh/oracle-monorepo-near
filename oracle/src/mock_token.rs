@@ -77,8 +77,6 @@ impl FLXExternal for Contract {
     }
 }
 
-
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
@@ -122,7 +120,7 @@ mod mock_token_basic_tests {
     #[test]
     fn contract_creation_with_new() {
         testing_env!(get_context(carol()));
-        let contract = Contract::new(1000.into());
+        let contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
     }
@@ -130,7 +128,7 @@ mod mock_token_basic_tests {
     #[test]
     fn transfer_works() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -147,7 +145,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "No dri with such id")]
     fn transfer_call_finalize_works() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -172,7 +170,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -184,7 +182,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_fails_no_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -196,7 +194,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_call_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -208,7 +206,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_call_fails_no_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(1000.into());
+        let mut contract = Contract::new(None);
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
