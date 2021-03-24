@@ -15,6 +15,7 @@ mod fungible_token_receiver;
 mod callback_args;
 mod mock_requestor;
 mod whitelist;
+mod oracle_config;
 
 use callback_args::*;
 
@@ -25,11 +26,9 @@ use data_request::{ DataRequestInitiation, DataRequestRound};
 #[derive(BorshSerialize, BorshDeserialize )]
 pub struct Contract {
     pub whitelist: whitelist::Whitelist,
-
+    pub config: oracle_config::OracleConfig,
     pub dri_registry: Vector<DataRequestInitiation>,
-
     pub validity_bond: U128,
-
     pub token: mock_token::Token,
 }
 
@@ -43,11 +42,12 @@ impl Default for Contract {
 impl Contract {
     #[init]
     pub fn new(
-        initial_whitelist: Option<Vec<ValidAccountId>>
+        initial_whitelist: Option<Vec<ValidAccountId>>,
+        config: oracle_config::OracleConfig
     ) -> Self {
-
         Self {
             whitelist: whitelist::Whitelist::new(initial_whitelist),
+            config,
             dri_registry: Vector::new(b"r".to_vec()),
             validity_bond: 1.into(),
             token: mock_token::Token::default_new(),
@@ -117,6 +117,15 @@ impl Contract {
 }
 
 impl Contract {
+    fn assert_gov(&self) {
+        assert_eq!(
+            self.config.gov, 
+            env::predecessor_account_id(), 
+            "This method is only callable by the governance contract {}",
+            self.config.gov
+        );
+    }
+
     fn dr_tvl(&self, id: U64) -> u128 {
         // TODO: Get DataRequest
         // TODO: Get owner

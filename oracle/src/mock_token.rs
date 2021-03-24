@@ -1,4 +1,4 @@
-use crate::Contract;
+use crate::*;
 use crate::fungible_token_receiver::FungibleTokenReceiver;
 use near_sdk::{ AccountId, env };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
@@ -83,18 +83,39 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use near_sdk::{ serde_json::json };
+
     use super::*;
+    
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
     
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
+
     fn carol() -> AccountId {
         "carol.near".to_string()
     }
+
     fn token() -> AccountId {
         "token.near".to_string()
     }
 
+    fn config() -> oracle_config::OracleConfig {
+        oracle_config::OracleConfig {
+            gov: alice(),
+            final_arbitrator: alice(),
+            bond_token: token(),
+            stake_token: token(),
+            validity_bond: 0,
+            default_challenge_window_duration: 1000,
+            initial_challenge_window_duration: 1000,
+            final_arbitrator_invoke_amount: 250,
+            resolution_fee_percentage: 0,
+            challenge_exponent: 2,
+        }
+    }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
@@ -120,7 +141,7 @@ mod mock_token_basic_tests {
     #[test]
     fn contract_creation_with_new() {
         testing_env!(get_context(carol()));
-        let contract = Contract::new(None);
+        let contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
     }
@@ -128,7 +149,7 @@ mod mock_token_basic_tests {
     #[test]
     fn transfer_works() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -145,7 +166,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "No dri with such id")]
     fn transfer_call_finalize_works() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -170,7 +191,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -182,7 +203,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_fails_no_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -194,7 +215,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_call_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
@@ -206,7 +227,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "sender does not have enough tokens")]
     fn transfer_call_fails_no_funds() {
         testing_env!(get_context(carol()));
-        let mut contract = Contract::new(None);
+        let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
