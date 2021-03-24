@@ -117,59 +117,6 @@ impl Contract {
         self.get_tvl_for_request(id).into()
     }
 
-    fn dr_new(&mut self, _sender: AccountId, _payload: NewDataRequestArgs) -> u128 {
-        if !self.whitelist.contains(env::predecessor_account_id()) {
-            env::panic(b"not whitelisted");
-        }
-        
-        // TODO
-        // validate fields
-
-        // TODO
-        // settlement callback is basically code injection
-        // reentry / malicious behaviour needs to be taken care of
-
-        // TODO
-        // validate MIN < challenge_period < MAX
-
-        // TODO
-        // check if validity bond attached (USDC)
-        // add validity bond amount to DRI storage
-
-        // TODO: Should be done with DataRequest::new
-        // let mut dri = DataRequest {
-        //     extra_info,
-        //     source,
-        //     outcomes,
-        //     majority_outcome: None,
-        //     tvl_address,
-        //     tvl_function,
-        //     rounds: Vector::new(b"r".to_vec()),
-
-        //     validity_bond: self.validity_bond,
-        //     finalized_at: 0
-        // };
-
-        // TODO: Should be done in DataRequest::new
-        // dri.rounds.push(&DataRequestRound {
-        //     initiator: env::predecessor_account_id(),
-
-        //     total: 0,
-        //     outcomes: HashSet::default(),
-        //     outcome_stakes: HashMap::default(),
-        //     user_outcome_stake: HashMap::default(),
-
-        //     quorum_amount: 0,
-        //     start_date: settlement_date,
-        //     quorum_date: 0,
-        //     challenge_period
-        // });
-        // self.data_requests.push(&dri);
-
-        // TODO: return unspent tokens
-        0
-    }
-
     // Challenge answer is used for the following scenario
     //     e.g.
     //     t = 0, challenge X is active
@@ -180,7 +127,7 @@ impl Contract {
     /// If the DRI has any predefined outcomes, the answers should be one of the predefined ones
     /// If the DRI does not have predefined outcomes, users can vote on answers freely
     /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
-    fn dr_stake(&mut self, _sender: AccountId, _amount: U128, payload: StakeDataRequestArgs) -> u128 {
+    fn dr_stake(&mut self, _sender: AccountId, _amount: u128, payload: StakeDataRequestArgs) -> u128 {
         // let amount: u128 = amount.into();
         // let dri: DataRequest = self.data_requests.get(payload.id.into()).expect("No dri with such id");
         // assert!(dri.validate_answer(&payload.answer), "invalid answer");
@@ -235,7 +182,7 @@ impl Contract {
 
     // TODO: Pass in round as a param for challenges to avoid race conditions
     // TODO: Consume and account for amount
-    fn dr_challenge(&mut self, _sender: AccountId, _amount: U128, _payload: ChallengeDataRequestArgs) -> u128 {
+    fn dr_challenge(&mut self, _sender: AccountId, _amount: u128, _payload: ChallengeDataRequestArgs) -> u128 {
         // let mut dri: DataRequest = self.data_requests.get(payload.id.into()).expect("No dri with such id");
         // // Challenge answer should be valid in relation to the initial data request
         // assert!(dri.validate_answer(&payload.answer), "invalid answer");

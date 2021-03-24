@@ -25,9 +25,9 @@ impl FungibleTokenReceiver for Contract {
         // TODO: Assert is called by correlating token
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
         match payload {
-            Payload::NewDataRequest(payload) => self.dr_new(sender, payload),
-            Payload::StakeDataRequest(payload) => self.dr_stake(sender, amount, payload),
-            Payload::ChallengeDataRequest(payload) => self.dr_challenge(sender, amount, payload)
+            Payload::NewDataRequest(payload) => self.dr_new(sender, amount.into(), payload),
+            Payload::StakeDataRequest(payload) => self.dr_stake(sender, amount.into(), payload),
+            Payload::ChallengeDataRequest(payload) => self.dr_challenge(sender, amount.into(), payload)
         }.into()
     }
 }
