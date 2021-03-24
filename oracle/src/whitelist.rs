@@ -183,4 +183,3 @@ mod mock_token_basic_tests {
         contract.remove_from_whitelist(to_valid(alice()));
     }
 }
-
