@@ -1,4 +1,4 @@
-use crate::Contract;
+use crate::*;
 use std::convert::TryInto;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
@@ -43,14 +43,21 @@ impl Whitelist {
 
 trait WhitelistHandler {
     fn add_to_whitelist(&mut self, new_requestor: ValidAccountId);
+    fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool;
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
 impl WhitelistHandler for Contract {
     fn add_to_whitelist(&mut self, new_requestor: ValidAccountId) {
-        // TODO: Assert governance predecessor
+        self.assert_gov();
         let new_requestor = new_requestor.try_into().expect("Invalid account id");
         self.whitelist.0.insert(&new_requestor);
+    }
+ 
+    fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
+        self.assert_gov();
+        let requestor = requestor.try_into().expect("Invalid account id");
+        self.whitelist.0.remove(&requestor)
     }
    
     fn whitelist_contains(&self, requestor: AccountId) -> bool {
@@ -82,7 +89,7 @@ mod mock_token_basic_tests {
         "token.near".to_string()
     }
  
-    fn _gov() -> AccountId {
+    fn gov() -> AccountId {
         "gov.near".to_string()
     }
 
@@ -90,6 +97,20 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
+    fn config() -> oracle_config::OracleConfig {
+        oracle_config::OracleConfig {
+            gov: gov(),
+            final_arbitrator: alice(),
+            bond_token: token(),
+            stake_token: token(),
+            validity_bond: 0,
+            default_challenge_window_duration: 1000,
+            initial_challenge_window_duration: 1000,
+            final_arbitrator_invoke_amount: 250,
+            resolution_fee_percentage: 0,
+            challenge_exponent: 2,
+        }
+    }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
@@ -116,16 +137,43 @@ mod mock_token_basic_tests {
     fn setting_initial_whitelist() {
         testing_env!(get_context(carol()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let contract = Contract::new(whitelist);
-        let alice_is_whitelisted = contract.whitelist.contains(alice());
-        let bob_is_whitelisted = contract.whitelist.contains(bob());
-        let carol_is_whitelisted = contract.whitelist.contains(carol());
+        let contract = Contract::new(whitelist, config());
+        let alice_is_whitelisted = contract.whitelist_contains(alice());
+        let bob_is_whitelisted = contract.whitelist_contains(bob());
+        let carol_is_whitelisted = contract.whitelist_contains(carol());
         assert!(!alice_is_whitelisted);
         assert!(bob_is_whitelisted);
         assert!(carol_is_whitelisted);
     }
 
-    // TODO: add gov assertion tests
+    #[test]
+    fn whitelist_add_remove() {
+        testing_env!(get_context(gov()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        assert!(!contract.whitelist_contains(alice()));
+        contract.add_to_whitelist(to_valid(alice()));
+        assert!(contract.whitelist_contains(alice()));
+        contract.remove_from_whitelist(to_valid(alice()));
+        assert!(!contract.whitelist_contains(alice()));
+    }
+
+    #[test]
+    #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
+    fn only_gov_can_add() {
+        testing_env!(get_context(alice()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.add_to_whitelist(to_valid(alice()));
+    }
+
+    #[test]
+    #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
+    fn only_gov_can_remove() {
+        testing_env!(get_context(alice()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.remove_from_whitelist(to_valid(alice()));
+    }
 }
-
-
