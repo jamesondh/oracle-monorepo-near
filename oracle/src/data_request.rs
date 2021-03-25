@@ -9,7 +9,7 @@ use crate::types::{ Timestamp, Duration };
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
-#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug)]
 pub enum Outcome {
     Answer(String),
     Invalid
@@ -23,6 +23,8 @@ pub struct Source {
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct ResolutionWindow {
+    pub dr_id: u64,
+    pub round: u16,
     pub end_time: Timestamp,
     pub bond_size: Balance,
     pub outcome_to_stake: LookupMap<Outcome, Balance>,
@@ -38,6 +40,8 @@ trait ResolutionWindowChange {
 impl ResolutionWindowChange for ResolutionWindow {
     fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self {
         Self {
+            dr_id,
+            round,
             end_time: env::block_timestamp() + challenge_period,
             bond_size: prev_bond * 2,
             outcome_to_stake: LookupMap::new(format!("ots{}:{}", dr_id, round).as_bytes().to_vec()),
@@ -48,9 +52,34 @@ impl ResolutionWindowChange for ResolutionWindow {
 
     // @returns amount to refund users because it was not staked
     fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance {
-        let stake_on_outcome = self.outcome_to_stake.get(&answer).unwrap_or(0);
+        let mut stake_on_outcome = self.outcome_to_stake.get(&answer).unwrap_or(0);
+        let mut user_to_outcomes = self.user_to_outcome_to_stake
+            .get(&sender)
+            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender))); 
+        let mut user_stake_on_outcome = user_to_outcomes.get(&answer).unwrap_or(0);
 
-        0
+        let stake_open = self.bond_size - stake_on_outcome;
+        let unspent = if amount > stake_open {
+            amount - stake_open
+        } else {
+            0
+        };
+
+        let staked = amount - unspent;
+
+        let new_stake_on_outcome = stake_on_outcome + staked;
+        self.outcome_to_stake.insert(&answer, &new_stake_on_outcome);
+        
+        let new_user_stake_on_outcome = user_stake_on_outcome + staked;
+        user_to_outcomes.insert(&answer, &new_stake_on_outcome);
+        self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
+
+        // If this stake fills the bond set final answer which will trigger a new resolution_window to be created
+        if new_stake_on_outcome == self.bond_size {
+            self.bonded_outcome = Some(answer);
+        }
+
+        unspent
     }
 
 }
@@ -103,7 +132,32 @@ impl DataRequestChange for DataRequest {
             .unwrap_or(
                 ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
             );
-        window.stake(sender, answer, amount)
+
+        let unspent = window.stake(sender, answer, amount);
+
+        // If first window push it to vec, else replace updated window struct
+        if self.resolution_windows.len() == 0 {
+            self.resolution_windows.push(&window);
+        } else {
+            self.resolution_windows.replace(
+                self.resolution_windows.len() - 1, // Last window
+                &window
+            );
+        }
+
+        // Check if this stake closed the current window, if so create next window
+        if window.bonded_outcome.is_some() {
+            self.resolution_windows.push(
+                &ResolutionWindow::new(
+                    self.id, 
+                    self.resolution_windows.len() as u16,
+                    window.bond_size,
+                    self.config.default_challenge_window_duration
+                )
+            );
+        }
+
+        unspent
     }
 
     fn finalize(&mut self) {
@@ -255,16 +309,6 @@ impl Contract {
         }
     }
 
-    // Challenge answer is used for the following scenario
-    //     e.g.
-    //     t = 0, challenge X is active
-    //     t = 1, user send challenger transaction
-    //     t = 2, challenge X is resolved, challenge Y is active
-    //     t = 3, user TX is processed (stakes on wrong answer)
-    /// Users can stake for a data request once (or they should unstake if thats possible)
-    /// If the DRI has any predefined outcomes, the answers should be one of the predefined ones
-    /// If the DRI does not have predefined outcomes, users can vote on answers freely
-    /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         self.assert_stake_token();
         let mut dr = self.dr_get_expect(payload.id.into());
@@ -273,52 +317,11 @@ impl Contract {
         dr.assert_settlement_time_passed();
         let _tvl = dr.get_tvl();
 
-        dr.stake(sender, payload.answer, amount);
+        let unspent_stake = dr.stake(sender, payload.answer, amount);
 
-        // let mut round: DataRequestRound = dri.rounds.iter().last().unwrap();
-        // if dri.rounds.len() > 1 {
-        //     assert!(*round.outcomes.iter().next().unwrap() == payload.answer);
-        // }
-        // assert!(round.start_date > env::block_timestamp(), "NOT STARTED");
-        // assert!(round.quorum_date == 0, "ALREADY PASSED");
+        self.data_requests.replace(payload.id.into(), &dr);
 
-        // round.total += amount;
-
-        // let new_outcome_stake: Balance = match round.outcome_stakes.get_mut(&payload.answer) {
-        //     Some(v) => {
-        //         *v += amount;
-        //         *v
-        //     },
-        //     None => {
-        //         round.outcome_stakes.insert(payload.answer.clone(), amount);
-        //         amount
-        //     }
-        // };
-        // if new_outcome_stake > round.quorum_amount {
-        //     round.quorum_date = env::block_timestamp();
-        // }
-
-        // let user_entries: &mut HashMap<String, Balance> = match round.user_outcome_stake.get_mut(&env::predecessor_account_id()) {
-        //     Some(v) => {
-        //         v
-        //     }
-        //     None => {
-        //         round.user_outcome_stake.insert(env::predecessor_account_id(), HashMap::default());
-        //         round.user_outcome_stake.get_mut(&env::predecessor_account_id()).unwrap()
-        //     }
-        // };
-
-        // match user_entries.get_mut(&payload.answer) {
-        //     Some(v) => {
-        //         *v += amount;
-        //     }
-        //     None => {
-        //         user_entries.insert(payload.answer, amount);
-        //     }
-        // }
-
-        // TODO: return unspent tokens
-        0
+        unspent_stake
     }
 }
 
