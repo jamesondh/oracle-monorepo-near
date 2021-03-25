@@ -8,7 +8,7 @@ const MAX_FINAL_ARBITRATOR_INVOKE_AMOUNT: u16 = 500; // 5%
 const MIN_FINAL_ARBITRATOR_INVOKE_AMOUNT: u16 = 100; // 1%
 const MAX_RESOLUTION_FEE_PERCENTAGE: u16 = 100; // 1%
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct OracleConfig {
     pub gov: AccountId,
