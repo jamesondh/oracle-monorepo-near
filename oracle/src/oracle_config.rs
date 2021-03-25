@@ -50,8 +50,11 @@ impl ConfigHandler for Contract {
 }
 
 impl Contract {
-    pub(crate) fn assert_bond_token(&self) {
+    pub fn assert_bond_token(&self) {
         assert_eq!(env::predecessor_account_id(), self.config.bond_token, "Only the bond token contract can call this function");
+    }
+    pub fn assert_stake_token(&self) {
+        assert_eq!(env::predecessor_account_id(), self.config.stake_token, "Only the stake token contract can call this function");
     }
 }
 

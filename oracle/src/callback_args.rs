@@ -12,13 +12,13 @@ pub struct NewDataRequestArgs {
 }
 
 impl Contract {
-    pub fn dr_validate(&self, data_request: NewDataRequestArgs) {
-        assert_eq!(data_request.sources.len(), MAX_SOURCES, "Source vector length exceeds max");
+    pub fn dr_validate(&self, data_request: &NewDataRequestArgs) {
+        assert_eq!(data_request.sources.len() as u8, MAX_SOURCES, "Source vector length exceeds max");
         assert!(data_request.challenge_period >= self.config.min_initial_challenge_window_duration, "Challenge period exceeds maximum challenge period");
         assert!(data_request.challenge_period <= self.config.default_challenge_window_duration * 3, "Challenge shorter than minimum challenge period");
         assert!(
             data_request.outcomes.is_none() || 
-            data_request.outcomes.unwrap().len() as u8 <= self.config.max_outcomes,
+            data_request.outcomes.as_ref().unwrap().len() as u8 <= self.config.max_outcomes,
             "Source vector length exceeds max"
         );
     }

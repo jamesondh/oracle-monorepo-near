@@ -39,7 +39,13 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>
 }
 
-impl DataRequest {
+trait DataRequestChange {
+    fn new(sender: AccountId, id: u64, request_data: NewDataRequestArgs) -> Self;
+    fn stake(&mut self, answer: Outcome, amount: u128) -> u128;
+    fn finalize(&mut self);
+}
+
+impl DataRequestChange for DataRequest {
     fn new(sender: AccountId, id: u64, request_data: NewDataRequestArgs) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         Self {
@@ -54,65 +60,77 @@ impl DataRequest {
         } 
     }
 
-    pub fn finalize(&mut self) {
+    // @returns amount of tokens that didn't get staked
+    fn stake(&mut self, answer: Outcome, amount: u128) -> u128 {
+        self.resolution_windows.iter().last().unwrap();
+        0
+    }
+
+    fn finalize(&mut self) {
         self.finalized_outcome = self.get_final_outcome();
     }
 }
 
-impl DataRequest {
-    fn assert_valid_answer(&self, answer: Outcome) {
-        match self.outcomes {
+trait DataRequestView {
+    fn assert_valid_answer(&self, answer: &Outcome);
+    fn assert_not_finalized(&self);
+    fn assert_settlement_time_passed(&self);
+    fn assert_can_finalize(&self);
+    fn get_final_outcome(&self) -> Option<Outcome>;
+    fn get_tvl(&self) -> u128;
+}
+
+impl DataRequestView for DataRequest {
+    fn assert_valid_answer(&self, answer: &Outcome) {
+        match &self.outcomes {
             Some(outcomes) => match answer {
                 Outcome::Answer(answer) => assert!(outcomes.contains(&answer), "Incompatible answer"),
-                Invalid => ()
+                Outcome::Invalid => ()
             },
             None => ()
         }
     }
+
+    fn assert_not_finalized(&self) {
+        assert!(self.finalized_outcome.is_none(), "Can't stake in finalized market");
+    }
+
+    fn assert_settlement_time_passed(&self) {
+        assert!(env::block_timestamp() >= self.settlement_time, "Data request cannot be processed yet");
+    }
+
+    fn assert_can_finalize(&self) {
+        let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
+        self.assert_not_finalized();
+        assert!(env::block_timestamp() >= last_window.close_time, "Challenge period not ended");
+    }
+
     fn get_final_outcome(&self) -> Option<Outcome> {
         let last_bonded_window_i = self.resolution_windows.len() - 2; // Last window after end_time never has a bonded outcome
         let last_bonded_window = self.resolution_windows.get(last_bonded_window_i).unwrap();
         last_bonded_window.bonded_outcome
     }
 
-    fn can_finalize(&self) -> bool {
-        let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
-        if env::block_timestamp() >= last_window.close_time {
-            true
-        } else {
-            false
-        }
-    }
-
     fn get_tvl(&self) -> u128 {
         self.requestor.get_tvl(self.id.into()).into()
     }
+
+
 }
 
-trait DataRequestHandler {
-    fn dr_finalize(&mut self, id: U64);
-}
-
-impl DataRequestHandler for Contract {
-    fn dr_finalize(&mut self, id: U64) {
+impl Contract {
+    pub fn dr_finalize(&mut self, id: U64) {
         let mut dr = self.dr_get_expect(id);
-        assert!(dr.finalized_outcome.is_none(), "DataRequest already finalized");
-        assert!(dr.can_finalize(), "Challenge window still open");
+        dr.assert_can_finalize();
         dr.finalize();
         self.data_requests.replace(id.into(), &dr);
         // TODO: Return validity bond to creator
     }
-}
 
-impl Contract {
-    fn dr_get_expect(&self, id: U64) -> DataRequest {
-        self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
-    }
-    
     pub fn dr_new(&mut self, sender: AccountId, amount: u128, payload: NewDataRequestArgs) -> u128 {
-        self.assert_whitelisted(sender);
+        self.assert_whitelisted(sender.to_string());
         self.assert_bond_token();
-        self.dr_validate(payload);
+        self.dr_validate(&payload);
         assert!(amount >= self.config.validity_bond);
 
         let dr = DataRequest::new(sender, self.data_requests.len() as u64, payload);
@@ -136,11 +154,14 @@ impl Contract {
     /// If the DRI does not have predefined outcomes, users can vote on answers freely
     /// The total stake is tracked, this stake get's divided amoung stakers with the most populair answer on finalization
     pub fn dr_stake(&mut self, sender: AccountId, amount: u128, payload: StakeDataRequestArgs) -> u128 {
-        
-        // assert!(dri.validate_answer(&payload.answer), "invalid answer");
-        let dr = self.dr_get_expect(payload.id.into());
-        dr.assert_valid_answer(payload.answer);
-        let _tvl = dr.get_tvl(); // TODO: replace existing tvl logic
+        self.assert_stake_token();
+        let mut dr = self.dr_get_expect(payload.id.into());
+        dr.assert_valid_answer(&payload.answer);
+        dr.assert_not_finalized();
+        dr.assert_settlement_time_passed();
+        let _tvl = dr.get_tvl();
+
+        dr.stake(payload.answer, amount);
 
         // let mut round: DataRequestRound = dri.rounds.iter().last().unwrap();
         // if dri.rounds.len() > 1 {
@@ -187,7 +208,11 @@ impl Contract {
         // TODO: return unspent tokens
         0
     }
+}
 
-    
+impl Contract {
+    fn dr_get_expect(&self, id: U64) -> DataRequest {
+        self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
+    }    
 }
 
