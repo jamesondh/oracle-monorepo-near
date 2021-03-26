@@ -165,7 +165,7 @@ mod mock_token_basic_tests {
     
     #[test]
     #[should_panic(expected = "DataRequest with this id does not exist")]
-    fn transfer_call_finalize_works() {
+    fn transfer_call_fails() {
         testing_env!(get_context(token()));
         let mut contract = Contract::new(None, config());
 
