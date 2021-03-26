@@ -109,8 +109,9 @@ mod mock_token_basic_tests {
             bond_token: token(),
             stake_token: token(),
             validity_bond: 0,
+            max_outcomes: 8,
             default_challenge_window_duration: 1000,
-            initial_challenge_window_duration: 1000,
+            min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 250,
             resolution_fee_percentage: 0,
             challenge_exponent: 2,
@@ -163,27 +164,19 @@ mod mock_token_basic_tests {
     }
     
     #[test]
-    #[should_panic(expected = "No dri with such id")]
+    #[should_panic(expected = "DataRequest with this id does not exist")]
     fn transfer_call_finalize_works() {
-        testing_env!(get_context(carol()));
+        testing_env!(get_context(token()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
-        assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
-        let send_amount = 10000;
+
         let msg = json!({
             "StakeDataRequest": {
                 "id": "0",
-                "answer": "42"
+                "answer": data_request::Outcome::Answer("42".to_string())
             }
            
         });
-        contract.transfer_call(bob(), send_amount.into(), msg.to_string());
-        let bob_balance: u128 = contract.token.get_balance_expect(bob()).into();
-        let carol_new_balance: u128 = contract.token.get_balance_expect(carol()).into();
-        
-        assert_eq!(bob_balance, send_amount);
-        assert_eq!(carol_new_balance, carol_balance - send_amount);
+        contract.transfer_call(bob(), 0.into(), msg.to_string());
     }
     
 

@@ -21,7 +21,6 @@ pub struct RegistryEntry {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Whitelist(LookupSet<AccountId>);
 
-// TODO: Add optional initial requestor(s)
 impl Whitelist {
     pub fn new(initial_whitelist: Option<Vec<ValidAccountId>>) -> Self {
         let mut whitelist: LookupSet<AccountId> = LookupSet::new(b"wlr".to_vec());
@@ -65,6 +64,12 @@ impl WhitelistHandler for Contract {
     }
 }
 
+impl Contract {
+    pub (crate) fn assert_whitelisted(&self, requestor: AccountId) {
+        assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
+    }
+}
+
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
@@ -104,8 +109,9 @@ mod mock_token_basic_tests {
             bond_token: token(),
             stake_token: token(),
             validity_bond: 0,
+            max_outcomes: 8,
             default_challenge_window_duration: 1000,
-            initial_challenge_window_duration: 1000,
+            min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 250,
             resolution_fee_percentage: 0,
             challenge_exponent: 2,

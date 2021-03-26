@@ -8,7 +8,7 @@ const MAX_FINAL_ARBITRATOR_INVOKE_AMOUNT: u16 = 500; // 5%
 const MIN_FINAL_ARBITRATOR_INVOKE_AMOUNT: u16 = 100; // 1%
 const MAX_RESOLUTION_FEE_PERCENTAGE: u16 = 100; // 1%
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct OracleConfig {
     pub gov: AccountId,
@@ -16,28 +16,12 @@ pub struct OracleConfig {
     pub stake_token: AccountId,
     pub bond_token: AccountId,
     pub validity_bond: u128,
+    pub max_outcomes: u8,
     pub default_challenge_window_duration: Duration,
-    pub initial_challenge_window_duration: Duration,
+    pub min_initial_challenge_window_duration: Duration,
     pub final_arbitrator_invoke_amount: u16, // Percentage of total supply that needs to be staked in `ChallengeWindow` to invoke the final arbitrator, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
     pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
     pub challenge_exponent: u8, // Set to 2 for now, creating it as a config variable in case of requested change
-}
-
-impl OracleConfig {
-    pub fn new() -> Self {
-        Self {
-            gov: "test".to_string(),
-            final_arbitrator: "test".to_string(),
-            bond_token: "test".to_string(),
-            stake_token: "test".to_string(),
-            validity_bond: 1,
-            default_challenge_window_duration: 123,
-            initial_challenge_window_duration: 321,
-            final_arbitrator_invoke_amount: 250,
-            resolution_fee_percentage: 0,
-            challenge_exponent: 2,
-        }
-    }
 }
 
 trait ConfigHandler {
@@ -62,6 +46,15 @@ impl ConfigHandler for Contract {
         assert_eq!(new_config.challenge_exponent, self.config.challenge_exponent, "Exponent cannot be altered for time being");
 
         self.config = new_config;
+    }
+}
+
+impl Contract {
+    pub fn assert_bond_token(&self) {
+        assert_eq!(env::predecessor_account_id(), self.config.bond_token, "Only the bond token contract can call this function");
+    }
+    pub fn assert_stake_token(&self) {
+        assert_eq!(env::predecessor_account_id(), self.config.stake_token, "Only the stake token contract can call this function");
     }
 }
 
@@ -96,8 +89,9 @@ mod mock_token_basic_tests {
             bond_token: token(),
             stake_token: token(),
             validity_bond: 0,
+            max_outcomes: 8,
             default_challenge_window_duration: 1000,
-            initial_challenge_window_duration: 1000,
+            min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 250,
             resolution_fee_percentage: 0,
             challenge_exponent: 2,
@@ -140,6 +134,4 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
     }
-
-    // TODO: add gov assertion tests
 }
