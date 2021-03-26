@@ -1,4 +1,6 @@
 use crate::*;
+use std::convert::TryInto;
+
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{ U64 };
 use near_sdk::serde::{ Deserialize, Serialize };
@@ -23,7 +25,7 @@ pub enum WindowStakeResult {
 
 pub struct CorrectStake {
     pub bonded_stake: Balance,
-    pub user_stake: Balance, 
+    pub user_stake: Balance,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
@@ -60,7 +62,7 @@ impl ResolutionWindowChange for ResolutionWindow {
             outcome_to_stake: LookupMap::new(format!("ots{}:{}", dr_id, round).as_bytes().to_vec()),
             user_to_outcome_to_stake: LookupMap::new(format!("utots{}:{}", dr_id, round).as_bytes().to_vec()),
             bonded_outcome: None
-        }   
+        }
     }
 
     // @returns amount to refund users because it was not staked
@@ -68,7 +70,7 @@ impl ResolutionWindowChange for ResolutionWindow {
         let stake_on_outcome = self.outcome_to_stake.get(&outcome).unwrap_or(0);
         let mut user_to_outcomes = self.user_to_outcome_to_stake
             .get(&sender)
-            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
+            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec()));
         let user_stake_on_outcome = user_to_outcomes.get(&outcome).unwrap_or(0);
 
         let stake_open = self.bond_size - stake_on_outcome;
@@ -82,7 +84,7 @@ impl ResolutionWindowChange for ResolutionWindow {
 
         let new_stake_on_outcome = stake_on_outcome + staked;
         self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
-        
+
         let new_user_stake_on_outcome = user_stake_on_outcome + staked;
         user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
@@ -94,13 +96,13 @@ impl ResolutionWindowChange for ResolutionWindow {
 
         unspent
     }
- 
+
     // @returns amount to refund users because it was not staked
     fn unstake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance {
         assert!(self.bonded_outcome.is_none() || self.bonded_outcome.as_ref().unwrap() != &outcome, "Cannot withdraw from bonded outcome");
         let mut user_to_outcomes = self.user_to_outcome_to_stake
             .get(&sender)
-            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
+            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec()));
         let user_stake_on_outcome = user_to_outcomes.get(&outcome).unwrap_or(0);
         assert!(user_stake_on_outcome >= amount, "{} has less staked on this outcome ({}) than unstake amount", sender, user_stake_on_outcome);
 
@@ -108,7 +110,7 @@ impl ResolutionWindowChange for ResolutionWindow {
 
         let new_stake_on_outcome = stake_on_outcome - amount;
         self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
-        
+
         let new_user_stake_on_outcome = user_stake_on_outcome - amount;
         user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
@@ -172,8 +174,8 @@ trait DataRequestChange {
 
 impl DataRequestChange for DataRequest {
     fn new(
-        sender: AccountId, 
-        id: u64, 
+        sender: AccountId,
+        id: u64,
         config: oracle_config::OracleConfig,
         request_data: NewDataRequestArgs
     ) -> Self {
@@ -219,13 +221,13 @@ impl DataRequestChange for DataRequest {
         if window.bonded_outcome.is_some() && !self.invoke_final_arbitrator(window.bond_size) {
             self.resolution_windows.push(
                 &ResolutionWindow::new(
-                    self.id, 
+                    self.id,
                     self.resolution_windows.len() as u16,
                     window.bond_size,
                     self.config.default_challenge_window_duration
                 )
             );
-            
+
         }
 
         unspent
@@ -241,7 +243,7 @@ impl DataRequestChange for DataRequest {
 
         window.unstake(sender, outcome, amount)
     }
-    
+
     fn finalize(&mut self) {
         self.finalized_outcome = self.get_final_outcome();
     }
@@ -276,7 +278,7 @@ impl DataRequestChange for DataRequest {
                 WindowStakeResult::Correct(correctly_staked) => {
                     // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
                     if round == 0 {
-                        resolution_round_earnings = helpers::calc_product(correctly_staked.user_stake, resolution_payout, correctly_staked.bonded_stake) 
+                        resolution_round_earnings = helpers::calc_product(correctly_staked.user_stake, resolution_payout, correctly_staked.bonded_stake)
                     } else {
                         total_correct_staked += correctly_staked.bonded_stake;
                         user_correct_stake += correctly_staked.user_stake;
@@ -284,7 +286,7 @@ impl DataRequestChange for DataRequest {
                 },
                 WindowStakeResult::Incorrect(incorrectly_staked) => {
                     total_incorrect_staked += incorrectly_staked
-                }, 
+                },
                 WindowStakeResult::NoResult => ()
             }
 
@@ -299,7 +301,7 @@ impl DataRequestChange for DataRequest {
         let bond_to_return = self.calc_validity_bond_to_return();
         if bond_to_return > 0 {
             token.transfer(
-                self.requestor.0.to_string(), 
+                self.requestor.0.to_string(),
                 bond_to_return.into()
             );
         }
@@ -344,7 +346,7 @@ impl DataRequestView for DataRequest {
     fn assert_not_finalized(&self) {
         assert!(self.finalized_outcome.is_none(), "Can't stake in finalized DataRequest");
     }
- 
+
     fn assert_finalized(&self) {
         assert!(self.finalized_outcome.is_some(), "DataRequest is not finalized");
     }
@@ -364,15 +366,15 @@ impl DataRequestView for DataRequest {
         assert_eq!(
             self.config.final_arbitrator,
             env::predecessor_account_id(),
-            "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}", 
+            "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}",
             env::predecessor_account_id()
         );
     }
 
     fn assert_final_arbitrator_invoked(&self) {
         assert!(
-            self.final_arbitrator_triggered, 
-            "Final arbitrator can not finalize `DataRequest` with id: {}", 
+            self.final_arbitrator_triggered,
+            "Final arbitrator can not finalize `DataRequest` with id: {}",
             self.id
         );
     }
@@ -387,13 +389,13 @@ impl DataRequestView for DataRequest {
         self.requestor.get_tvl(self.id.into()).into()
     }
 
-    fn calc_fee(&self) -> Balance { 
+    fn calc_fee(&self) -> Balance {
         let tvl = self.get_tvl();
         self.config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
     }
 
     /**
-     * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be 
+     * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
@@ -429,7 +431,7 @@ impl DataRequestView for DataRequest {
     }
 
     /**
-     * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be 
+     * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
@@ -452,22 +454,21 @@ impl DataRequestView for DataRequest {
 
 #[near_bindgen]
 impl Contract {
-     #[payable]
     // Merge config and payload
     pub fn dr_new(&mut self, sender: AccountId, amount: Balance, payload: NewDataRequestArgs) -> Balance {
         self.assert_whitelisted(sender.to_string());
         self.assert_bond_token();
         self.dr_validate(&payload);
-        assert!(amount >= self.config.validity_bond);
+        assert!(amount >= self.config.validity_bond, "Validity bond not reached");
 
         let dr = DataRequest::new(
-            sender, 
-            self.data_requests.len() as u64, 
+            sender,
+            self.data_requests.len() as u64,
             self.config.clone(), // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
             payload
         );
         self.data_requests.push(&dr);
-        
+
         if amount > self.config.validity_bond {
             amount - self.config.validity_bond
         } else {
@@ -544,7 +545,7 @@ impl Contract {
         dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
         dr.finalize_final_arbitrator(outcome.clone());
-       
+
         dr.target_contract.set_outcome(request_id, outcome);
         dr.return_validity_bond(&mut self.validity_bond_token);
 
@@ -558,3 +559,231 @@ impl Contract {
         self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod mock_token_basic_tests {
+    use near_sdk::{ MockedBlockchain };
+    use near_sdk::{ testing_env, VMContext };
+    use super::*;
+
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
+
+    fn bob() -> AccountId {
+        "bob.near".to_string()
+    }
+
+    fn carol() -> AccountId {
+        "carol.near".to_string()
+    }
+
+    fn token() -> AccountId {
+        "token.near".to_string()
+    }
+
+    fn gov() -> AccountId {
+        "gov.near".to_string()
+    }
+
+    fn to_valid(account: AccountId) -> ValidAccountId {
+        account.try_into().expect("invalid account")
+    }
+
+    fn config() -> oracle_config::OracleConfig {
+        oracle_config::OracleConfig {
+            gov: gov(),
+            final_arbitrator: alice(),
+            bond_token: token(),
+            stake_token: token(),
+            validity_bond: 100,
+            max_outcomes: 8,
+            default_challenge_window_duration: 1000,
+            min_initial_challenge_window_duration: 1000,
+            final_arbitrator_invoke_amount: 250,
+            resolution_fee_percentage: 0,
+            challenge_exponent: 2,
+        }
+    }
+
+    fn get_context(predecessor_account_id: AccountId) -> VMContext {
+        VMContext {
+            current_account_id: token(),
+            signer_account_id: bob(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id,
+            input: vec![],
+            block_index: 0,
+            block_timestamp: 0,
+            account_balance: 1000 * 10u128.pow(24),
+            account_locked_balance: 0,
+            storage_usage: 10u64.pow(6),
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(18),
+            random_seed: vec![0, 1, 2],
+            is_view: false,
+            output_data_receivers: vec![],
+            epoch_height: 0,
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Err predecessor is not whitelisted")]
+    fn dr_new_non_whitelisted() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.dr_new(alice(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 0,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Only the bond token contract can call this function")]
+    fn dr_new_non_bond_token() {
+        testing_env!(get_context(alice()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 0,
+        });
+    }
+
+    #[test]
+    fn dr_new_arg_source_exceed() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(), // todo call with 9 sources
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 1000,
+        });
+    }
+
+    #[test]
+    fn dr_new_arg_outcome_exceed() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,  // todo call with 9 outcomes
+            settlement_time: 0,
+            challenge_period: 1000,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Challenge shorter than minimum challenge period")]
+    fn dr_new_arg_challenge_period_below_min() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 999,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Challenge period exceeds maximum challenge period")]
+    fn dr_new_arg_challenge_period_exceed() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 3001,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Exceeds max duration")]
+    fn dr_new_arg_settlement_time_exceed() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 1_000_000_000_000 * 1000 * 1000,
+            challenge_period: 1500,
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Validity bond not reached")]
+    fn dr_new_not_enough_amount() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 90, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 1500,
+        });
+    }
+
+    #[test]
+    fn dr_new_success_exceed_amount() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        let amount : Balance = contract.dr_new(bob(), 200, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 1500,
+        });
+        assert_eq!(amount, 100);
+    }
+
+    #[test]
+    fn dr_new_success() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        let amount : Balance = contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: None,
+            settlement_time: 0,
+            challenge_period: 1500,
+        });
+        assert_eq!(amount, 0);
+    }
+}
+
+// create data request
+    // Check if validation works
+    // Check if unspent tokens returned (in token too)
+
+// dr_stake
+    // Check validation
+    // Check partial stake
+    // Check partia then complete stake, should mint new window and confirm new window end time etc.
+    // Check overstake
+
+// dr_finalize
+    // check finalized answer is expected and can be finalized wen expected

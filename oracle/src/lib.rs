@@ -21,7 +21,7 @@ mod mock_target_contract;
 
 use callback_args::*;
 
-use types::{ Timestamp };
+use types::{ Timestamp, Duration };
 use data_request::{ DataRequest };
 
 #[near_bindgen]
@@ -67,8 +67,8 @@ impl Contract {
 impl Contract {
     fn assert_gov(&self) {
         assert_eq!(
-            self.config.gov, 
-            env::predecessor_account_id(), 
+            self.config.gov,
+            env::predecessor_account_id(),
             "This method is only callable by the governance contract {}",
             self.config.gov
         );
