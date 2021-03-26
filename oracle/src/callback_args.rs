@@ -24,7 +24,6 @@ impl Contract {
     }
 }
 
-// TODO: Try and merge stake + challenge
 #[derive(Serialize, Deserialize)]
 pub struct StakeDataRequestArgs {
     pub id: U64,

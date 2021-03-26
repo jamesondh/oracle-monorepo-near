@@ -26,7 +26,6 @@ impl FungibleTokenReceiver for Contract {
         match payload {
             Payload::NewDataRequest(payload) => self.dr_new(sender, amount.into(), payload),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender, amount.into(), payload),
-            Payload::ChallengeDataRequest(payload) => self.dr_challenge(sender, amount.into(), payload)
         }.into()
     }
 }

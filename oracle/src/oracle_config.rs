@@ -134,6 +134,4 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
     }
-
-    // TODO: add gov assertion tests
 }

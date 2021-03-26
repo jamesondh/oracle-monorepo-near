@@ -109,42 +109,4 @@ impl Contract {
             self.config.gov
         );
     }
-    
-    // TODO: Pass in round as a param for challenges to avoid race conditions
-    // TODO: Consume and account for amount
-    fn dr_challenge(&mut self, _sender: AccountId, _amount: u128, _payload: ChallengeDataRequestArgs) -> u128 {
-        // let mut dri: DataRequest = self.data_requests.get(payload.id.into()).expect("No dri with such id");
-        // // Challenge answer should be valid in relation to the initial data request
-        // assert!(dri.validate_answer(&payload.answer), "invalid answer");
-
-
-        // let round: DataRequestRound = dri.rounds.iter().last().unwrap();
-        // // Get the latest answer on the proposal, challenge answer should differ from the latest answer
-        // assert!(round.winning_outcome().unwrap() != payload.answer, "EQ_CHALLENGE");
-
-        // // Only continue if the last answer is challengeable
-        // assert!(round.quorum_date > 0, "No quorum on previos round");
-        // assert!(env::block_timestamp() < round.quorum_date + round.challenge_period, "Challenge period expired");
-
-        // // Add new challenge
-        // let mut outcomes =  HashSet::new();
-        // outcomes.insert(payload.answer);
-        // dri.rounds.push(&DataRequestRound {
-        //     initiator: env::predecessor_account_id(),
-
-        //     total: 0,
-        //     outcomes,
-        //     outcome_stakes: HashMap::default(),
-        //     //users: HashMap::default(),
-        //     user_outcome_stake: HashMap::default(),
-
-        //     quorum_amount: 0, // todo calculate
-        //     start_date: env::block_timestamp(),
-        //     quorum_date: 0,
-        //     challenge_period: 0// todo challenge_period
-        // });
-        // TODO: return unused stake
-        0
-    }
-
 }
