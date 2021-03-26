@@ -1,8 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 
-use near_sdk::{ AccountId, env, near_bindgen };
+use near_sdk::{ AccountId, Balance, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::collections::{ Vector };
+use near_sdk::collections::{ Vector, LookupMap };
 use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 
 mod types;
@@ -13,6 +13,7 @@ mod callback_args;
 mod mock_requestor;
 mod whitelist;
 mod oracle_config;
+mod storage_manager;
 
 use callback_args::*;
 
@@ -27,6 +28,8 @@ pub struct Contract {
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
     pub token: mock_token::Token,
+    // Storage map
+    pub accounts: LookupMap<AccountId, Balance>
 }
 
 impl Default for Contract {
@@ -48,6 +51,7 @@ impl Contract {
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             token: mock_token::Token::default_new(),
+            accounts: LookupMap::new(b"a".to_vec())
         }
     }
 
