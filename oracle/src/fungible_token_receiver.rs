@@ -5,8 +5,7 @@ use near_sdk::serde_json;
 #[derive(Serialize, Deserialize)]
 pub enum Payload {
     NewDataRequest(NewDataRequestArgs),
-    StakeDataRequest(StakeDataRequestArgs),
-    ChallengeDataRequest(ChallengeDataRequestArgs)
+    StakeDataRequest(StakeDataRequestArgs)
 }
 
 pub trait FungibleTokenReceiver { 

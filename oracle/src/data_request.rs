@@ -52,11 +52,11 @@ impl ResolutionWindowChange for ResolutionWindow {
 
     // @returns amount to refund users because it was not staked
     fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance {
-        let mut stake_on_outcome = self.outcome_to_stake.get(&answer).unwrap_or(0);
+        let stake_on_outcome = self.outcome_to_stake.get(&answer).unwrap_or(0);
         let mut user_to_outcomes = self.user_to_outcome_to_stake
             .get(&sender)
-            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender))); 
-        let mut user_stake_on_outcome = user_to_outcomes.get(&answer).unwrap_or(0);
+            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
+        let user_stake_on_outcome = user_to_outcomes.get(&answer).unwrap_or(0);
 
         let stake_open = self.bond_size - stake_on_outcome;
         let unspent = if amount > stake_open {
@@ -71,7 +71,7 @@ impl ResolutionWindowChange for ResolutionWindow {
         self.outcome_to_stake.insert(&answer, &new_stake_on_outcome);
         
         let new_user_stake_on_outcome = user_stake_on_outcome + staked;
-        user_to_outcomes.insert(&answer, &new_stake_on_outcome);
+        user_to_outcomes.insert(&answer, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
 
         // If this stake fills the bond set final answer which will trigger a new resolution_window to be created
@@ -329,4 +329,17 @@ impl Contract {
     fn dr_get_expect(&self, id: U64) -> DataRequest {
         self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
     }    
-} 
+}
+
+// create data request
+    // Check if validation works
+    // Check if unspent tokens returned (in token too)
+
+// dr_stake
+    // Check validation
+    // Check partial stake 
+    // Check partia then complete stake, should mint new window and confirm new window end time etc.
+    // Check overstake 
+
+// dr_finalize 
+    // check finalized answer is expected and can be finalized wen expected
