@@ -15,8 +15,8 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn default_new() -> Self {
-        let mut balances = LookupMap::new(b"ftb".to_vec());
+    pub fn default_new(uid: Vec<u8>) -> Self {
+        let mut balances = LookupMap::new(uid);
         balances.insert(&env::predecessor_account_id(), &DEFAULT_BALANCE);
         Self {
             balances
@@ -69,10 +69,10 @@ impl FLXExternal for Contract {
         amount: U128, 
         msg: String
     ) {
-        self.token.internal_transfer(env::predecessor_account_id(), receiver_id, amount);
+        self.stake_token.internal_transfer(env::predecessor_account_id(), receiver_id, amount);
         let tokens_unspent: u128 = self.ft_on_transfer(env::predecessor_account_id(), amount, msg).into();
         if tokens_unspent > 0 {
-            self.token.deposit(env::predecessor_account_id(), tokens_unspent);
+            self.stake_token.deposit(env::predecessor_account_id(), tokens_unspent);
         }
     }
 }
@@ -143,7 +143,7 @@ mod mock_token_basic_tests {
     fn contract_creation_with_new() {
         testing_env!(get_context(carol()));
         let contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
     }
 
@@ -151,13 +151,13 @@ mod mock_token_basic_tests {
     fn transfer_works() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = 10000;
-        contract.token.transfer(bob(), send_amount.into());
-        let bob_balance: u128 = contract.token.get_balance_expect(bob()).into();
-        let carol_new_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        contract.stake_token.transfer(bob(), send_amount.into());
+        let bob_balance: u128 = contract.stake_token.get_balance_expect(bob()).into();
+        let carol_new_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         
         assert_eq!(bob_balance, send_amount);
         assert_eq!(carol_new_balance, carol_balance - send_amount);
@@ -185,11 +185,11 @@ mod mock_token_basic_tests {
     fn transfer_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = DEFAULT_BALANCE + 1;
-        contract.token.transfer(bob(), send_amount.into());
+        contract.stake_token.transfer(bob(), send_amount.into());
     }
 
     #[test]
@@ -197,11 +197,11 @@ mod mock_token_basic_tests {
     fn transfer_fails_no_funds() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = DEFAULT_BALANCE + 1;
-        contract.token.transfer(bob(), send_amount.into(),);
+        contract.stake_token.transfer(bob(), send_amount.into(),);
     }
 
     #[test]
@@ -209,7 +209,7 @@ mod mock_token_basic_tests {
     fn transfer_call_fails_insufficient_funds() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = DEFAULT_BALANCE + 1;
@@ -221,7 +221,7 @@ mod mock_token_basic_tests {
     fn transfer_call_fails_no_funds() {
         testing_env!(get_context(carol()));
         let mut contract = Contract::new(None, config());
-        let carol_balance: u128 = contract.token.get_balance_expect(carol()).into();
+        let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
         
         let send_amount = DEFAULT_BALANCE + 1;

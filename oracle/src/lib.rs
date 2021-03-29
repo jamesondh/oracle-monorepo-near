@@ -27,7 +27,8 @@ pub struct Contract {
     pub config: oracle_config::OracleConfig,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
-    pub token: mock_token::Token,
+    pub stake_token: mock_token::Token,
+    pub validity_bond_token: mock_token::Token,
     // Storage map
     pub accounts: LookupMap<AccountId, Balance>
 }
@@ -50,7 +51,8 @@ impl Contract {
             config,
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
-            token: mock_token::Token::default_new(),
+            stake_token: mock_token::Token::default_new(b"st".to_vec()),
+            validity_bond_token: mock_token::Token::default_new(b"vbt".to_vec()),
             accounts: LookupMap::new(b"a".to_vec())
         }
     }
