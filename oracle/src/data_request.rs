@@ -95,6 +95,7 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub config: oracle_config::OracleConfig, // Config at initiation
     pub initial_challenge_period: Duration,
+    pub final_arbitrator: bool
 }
 
 trait DataRequestChange {
@@ -121,7 +122,8 @@ impl DataRequestChange for DataRequest {
             resolution_windows,
             config,
             initial_challenge_period: request_data.challenge_period,
-        } 
+            final_arbitrator: false
+        }
     }
 
     // @returns amount of tokens that didn't get staked
@@ -145,8 +147,9 @@ impl DataRequestChange for DataRequest {
             );
         }
 
-        // Check if this stake closed the current window, if so create next window
-        if window.bonded_outcome.is_some() {
+        // Check if this stake is bonded for the current window and if the final arbitrator should be invoked.
+        // If the final arbitrator is invoked other stake won't come through.
+        if window.bonded_outcome.is_some() && !self.invoke_final_arbitrator(window.bond_size) {
             self.resolution_windows.push(
                 &ResolutionWindow::new(
                     self.id, 
@@ -155,6 +158,7 @@ impl DataRequestChange for DataRequest {
                     self.config.default_challenge_window_duration
                 )
             );
+            
         }
 
         unspent
@@ -176,6 +180,7 @@ trait DataRequestView {
     fn calc_resolution_bond(&self) -> Balance;
     fn calc_validity_bond_to_return(&self) -> Balance;
     fn calc_resolution_fee_payout(&self) -> Balance;
+    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
 }
 
 impl DataRequestView for DataRequest {
@@ -198,6 +203,7 @@ impl DataRequestView for DataRequest {
     }
 
     fn assert_can_finalize(&self) {
+        assert!(!self.final_arbitrator, "Can only be finalized by final arbitrator");
         let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
@@ -213,8 +219,13 @@ impl DataRequestView for DataRequest {
         self.requestor.get_tvl(self.id.into()).into()
     }
 
+    // Returns wether final arbitrator was triggered
+    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool {
+        let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
+        if should_invoke { self.final_arbitrator = true }
+        self.final_arbitrator
+    }
 
-    // TODO: rewrite resolution / stake bond logic
     fn calc_fee(&self) -> Balance { 
         let tvl = self.get_tvl();
         self.config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
