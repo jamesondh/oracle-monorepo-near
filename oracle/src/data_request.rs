@@ -102,6 +102,8 @@ trait DataRequestChange {
     fn new(sender: AccountId, id: u64, config: oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
+    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
+    fn finalize_final_arbitrator(&mut self, outcome: Outcome);
 }
 
 impl DataRequestChange for DataRequest {
@@ -163,10 +165,21 @@ impl DataRequestChange for DataRequest {
 
         unspent
     }
-
+    
     fn finalize(&mut self) {
         self.finalized_outcome = self.get_final_outcome();
     }
+
+    // @returns wether final arbitrator was triggered
+    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool {
+        let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
+        if should_invoke { self.final_arbitrator = true }
+        self.final_arbitrator
+    }
+
+    fn finalize_final_arbitrator(&mut self, outcome: Outcome) {
+        self.finalized_outcome = Some(outcome);
+    } 
 }
 
 trait DataRequestView {
@@ -174,13 +187,13 @@ trait DataRequestView {
     fn assert_not_finalized(&self);
     fn assert_settlement_time_passed(&self);
     fn assert_can_finalize(&self);
+    fn assert_final_arbitrator_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
     fn calc_fee(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
     fn calc_validity_bond_to_return(&self) -> Balance;
     fn calc_resolution_fee_payout(&self) -> Balance;
-    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
 }
 
 impl DataRequestView for DataRequest {
@@ -209,6 +222,14 @@ impl DataRequestView for DataRequest {
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
     }
 
+    fn assert_final_arbitrator_invoked(&self) {
+        assert!(
+            self.final_arbitrator, 
+            "Final arbitrator can not finalize `DataRequest` with id: {}", 
+            self.id
+        );
+    }
+
     fn get_final_outcome(&self) -> Option<Outcome> {
         let last_bonded_window_i = self.resolution_windows.len() - 2; // Last window after end_time never has a bonded outcome
         let last_bonded_window = self.resolution_windows.get(last_bonded_window_i).unwrap();
@@ -217,13 +238,6 @@ impl DataRequestView for DataRequest {
 
     fn get_tvl(&self) -> Balance {
         self.requestor.get_tvl(self.id.into()).into()
-    }
-
-    // Returns wether final arbitrator was triggered
-    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool {
-        let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
-        if should_invoke { self.final_arbitrator = true }
-        self.final_arbitrator
     }
 
     fn calc_fee(&self) -> Balance { 
@@ -290,12 +304,19 @@ impl DataRequestView for DataRequest {
 }
 
 impl Contract {
-    pub fn dr_finalize(&mut self, id: U64) {
-        let mut dr = self.dr_get_expect(id);
+    pub fn dr_finalize(&mut self, request_id: U64) {
+        let mut dr = self.dr_get_expect(request_id);
         dr.assert_can_finalize();
         dr.finalize();
-        self.data_requests.replace(id.into(), &dr);
+        self.data_requests.replace(request_id.into(), &dr);
         // TODO: Return validity bond to creator
+    }
+
+    pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
+        let mut dr = self.dr_get_expect(request_id);
+        dr.assert_valid_answer(&outcome);
+        dr.assert_final_arbitrator_invoked();
+        dr.finalize_final_arbitrator(outcome);
     }
 
     // Merge config and payload
