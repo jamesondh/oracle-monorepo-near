@@ -104,7 +104,7 @@ impl ResolutionWindowChange for ResolutionWindow {
                     WindowStakeResult::Correct(CorrectStake {
                         total_stake: self.bond_size,
                         // Get the users stake in this outcome for this window
-                        user_stake:  match &mut self.user_to_outcome_to_stake.get(&sender) {
+                        user_stake:  match &mut self.user_to_outcome_to_stake.get(&account_id) {
                             Some(outcome_to_stake) => {
                                 outcome_to_stake.remove(&bonded_outcome).unwrap_or(0)
                             },
