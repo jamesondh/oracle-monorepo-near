@@ -262,6 +262,7 @@ impl DataRequestChange for DataRequest {
 trait DataRequestView {
     fn assert_valid_answer(&self, answer: &Outcome);
     fn assert_not_finalized(&self);
+    fn assert_finalized(&self);
     fn assert_settlement_time_passed(&self);
     fn assert_can_finalize(&self);
     fn assert_final_arbitrator(&self);
@@ -287,6 +288,10 @@ impl DataRequestView for DataRequest {
 
     fn assert_not_finalized(&self) {
         assert!(self.finalized_outcome.is_none(), "Can't stake in finalized market");
+    }
+ 
+    fn assert_finalized(&self) {
+        assert!(self.finalized_outcome.is_some(), "Can't stake in finalized market");
     }
 
     fn assert_settlement_time_passed(&self) {
@@ -450,6 +455,7 @@ impl Contract {
      */
     pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> Balance {
         let mut dr = self.dr_get_expect(request_id.into());
+        dr.assert_finalized();
         let payout = dr.claim(account_id.to_string());
         self.stake_token.transfer(account_id, payout.into());
         payout
