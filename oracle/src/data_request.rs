@@ -9,10 +9,21 @@ use crate::types::{ Timestamp, Duration };
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
-#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug)]
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq)]
 pub enum Outcome {
     Answer(String),
     Invalid
+}
+
+pub enum WindowStakeResult {
+    Incorrect(u128), // Round bonded outcome was correct
+    Correct(CorrectStake), // Round bonded outcome was incorrect
+    NoResult // Last / non-bonded window
+}
+
+pub struct CorrectStake {
+    pub total_stake: u128,
+    pub user_stake: u128, 
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
@@ -35,6 +46,7 @@ pub struct ResolutionWindow {
 trait ResolutionWindowChange {
     fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self;
     fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance;
+    fn claim_for(&mut self, sender: AccountId, final_outcome: &Outcome) -> WindowStakeResult;
 }
 
 impl ResolutionWindowChange for ResolutionWindow {
@@ -82,6 +94,32 @@ impl ResolutionWindowChange for ResolutionWindow {
         unspent
     }
 
+    fn claim_for(&mut self, sender: AccountId, final_outcome: &Outcome) -> WindowStakeResult {
+
+        // Check if there is a bonded outcome, if there is none it means it can be ignored in payout calc since it can only be the final unsuccessful window
+        match &self.bonded_outcome {
+            Some(bonded_outcome) => {
+                // If the bonded outcome for this window is equal to the finalized outcome the user's stake in this window and the total amount staked should be returned (which == `self.bond_size`)
+                if bonded_outcome == final_outcome {
+                    WindowStakeResult::Correct(CorrectStake {
+                        total_stake: self.bond_size,
+                        // Get the users stake in this outcome for this window
+                        user_stake:  match &mut self.user_to_outcome_to_stake.get(&sender) {
+                            Some(outcome_to_stake) => {
+                                outcome_to_stake.remove(&bonded_outcome).unwrap_or(0)
+                            },
+                            None => 0
+                        }
+                    })
+                // Else if the bonded outcome for this window is not equal to the finalized outcome the user's stake in this window only the total amount that was staked on the incorrect outcome should be returned
+                } else {
+                    WindowStakeResult::Incorrect(self.bond_size)
+                }
+            },
+            None => WindowStakeResult::NoResult // Return `NoResult` for non-bonded window
+        }
+    }
+
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -104,6 +142,7 @@ trait DataRequestChange {
     fn finalize(&mut self);
     fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
+    fn claim(&mut self, account_id: String) -> u128;
 }
 
 impl DataRequestChange for DataRequest {
@@ -179,7 +218,45 @@ impl DataRequestChange for DataRequest {
 
     fn finalize_final_arbitrator(&mut self, outcome: Outcome) {
         self.finalized_outcome = Some(outcome);
-    } 
+    }
+
+    fn claim(&mut self, account_id: String) -> Balance {
+
+        // Metrics for calculating payout
+        let mut total_correct_staked = 0;
+        let mut total_incorrect_staked = 0;
+        let mut user_correct_stake = 0;
+
+        // Metrics we need to calculate resolution round result
+        let resolution_payout = self.calc_resolution_fee_payout();
+        let mut resolution_round_earnings = 0;
+
+        // For any round after the resolution round handle generically
+        for round in 0..self.resolution_windows.len() {
+            let mut window = self.resolution_windows.get(round).unwrap();
+            let stake_state: WindowStakeResult = window.claim_for(account_id.to_string(), self.finalized_outcome.as_ref().unwrap());
+
+            match stake_state {
+                WindowStakeResult::Correct(correctly_staked) => {
+                    // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
+                    if round == 0 {
+                        resolution_round_earnings = correctly_staked.user_stake * resolution_payout / correctly_staked.total_stake
+                    } else {
+                        total_correct_staked += correctly_staked.total_stake;
+                        user_correct_stake += correctly_staked.user_stake;
+                    }
+                },
+                WindowStakeResult::Incorrect(incorrectly_staked) => {
+                    total_incorrect_staked += incorrectly_staked
+                }, 
+                WindowStakeResult::NoResult => ()
+            }
+
+            self.resolution_windows.replace(round as u64, &window);
+        };
+
+        resolution_round_earnings + user_correct_stake * total_incorrect_staked / total_correct_staked
+    }
 }
 
 trait DataRequestView {
@@ -366,6 +443,16 @@ impl Contract {
         self.data_requests.replace(payload.id.into(), &dr);
 
         unspent_stake
+    }
+
+    /**
+     * @returns amount of tokens claimed
+     */
+    pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> Balance {
+        let mut dr = self.dr_get_expect(request_id.into());
+        let payout = dr.claim(account_id.to_string());
+        self.stake_token.transfer(account_id, payout.into());
+        payout
     }
 }
 

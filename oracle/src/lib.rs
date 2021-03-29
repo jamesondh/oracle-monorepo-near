@@ -58,54 +58,6 @@ impl Contract {
             validity_bond_token: mock_token::Token::default_new(b"vbt".to_vec()),
         }
     }
-
-    pub fn dr_claim(&mut self, _id: U64) {
-        // calculate the amount of tokens the user
-        // let dri: DataRequest = self.data_requests.get(id.into()).expect("No dri with such id");
-        // let mut user_amount: u128 = 0;
-        // let mut rounds_share_validity = 0;
-
-        // let round_zero: DataRequestRound = dri.rounds.get(0).unwrap();
-        // // If the initial round was the right answer, receives full validity bond
-        // if round_zero.winning_outcome().unwrap() == final_outcome {
-        //     // divide validity bond among round 0 stakers
-        //     user_amount += dri.validity_bond * round_zero.user_outcome_stake.
-        //         get(&env::predecessor_account_id()).unwrap().
-        //         get(&final_outcome).unwrap() / round_zero.outcome_stakes.get(&final_outcome).unwrap();
-        // } else {
-        //     // loop over all the other round and divide validity bond over round who where right
-        //     for n in 1..dri.rounds.len() {
-        //         if dri.rounds.get(n).unwrap().winning_outcome().unwrap() == final_outcome {
-        //             rounds_share_validity += 1;
-        //         }
-        //     }
-        // }
-
-        // for n in 1..dri.rounds.len() {
-        //     let current_round: DataRequestRound = dri.rounds.get(n).unwrap();
-        //     if current_round.winning_outcome().unwrap() != final_outcome {
-        //         continue;
-        //     }
-
-        //     if rounds_share_validity > 0 {
-        //         // share validity bond
-        //         user_amount += dri.validity_bond * current_round.user_outcome_stake.
-        //             get(&env::predecessor_account_id()).unwrap().
-        //             get(&final_outcome).unwrap() / current_round.outcome_stakes.get(&final_outcome).unwrap() / rounds_share_validity;
-        //     }
-
-        //     let losing_round: DataRequestRound = dri.rounds.get(n).unwrap();
-        //     // original winning stake
-        //     user_amount += current_round.user_outcome_stake.
-        //       get(&env::predecessor_account_id()).unwrap().
-        //       get(&final_outcome).unwrap();
-
-        //     // add losing stakes
-        //     user_amount += user_amount * losing_round.outcome_stakes.get(
-        //         &losing_round.winning_outcome().unwrap()
-        //     ).unwrap() / current_round.total;
-        // }
-    }
 }
 
 impl Contract {
