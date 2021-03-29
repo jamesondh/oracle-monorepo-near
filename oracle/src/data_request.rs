@@ -46,7 +46,7 @@ pub struct ResolutionWindow {
 trait ResolutionWindowChange {
     fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self;
     fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance;
-    fn claim_for(&mut self, sender: AccountId, final_outcome: &Outcome) -> WindowStakeResult;
+    fn claim_for(&mut self, account_id: AccountId, final_outcome: &Outcome) -> WindowStakeResult;
 }
 
 impl ResolutionWindowChange for ResolutionWindow {
@@ -94,7 +94,7 @@ impl ResolutionWindowChange for ResolutionWindow {
         unspent
     }
 
-    fn claim_for(&mut self, sender: AccountId, final_outcome: &Outcome) -> WindowStakeResult {
+    fn claim_for(&mut self, account_id: AccountId, final_outcome: &Outcome) -> WindowStakeResult {
 
         // Check if there is a bonded outcome, if there is none it means it can be ignored in payout calc since it can only be the final unsuccessful window
         match &self.bonded_outcome {
