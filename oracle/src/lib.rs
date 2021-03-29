@@ -51,9 +51,11 @@ impl Contract {
             config,
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
+            accounts: LookupMap::new(b"a".to_vec()),
+            
+            // Mock
             stake_token: mock_token::Token::default_new(b"st".to_vec()),
             validity_bond_token: mock_token::Token::default_new(b"vbt".to_vec()),
-            accounts: LookupMap::new(b"a".to_vec())
         }
     }
 
