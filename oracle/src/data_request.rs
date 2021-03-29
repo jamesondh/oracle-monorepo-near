@@ -187,6 +187,7 @@ trait DataRequestView {
     fn assert_not_finalized(&self);
     fn assert_settlement_time_passed(&self);
     fn assert_can_finalize(&self);
+    fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
@@ -220,6 +221,15 @@ impl DataRequestView for DataRequest {
         let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
+    }
+
+    fn assert_final_arbitrator(&self) {
+        assert_eq!(
+            self.final_arbitrator,
+            env::predecessor_account_id(),
+            "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}", 
+            env::predecessor_account_id()
+        );
     }
 
     fn assert_final_arbitrator_invoked(&self) {
@@ -314,8 +324,10 @@ impl Contract {
 
     pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
         let mut dr = self.dr_get_expect(request_id);
+        dr.assert_final_arbitrator();
         dr.assert_valid_answer(&outcome);
         dr.assert_final_arbitrator_invoked();
+
         dr.finalize_final_arbitrator(outcome);
     }
 
