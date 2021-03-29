@@ -95,7 +95,7 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub config: oracle_config::OracleConfig, // Config at initiation
     pub initial_challenge_period: Duration,
-    pub final_arbitrator: bool
+    pub final_arbitrator_triggered: bool
 }
 
 trait DataRequestChange {
@@ -124,7 +124,7 @@ impl DataRequestChange for DataRequest {
             resolution_windows,
             config,
             initial_challenge_period: request_data.challenge_period,
-            final_arbitrator: false
+            final_arbitrator_triggered: false
         }
     }
 
@@ -173,8 +173,8 @@ impl DataRequestChange for DataRequest {
     // @returns wether final arbitrator was triggered
     fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool {
         let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
-        if should_invoke { self.final_arbitrator = true }
-        self.final_arbitrator
+        if should_invoke { self.final_arbitrator_triggered = true }
+        self.final_arbitrator_triggered
     }
 
     fn finalize_final_arbitrator(&mut self, outcome: Outcome) {
@@ -217,7 +217,7 @@ impl DataRequestView for DataRequest {
     }
 
     fn assert_can_finalize(&self) {
-        assert!(!self.final_arbitrator, "Can only be finalized by final arbitrator");
+        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator");
         let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
@@ -225,7 +225,7 @@ impl DataRequestView for DataRequest {
 
     fn assert_final_arbitrator(&self) {
         assert_eq!(
-            self.final_arbitrator,
+            self.config.final_arbitrator,
             env::predecessor_account_id(),
             "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}", 
             env::predecessor_account_id()
@@ -234,7 +234,7 @@ impl DataRequestView for DataRequest {
 
     fn assert_final_arbitrator_invoked(&self) {
         assert!(
-            self.final_arbitrator, 
+            self.final_arbitrator_triggered, 
             "Final arbitrator can not finalize `DataRequest` with id: {}", 
             self.id
         );
@@ -372,18 +372,5 @@ impl Contract {
 impl Contract {
     fn dr_get_expect(&self, id: U64) -> DataRequest {
         self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
-    }    
+    } 
 }
-
-// create data request
-    // Check if validation works
-    // Check if unspent tokens returned (in token too)
-
-// dr_stake
-    // Check validation
-    // Check partial stake 
-    // Check partia then complete stake, should mint new window and confirm new window end time etc.
-    // Check overstake 
-
-// dr_finalize 
-    // check finalized answer is expected and can be finalized wen expected
