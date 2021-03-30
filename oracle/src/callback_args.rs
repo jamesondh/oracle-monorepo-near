@@ -9,6 +9,7 @@ pub struct NewDataRequestArgs {
     pub outcomes: Option<Vec<String>>,
     pub settlement_time: Timestamp, // Can be in the past
     pub challenge_period: Timestamp,
+    pub target_contract: AccountId
 }
 
 impl Contract {

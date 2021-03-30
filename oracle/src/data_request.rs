@@ -9,7 +9,7 @@ use crate::types::{ Timestamp, Duration };
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
-#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
     Answer(String),
     Invalid
@@ -133,7 +133,9 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub config: oracle_config::OracleConfig, // Config at initiation
     pub initial_challenge_period: Duration,
-    pub final_arbitrator_triggered: bool
+    pub final_arbitrator_triggered: bool,
+    pub target_contract: mock_target_contract::TargetContract
+
 }
 
 trait DataRequestChange {
@@ -164,7 +166,8 @@ impl DataRequestChange for DataRequest {
             resolution_windows,
             config,
             initial_challenge_period: request_data.challenge_period,
-            final_arbitrator_triggered: false
+            final_arbitrator_triggered: false,
+            target_contract: mock_target_contract::TargetContract(request_data.target_contract)
         }
     }
 
@@ -414,6 +417,7 @@ impl Contract {
         dr.finalize();
         self.data_requests.replace(request_id.into(), &dr);
 
+        dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
         dr.return_validity_bond(&mut self.validity_bond_token);
     }
 
@@ -422,8 +426,9 @@ impl Contract {
         dr.assert_final_arbitrator();
         dr.assert_valid_answer(&outcome);
         dr.assert_final_arbitrator_invoked();
-        dr.finalize_final_arbitrator(outcome);
+        dr.finalize_final_arbitrator(outcome.clone());
        
+        dr.target_contract.set_outcome(request_id, outcome);
         dr.return_validity_bond(&mut self.validity_bond_token);
     }
 

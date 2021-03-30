@@ -7,13 +7,16 @@ use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 
 mod types;
 mod data_request;
-mod mock_token;
 mod fungible_token_receiver;
 mod callback_args;
-mod mock_requestor;
 mod whitelist;
 mod oracle_config;
 mod storage_manager;
+
+/// Mocks
+mod mock_requestor;
+mod mock_token;
+mod mock_target_contract;
 
 use callback_args::*;
 
