@@ -143,6 +143,7 @@ trait DataRequestChange {
     fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
     fn claim(&mut self, account_id: String) -> u128;
+    fn return_validity_bond(&self, token: &mut mock_token::Token);
 }
 
 impl DataRequestChange for DataRequest {
@@ -256,6 +257,17 @@ impl DataRequestChange for DataRequest {
         };
 
         resolution_round_earnings + user_correct_stake * total_incorrect_staked / total_correct_staked
+    }
+
+    // @notice Return what's left of validity_bond to requestor
+    fn return_validity_bond(&self, token: &mut mock_token::Token) {
+        let bond_to_return = self.calc_validity_bond_to_return();
+        if bond_to_return > 0 {
+            token.transfer(
+                self.requestor.0.to_string(), 
+                bond_to_return.into()
+            );
+        }
     }
 }
 
@@ -401,7 +413,8 @@ impl Contract {
         dr.assert_can_finalize();
         dr.finalize();
         self.data_requests.replace(request_id.into(), &dr);
-        // TODO: Return validity bond to creator
+
+        dr.return_validity_bond(&mut self.validity_bond_token);
     }
 
     pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
@@ -409,8 +422,9 @@ impl Contract {
         dr.assert_final_arbitrator();
         dr.assert_valid_answer(&outcome);
         dr.assert_final_arbitrator_invoked();
-
         dr.finalize_final_arbitrator(outcome);
+       
+        dr.return_validity_bond(&mut self.validity_bond_token);
     }
 
     // Merge config and payload
