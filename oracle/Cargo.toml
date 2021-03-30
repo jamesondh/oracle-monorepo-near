@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = { git = "https://github.com/near/near-sdk-rs.git", tag="contract_cache_v0" }
-uint = { version = "0.8.5", default-features = false }
+uint = { version = "0.9.0", default-features = false }
 serde = "1.0.118"
 
 [dev-dependencies]

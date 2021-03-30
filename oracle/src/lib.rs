@@ -12,6 +12,7 @@ mod callback_args;
 mod whitelist;
 mod oracle_config;
 mod storage_manager;
+mod helpers;
 
 /// Mocks
 mod mock_requestor;

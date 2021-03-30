@@ -277,7 +277,7 @@ impl DataRequestChange for DataRequest {
                 WindowStakeResult::Correct(correctly_staked) => {
                     // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
                     if round == 0 {
-                        resolution_round_earnings = correctly_staked.user_stake * resolution_payout / correctly_staked.bonded_stake
+                        resolution_round_earnings = helpers::calc_product(correctly_staked.user_stake, resolution_payout, correctly_staked.bonded_stake) 
                     } else {
                         total_correct_staked += correctly_staked.bonded_stake;
                         user_correct_stake += correctly_staked.user_stake;
@@ -292,7 +292,7 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        resolution_round_earnings + user_correct_stake * total_incorrect_staked / total_correct_staked
+        resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
     }
 
     // @notice Return what's left of validity_bond to requestor
