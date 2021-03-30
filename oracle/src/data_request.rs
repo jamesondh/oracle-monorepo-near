@@ -22,7 +22,7 @@ pub enum WindowStakeResult {
 }
 
 pub struct CorrectStake {
-    pub total_stake: u128,
+    pub bonded_stake: u128,
     pub user_stake: u128, 
 }
 
@@ -102,7 +102,7 @@ impl ResolutionWindowChange for ResolutionWindow {
                 // If the bonded outcome for this window is equal to the finalized outcome the user's stake in this window and the total amount staked should be returned (which == `self.bond_size`)
                 if bonded_outcome == final_outcome {
                     WindowStakeResult::Correct(CorrectStake {
-                        total_stake: self.bond_size,
+                        bonded_stake: self.bond_size,
                         // Get the users stake in this outcome for this window
                         user_stake:  match &mut self.user_to_outcome_to_stake.get(&account_id) {
                             Some(outcome_to_stake) => {
@@ -240,9 +240,9 @@ impl DataRequestChange for DataRequest {
                 WindowStakeResult::Correct(correctly_staked) => {
                     // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
                     if round == 0 {
-                        resolution_round_earnings = correctly_staked.user_stake * resolution_payout / correctly_staked.total_stake
+                        resolution_round_earnings = correctly_staked.user_stake * resolution_payout / correctly_staked.bonded_stake
                     } else {
-                        total_correct_staked += correctly_staked.total_stake;
+                        total_correct_staked += correctly_staked.bonded_stake;
                         user_correct_stake += correctly_staked.user_stake;
                     }
                 },
