@@ -28,7 +28,7 @@ impl Contract {
 #[derive(Serialize, Deserialize)]
 pub struct StakeDataRequestArgs {
     pub id: U64,
-    pub answer: data_request::Outcome,
+    pub outcome: data_request::Outcome,
 }
 
 #[derive(Serialize, Deserialize)]

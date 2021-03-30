@@ -5,7 +5,7 @@ use near_sdk::serde::{ Deserialize, Serialize };
 use near_sdk::{ env, Balance, AccountId };
 use near_sdk::collections::{ Vector, LookupMap };
 
-use crate::types::{ Timestamp, Duration };
+use crate::types::{ Timestamp, Duration, WrappedBalance };
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
@@ -16,14 +16,14 @@ pub enum Outcome {
 }
 
 pub enum WindowStakeResult {
-    Incorrect(u128), // Round bonded outcome was correct
+    Incorrect(Balance), // Round bonded outcome was correct
     Correct(CorrectStake), // Round bonded outcome was incorrect
     NoResult // Last / non-bonded window
 }
 
 pub struct CorrectStake {
-    pub bonded_stake: u128,
-    pub user_stake: u128, 
+    pub bonded_stake: Balance,
+    pub user_stake: Balance, 
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
@@ -45,7 +45,8 @@ pub struct ResolutionWindow {
 
 trait ResolutionWindowChange {
     fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self;
-    fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance;
+    fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
+    fn unstake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn claim_for(&mut self, account_id: AccountId, final_outcome: &Outcome) -> WindowStakeResult;
 }
 
@@ -63,12 +64,12 @@ impl ResolutionWindowChange for ResolutionWindow {
     }
 
     // @returns amount to refund users because it was not staked
-    fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance {
-        let stake_on_outcome = self.outcome_to_stake.get(&answer).unwrap_or(0);
+    fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance {
+        let stake_on_outcome = self.outcome_to_stake.get(&outcome).unwrap_or(0);
         let mut user_to_outcomes = self.user_to_outcome_to_stake
             .get(&sender)
             .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
-        let user_stake_on_outcome = user_to_outcomes.get(&answer).unwrap_or(0);
+        let user_stake_on_outcome = user_to_outcomes.get(&outcome).unwrap_or(0);
 
         let stake_open = self.bond_size - stake_on_outcome;
         let unspent = if amount > stake_open {
@@ -80,22 +81,42 @@ impl ResolutionWindowChange for ResolutionWindow {
         let staked = amount - unspent;
 
         let new_stake_on_outcome = stake_on_outcome + staked;
-        self.outcome_to_stake.insert(&answer, &new_stake_on_outcome);
+        self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
         
         let new_user_stake_on_outcome = user_stake_on_outcome + staked;
-        user_to_outcomes.insert(&answer, &new_user_stake_on_outcome);
+        user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
 
-        // If this stake fills the bond set final answer which will trigger a new resolution_window to be created
+        // If this stake fills the bond set final outcome which will trigger a new resolution_window to be created
         if new_stake_on_outcome == self.bond_size {
-            self.bonded_outcome = Some(answer);
+            self.bonded_outcome = Some(outcome);
         }
 
         unspent
     }
+ 
+    // @returns amount to refund users because it was not staked
+    fn unstake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance {
+        assert!(self.bonded_outcome.is_none() || self.bonded_outcome.as_ref().unwrap() != &outcome, "Cannot withdraw from bonded outcome");
+        let mut user_to_outcomes = self.user_to_outcome_to_stake
+            .get(&sender)
+            .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
+        let user_stake_on_outcome = user_to_outcomes.get(&outcome).unwrap_or(0);
+        assert!(user_stake_on_outcome >= amount, "Not enough staked to unstake");
+
+        let stake_on_outcome = self.outcome_to_stake.get(&outcome).unwrap_or(0);
+
+        let new_stake_on_outcome = stake_on_outcome - amount;
+        self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
+        
+        let new_user_stake_on_outcome = user_stake_on_outcome - amount;
+        user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
+        self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
+
+        amount
+    }
 
     fn claim_for(&mut self, account_id: AccountId, final_outcome: &Outcome) -> WindowStakeResult {
-
         // Check if there is a bonded outcome, if there is none it means it can be ignored in payout calc since it can only be the final unsuccessful window
         match &self.bonded_outcome {
             Some(bonded_outcome) => {
@@ -140,11 +161,12 @@ pub struct DataRequest {
 
 trait DataRequestChange {
     fn new(sender: AccountId, id: u64, config: oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
-    fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance;
+    fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
+    fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
-    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool;
+    fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
-    fn claim(&mut self, account_id: String) -> u128;
+    fn claim(&mut self, account_id: String) -> Balance;
     fn return_validity_bond(&self, token: &mut mock_token::Token);
 }
 
@@ -172,7 +194,7 @@ impl DataRequestChange for DataRequest {
     }
 
     // @returns amount of tokens that didn't get staked
-    fn stake(&mut self, sender: AccountId, answer: Outcome, amount: Balance) -> Balance {
+    fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance {
         let mut window = self.resolution_windows
             .iter()
             .last()
@@ -180,7 +202,7 @@ impl DataRequestChange for DataRequest {
                 ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
             );
 
-        let unspent = window.stake(sender, answer, amount);
+        let unspent = window.stake(sender, outcome, amount);
 
         // If first window push it to vec, else replace updated window struct
         if self.resolution_windows.len() == 0 {
@@ -208,13 +230,24 @@ impl DataRequestChange for DataRequest {
 
         unspent
     }
+
+    // @returns amount of tokens that didn't get staked
+    fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance {
+        let mut window = self.resolution_windows
+            .get(round as u64)
+            .unwrap_or(
+                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
+            );
+
+        window.unstake(sender, outcome, amount)
+    }
     
     fn finalize(&mut self) {
         self.finalized_outcome = self.get_final_outcome();
     }
 
     // @returns wether final arbitrator was triggered
-    fn invoke_final_arbitrator(&mut self, bond_size: u128) -> bool {
+    fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool {
         let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
         if should_invoke { self.final_arbitrator_triggered = true }
         self.final_arbitrator_triggered
@@ -275,7 +308,7 @@ impl DataRequestChange for DataRequest {
 }
 
 trait DataRequestView {
-    fn assert_valid_answer(&self, answer: &Outcome);
+    fn assert_valid_outcome(&self, outcome: &Outcome);
     fn assert_not_finalized(&self);
     fn assert_finalized(&self);
     fn assert_settlement_time_passed(&self);
@@ -291,10 +324,10 @@ trait DataRequestView {
 }
 
 impl DataRequestView for DataRequest {
-    fn assert_valid_answer(&self, answer: &Outcome) {
+    fn assert_valid_outcome(&self, outcome: &Outcome) {
         match &self.outcomes {
-            Some(outcomes) => match answer {
-                Outcome::Answer(answer) => assert!(outcomes.contains(&answer), "Incompatible answer"),
+            Some(outcomes) => match outcome {
+                Outcome::Answer(outcome) => assert!(outcomes.contains(&outcome), "Incompatible outcome"),
                 Outcome::Invalid => ()
             },
             None => ()
@@ -357,7 +390,7 @@ impl DataRequestView for DataRequest {
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
-    fn calc_resolution_bond(&self) -> u128 {
+    fn calc_resolution_bond(&self) -> Balance {
         let fee = self.calc_fee();
 
         if fee > self.config.validity_bond {
@@ -372,7 +405,7 @@ impl DataRequestView for DataRequest {
      * the rest of the bond will be paid out to resolvers. If the `DataRequest` is invalid the fees and the `validity_bond` are paid out to resolvers, the creator gets slashed.
      * @returns How much of the `validity_bond` should be returned to the creator after resolution denominated in `stake_token`
      */
-    fn calc_validity_bond_to_return(&self) -> u128 {
+    fn calc_validity_bond_to_return(&self) -> Balance {
         let fee = self.calc_fee();
         let outcome = self.finalized_outcome.as_ref().unwrap();
 
@@ -393,7 +426,7 @@ impl DataRequestView for DataRequest {
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
-    fn calc_resolution_fee_payout(&self) -> u128 {
+    fn calc_resolution_fee_payout(&self) -> Balance {
         let fee = self.calc_fee();
         let outcome = self.finalized_outcome.as_ref().unwrap();
 
@@ -410,6 +443,7 @@ impl DataRequestView for DataRequest {
     }
 }
 
+#[near_bindgen]
 impl Contract {
     pub fn dr_finalize(&mut self, request_id: U64) {
         let mut dr = self.dr_get_expect(request_id);
@@ -424,7 +458,7 @@ impl Contract {
     pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
         let mut dr = self.dr_get_expect(request_id);
         dr.assert_final_arbitrator();
-        dr.assert_valid_answer(&outcome);
+        dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
         dr.finalize_final_arbitrator(outcome.clone());
        
@@ -457,16 +491,23 @@ impl Contract {
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         self.assert_stake_token();
         let mut dr = self.dr_get_expect(payload.id.into());
-        dr.assert_valid_answer(&payload.answer);
+        dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
         dr.assert_settlement_time_passed();
         let _tvl = dr.get_tvl();
 
-        let unspent_stake = dr.stake(sender, payload.answer, amount);
+        let unspent_stake = dr.stake(sender, payload.outcome, amount);
 
         self.data_requests.replace(payload.id.into(), &dr);
 
         unspent_stake
+    }
+
+    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: Balance) -> WrappedBalance {
+        let mut dr = self.dr_get_expect(request_id.into());
+        let unstaked = dr.unstake(env::predecessor_account_id(), resolution_round, outcome, amount);
+
+        unstaked.into()
     }
 
     /**
