@@ -258,7 +258,6 @@ impl DataRequestChange for DataRequest {
     }
 
     fn claim(&mut self, account_id: String) -> Balance {
-
         // Metrics for calculating payout
         let mut total_correct_staked = 0;
         let mut total_incorrect_staked = 0;
@@ -445,27 +444,7 @@ impl DataRequestView for DataRequest {
 
 #[near_bindgen]
 impl Contract {
-    pub fn dr_finalize(&mut self, request_id: U64) {
-        let mut dr = self.dr_get_expect(request_id);
-        dr.assert_can_finalize();
-        dr.finalize();
-        self.data_requests.replace(request_id.into(), &dr);
-
-        dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
-        dr.return_validity_bond(&mut self.validity_bond_token);
-    }
-
-    pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
-        let mut dr = self.dr_get_expect(request_id);
-        dr.assert_final_arbitrator();
-        dr.assert_valid_outcome(&outcome);
-        dr.assert_final_arbitrator_invoked();
-        dr.finalize_final_arbitrator(outcome.clone());
-       
-        dr.target_contract.set_outcome(request_id, outcome);
-        dr.return_validity_bond(&mut self.validity_bond_token);
-    }
-
+     #[payable]
     // Merge config and payload
     pub fn dr_new(&mut self, sender: AccountId, amount: Balance, payload: NewDataRequestArgs) -> Balance {
         self.assert_whitelisted(sender.to_string());
@@ -480,7 +459,7 @@ impl Contract {
             payload
         );
         self.data_requests.push(&dr);
-
+        
         if amount > self.config.validity_bond {
             amount - self.config.validity_bond
         } else {
@@ -488,6 +467,7 @@ impl Contract {
         }
     }
 
+    #[payable]
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         self.assert_stake_token();
         let mut dr = self.dr_get_expect(payload.id.into());
@@ -503,9 +483,14 @@ impl Contract {
         unspent_stake
     }
 
+    #[payable]
     pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: Balance) -> WrappedBalance {
+        let initial_storage = env::storage_usage();
+
         let mut dr = self.dr_get_expect(request_id.into());
         let unstaked = dr.unstake(env::predecessor_account_id(), resolution_round, outcome, amount);
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
         unstaked.into()
     }
@@ -513,12 +498,48 @@ impl Contract {
     /**
      * @returns amount of tokens claimed
      */
+    #[payable]
     pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> Balance {
+        let initial_storage = env::storage_usage();
+
         let mut dr = self.dr_get_expect(request_id.into());
         dr.assert_finalized();
         let payout = dr.claim(account_id.to_string());
         self.stake_token.transfer(account_id, payout.into());
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
+
         payout
+    }
+
+    #[payable]
+    pub fn dr_finalize(&mut self, request_id: U64) {
+        let initial_storage = env::storage_usage();
+        let mut dr = self.dr_get_expect(request_id);
+        dr.assert_can_finalize();
+        dr.finalize();
+        self.data_requests.replace(request_id.into(), &dr);
+
+        dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
+        dr.return_validity_bond(&mut self.validity_bond_token);
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
+    }
+
+    #[payable]
+    pub fn dr_final_arbitrator_finalize(&mut self, request_id: U64, outcome: Outcome) {
+        let initial_storage = env::storage_usage();
+
+        let mut dr = self.dr_get_expect(request_id);
+        dr.assert_final_arbitrator();
+        dr.assert_valid_outcome(&outcome);
+        dr.assert_final_arbitrator_invoked();
+        dr.finalize_final_arbitrator(outcome.clone());
+       
+        dr.target_contract.set_outcome(request_id, outcome);
+        dr.return_validity_bond(&mut self.validity_bond_token);
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }
 
