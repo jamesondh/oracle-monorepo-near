@@ -40,8 +40,12 @@ impl ConfigHandler for Contract {
         self.assert_gov();
         assert!(new_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Fee cannot be higher than 33%");
         assert_eq!(new_config.challenge_exponent, self.config.challenge_exponent, "Exponent cannot be altered for time being");
+        
+        let initial_storage = env::storage_usage();
 
         self.config = new_config;
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }
 

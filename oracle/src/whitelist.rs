@@ -49,13 +49,25 @@ trait WhitelistHandler {
 impl WhitelistHandler for Contract {
     fn add_to_whitelist(&mut self, new_requestor: ValidAccountId) {
         self.assert_gov();
+
+        let initial_storage = env::storage_usage();
+        
         let new_requestor = new_requestor.try_into().expect("Invalid account id");
         self.whitelist.0.insert(&new_requestor);
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
+
     }
  
     fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
         self.assert_gov();
+
+        let initial_storage = env::storage_usage();
+
         let requestor = requestor.try_into().expect("Invalid account id");
+
+        helpers::refund_storage(initial_storage, env::predecessor_account_id());
+
         self.whitelist.0.remove(&requestor)
     }
    
