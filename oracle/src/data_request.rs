@@ -338,7 +338,8 @@ impl DataRequestView for DataRequest {
     fn assert_can_stake_on_outcome(&self, outcome: &Outcome) {
         if self.resolution_windows.len() > 1 {
             let last_window = self.resolution_windows.get(self.resolution_windows.len() - 2).unwrap();
-            assert_ne!(&last_window.bonded_outcome.unwrap(), outcome);
+            // TODO, currently checking references are equal. In my experience checking values is safer.
+            assert_ne!(&last_window.bonded_outcome.unwrap(), outcome, "Outcome is incompatible for this round");
         }
     }
 
@@ -632,6 +633,23 @@ mod mock_token_basic_tests {
     }
 
     #[test]
+    #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
+    fn dr_new_single_outcome() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string()].to_vec()),
+            settlement_time: 0,
+            challenge_period: 1500,
+            target_contract: target(),
+        });
+    }
+
+
+    #[test]
     #[should_panic(expected = "Err predecessor is not whitelisted")]
     fn dr_new_non_whitelisted() {
         testing_env!(get_context(token()));
@@ -860,7 +878,7 @@ mod mock_token_basic_tests {
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
             id: U64(0),
-            outcome: data_request::Outcome::Answer("a".to_string())
+            outcome: data_request::Outcome::Answer("b".to_string())
         });
     }
 
@@ -1035,24 +1053,24 @@ mod mock_token_basic_tests {
         assert_eq!(request.finalized_outcome.unwrap(), data_request::Outcome::Answer("a".to_string()));
     }
 
-    // #[test]
-    // #[should_panic(expected = "Yes")]
-    // fn dr_stake_same_outcome() {
-    //     testing_env!(get_context(token()));
-    //     let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-    //     let mut contract = Contract::new(whitelist, config());
-    //     dr_new(&mut contract);
+    #[test]
+    #[should_panic(expected = "Outcome is incompatible for this round")]
+    fn dr_stake_same_outcome() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
 
-    //     contract.dr_stake(alice(), 300, StakeDataRequestArgs{
-    //         id: U64(0),
-    //         outcome: data_request::Outcome::Answer("a".to_string())
-    //     });
+        contract.dr_stake(alice(), 300, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
 
-    //     contract.dr_stake(alice(), 500, StakeDataRequestArgs{
-    //         id: U64(0),
-    //         outcome: data_request::Outcome::Answer("a".to_string())
-    //     });
-    // }
+        contract.dr_stake(alice(), 500, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+    }
 }
 
 // TODO single outcome test
