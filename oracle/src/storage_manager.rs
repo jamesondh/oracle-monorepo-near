@@ -38,20 +38,16 @@ impl StorageManager for Contract {
     #[payable]
     fn storage_deposit(&mut self, account_id: Option<ValidAccountId>) -> AccountStorageBalance {
         let amount = env::attached_deposit();
-        assert_eq!(
-            amount,
-            self.storage_minimum_balance().0,
-            "Requires attached deposit of the exact storage minimum balance"
-        );
         let account_id = account_id
             .map(|a| a.into())
             .unwrap_or_else(|| env::predecessor_account_id());
-        if self.accounts.insert(&account_id, &0).is_some() {
-            env::panic(b"The account is already registered");
-        }
+
+        let mut balance = self.accounts.get(&account_id).unwrap_or(0);
+        balance += amount;
+        self.accounts.insert(&account_id, &balance);
         AccountStorageBalance {
-            total: amount.into(),
-            available: amount.into(),
+            total: balance.into(),
+            available: balance.into(),
         }
     }
 

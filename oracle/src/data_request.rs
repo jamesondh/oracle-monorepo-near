@@ -1072,5 +1072,3 @@ mod mock_token_basic_tests {
         });
     }
 }
-
-// TODO single outcome test
