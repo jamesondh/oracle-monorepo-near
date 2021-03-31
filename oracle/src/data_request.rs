@@ -335,9 +335,9 @@ impl DataRequestView for DataRequest {
     }
 
     fn assert_can_stake_on_outcome(&self, outcome: &Outcome) {
-        if self.resolution_windows.len() > 0 {
-            let prev_window = self.resolution_windows.get(self.resolution_windows.len() - 1).unwrap();
-            assert_ne!(prev_window.bonded_outcome, outcome, "Cannot stake on same outcome as last window")
+        if self.resolution_windows.len() > 1 {
+            let last_window = self.resolution_windows.get(self.resolution_windows.len() - 2).unwrap();
+            assert_ne!(&last_window.bonded_outcome.unwrap(), outcome);
         }
     }
 
@@ -479,6 +479,7 @@ impl Contract {
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         self.assert_stake_token();
         let mut dr = self.dr_get_expect(payload.id.into());
+        dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
         dr.assert_settlement_time_passed();
