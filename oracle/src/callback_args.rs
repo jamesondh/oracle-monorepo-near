@@ -15,7 +15,7 @@ pub struct NewDataRequestArgs {
 
 impl Contract {
     pub fn dr_validate(&self, data_request: &NewDataRequestArgs) {
-        assert_eq!(data_request.sources.len() as u8, MAX_SOURCES, "Too many sources provided, max sources is: {}", MAX_SOURCES);
+        assert!(data_request.sources.len() as u8 <= MAX_SOURCES, "Too many sources provided, max sources is: {}", MAX_SOURCES);
         assert!(data_request.challenge_period >= self.config.min_initial_challenge_window_duration, "Challenge shorter than minimum challenge period of {}", self.config.min_initial_challenge_window_duration);
         assert!(data_request.challenge_period <= self.config.default_challenge_window_duration * 3, "Challenge period exceeds maximum challenge period of {}", self.config.default_challenge_window_duration * 3);
         assert!(
