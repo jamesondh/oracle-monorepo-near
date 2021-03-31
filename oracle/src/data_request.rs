@@ -102,7 +102,7 @@ impl ResolutionWindowChange for ResolutionWindow {
             .get(&sender)
             .unwrap_or(LookupMap::new(format!("utots:{}:{}:{}", self.dr_id, self.round, sender).as_bytes().to_vec())); 
         let user_stake_on_outcome = user_to_outcomes.get(&outcome).unwrap_or(0);
-        assert!(user_stake_on_outcome >= amount, "Not enough staked to unstake");
+        assert!(user_stake_on_outcome >= amount, "{} has less staked on this outcome ({}) than unstake amount", sender, user_stake_on_outcome);
 
         let stake_on_outcome = self.outcome_to_stake.get(&outcome).unwrap_or(0);
 
@@ -346,8 +346,8 @@ impl DataRequestView for DataRequest {
     }
 
     fn assert_can_finalize(&self) {
-        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator");
-        let last_window = self.resolution_windows.iter().last().expect("No resolutions found, DataRequest not processed");
+        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.config.final_arbitrator);
+        let last_window = self.resolution_windows.iter().last().expect("No resolution windows found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
     }

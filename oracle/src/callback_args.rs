@@ -2,6 +2,7 @@ use crate::*;
 use near_sdk::serde::{ Serialize, Deserialize };
 
 const MAX_SOURCES: u8 = 8;
+const MIN_OUTCOMES: u8 = 2;
 
 #[derive(Serialize, Deserialize)]
 pub struct NewDataRequestArgs {
@@ -14,13 +15,16 @@ pub struct NewDataRequestArgs {
 
 impl Contract {
     pub fn dr_validate(&self, data_request: &NewDataRequestArgs) {
-        assert_eq!(data_request.sources.len() as u8, MAX_SOURCES, "Source vector length exceeds max");
-        assert!(data_request.challenge_period >= self.config.min_initial_challenge_window_duration, "Challenge period exceeds maximum challenge period");
-        assert!(data_request.challenge_period <= self.config.default_challenge_window_duration * 3, "Challenge shorter than minimum challenge period");
+        assert_eq!(data_request.sources.len() as u8, MAX_SOURCES, "Too many sources provided, max sources is: {}", MAX_SOURCES);
+        assert!(data_request.challenge_period >= self.config.min_initial_challenge_window_duration, "Challenge shorter than minimum challenge period of {}", self.config.min_initial_challenge_window_duration);
+        assert!(data_request.challenge_period <= self.config.default_challenge_window_duration * 3, "Challenge period exceeds maximum challenge period of {}", self.config.default_challenge_window_duration * 3);
         assert!(
             data_request.outcomes.is_none() || 
-            data_request.outcomes.as_ref().unwrap().len() as u8 <= self.config.max_outcomes,
-            "Source vector length exceeds max"
+            data_request.outcomes.as_ref().unwrap().len() as u8 <= self.config.max_outcomes && 
+            data_request.outcomes.as_ref().unwrap().len() as u8 >= MIN_OUTCOMES,
+            "Invalid outcome list either exceeds min of: {} or max of {}",
+            MIN_OUTCOMES,
+            self.config.max_outcomes
         );
     }
 }
