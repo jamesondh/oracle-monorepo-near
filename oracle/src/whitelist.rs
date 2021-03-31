@@ -126,7 +126,6 @@ mod mock_token_basic_tests {
             min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 25_000_000_000_000_000_000_000_000_000_000,
             resolution_fee_percentage: 0,
-            challenge_exponent: 2,
         }
     }
 

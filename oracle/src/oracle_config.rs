@@ -19,7 +19,6 @@ pub struct OracleConfig {
     pub min_initial_challenge_window_duration: Duration,
     pub final_arbitrator_invoke_amount: u128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
     pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
-    pub challenge_exponent: u8, // Set to 2 for now, creating it as a config variable in case of requested change
 }
 
 trait ConfigHandler {
@@ -39,8 +38,7 @@ impl ConfigHandler for Contract {
     fn set_config(&mut self, new_config: OracleConfig) {
         self.assert_gov();
         assert!(new_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Fee cannot be higher than 33%");
-        assert_eq!(new_config.challenge_exponent, self.config.challenge_exponent, "Exponent cannot be altered for time being");
-        
+                
         let initial_storage = env::storage_usage();
 
         self.config = new_config;
@@ -94,7 +92,6 @@ mod mock_token_basic_tests {
             min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 25_000_000_000_000_000_000_000_000_000_000,
             resolution_fee_percentage: 0,
-            challenge_exponent: 2,
         }
     }
 
