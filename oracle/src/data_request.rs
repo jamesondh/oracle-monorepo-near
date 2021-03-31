@@ -215,7 +215,6 @@ impl DataRequestChange for DataRequest {
                 &window
             );
         }
-
         // Check if this stake is bonded for the current window and if the final arbitrator should be invoked.
         // If the final arbitrator is invoked other stake won't come through.
         if window.bonded_outcome.is_some() && !self.invoke_final_arbitrator(window.bond_size) {
@@ -250,7 +249,7 @@ impl DataRequestChange for DataRequest {
 
     // @returns wether final arbitrator was triggered
     fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool {
-        let should_invoke = bond_size <= self.config.final_arbitrator_invoke_amount;
+        let should_invoke = bond_size >= self.config.final_arbitrator_invoke_amount;
         if should_invoke { self.final_arbitrator_triggered = true }
         self.final_arbitrator_triggered
     }
@@ -484,6 +483,7 @@ impl Contract {
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
         dr.assert_settlement_time_passed();
+        // TODO remove variable assignment?
         let _tvl = dr.get_tvl();
 
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
@@ -583,6 +583,10 @@ mod mock_token_basic_tests {
         "token.near".to_string()
     }
 
+    fn target() -> AccountId {
+        "target.near".to_string()
+    }
+
     fn gov() -> AccountId {
         "gov.near".to_string()
     }
@@ -639,6 +643,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 0,
+            target_contract: target(),
         });
     }
 
@@ -653,6 +658,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 0,
+            target_contract: target(),
         });
     }
 
@@ -667,6 +673,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 1000,
+            target_contract: target(),
         });
     }
 
@@ -681,6 +688,7 @@ mod mock_token_basic_tests {
             outcomes: None,  // todo call with 9 outcomes
             settlement_time: 0,
             challenge_period: 1000,
+            target_contract: target(),
         });
     }
 
@@ -696,6 +704,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 999,
+            target_contract: target(),
         });
     }
 
@@ -704,6 +713,7 @@ mod mock_token_basic_tests {
     fn dr_new_arg_challenge_period_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, NewDataRequestArgs{
@@ -711,6 +721,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 3001,
+            target_contract: target(),
         });
     }
 
@@ -726,6 +737,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 1_000_000_000_000 * 1000 * 1000,
             challenge_period: 1500,
+            target_contract: target(),
         });
     }
 
@@ -741,6 +753,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 1500,
+            target_contract: target(),
         });
     }
 
@@ -755,6 +768,7 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 1500,
+            target_contract: target(),
         });
         assert_eq!(amount, 100);
     }
@@ -770,20 +784,255 @@ mod mock_token_basic_tests {
             outcomes: None,
             settlement_time: 0,
             challenge_period: 1500,
+            target_contract: target(),
         });
         assert_eq!(amount, 0);
     }
+
+    fn dr_new(contract : &mut Contract) {
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string()].to_vec()),
+            settlement_time: 0,
+            challenge_period: 1500,
+            target_contract: target(),
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Only the stake token contract can call this function")]
+    fn dr_stake_non_stake_token() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        testing_env!(get_context(alice()));
+        contract.dr_stake(alice(),100,  StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("42".to_string())
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "DataRequest with this id does not exist")]
+    fn dr_stake_not_existing() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.dr_stake(alice(),100,  StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("42".to_string())
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Incompatible outcome")]
+    fn dr_stake_incompatible_answer() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(),100,  StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("42".to_string())
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Can't stake in finalized market")]
+    fn dr_stake_finalized_market() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        let mut ct : VMContext = get_context(token());
+        ct.block_timestamp = 1501;
+        testing_env!(ct);
+
+        contract.dr_finalize(U64(0));
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+    }
+
+
+    #[test]
+    #[should_panic(expected = "Data request cannot be processed yet")]
+    fn dr_stake_finalized_settlement_time() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string()].to_vec()),
+            settlement_time: 1,
+            challenge_period: 1500,
+            target_contract: target(),
+        });
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+    }
+
+    #[test]
+    fn dr_stake_success_partial() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        let b : Balance = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        assert_eq!(b, 0, "Invalid balance");
+
+        let request : DataRequest = contract.data_requests.get(0).unwrap();
+        assert_eq!(request.resolution_windows.len(), 1);
+
+
+        let round0 : ResolutionWindow = request.resolution_windows.get(0).unwrap();
+        assert_eq!(round0.round, 0);
+        assert_eq!(round0.end_time, 1500);
+        assert_eq!(round0.bond_size, 200);
+    }
+
+    #[test]
+    fn dr_stake_success_full_at_t0() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        let b : Balance = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        assert_eq!(b, 0, "Invalid balance");
+
+        let request : DataRequest = contract.data_requests.get(0).unwrap();
+        assert_eq!(request.resolution_windows.len(), 2);
+
+        let round0 : ResolutionWindow = request.resolution_windows.get(0).unwrap();
+        assert_eq!(round0.round, 0);
+        assert_eq!(round0.end_time, 1500);
+        assert_eq!(round0.bond_size, 200);
+
+        let round1 : ResolutionWindow = request.resolution_windows.get(1).unwrap();
+        assert_eq!(round1.round, 1);
+        assert_eq!(round1.end_time, 1000);
+        assert_eq!(round1.bond_size, 400);
+    }
+
+    #[test]
+    fn dr_stake_success_overstake_at_t600() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        let mut ct : VMContext = get_context(token());
+        ct.block_timestamp = 600;
+        testing_env!(ct);
+
+        let b : Balance = contract.dr_stake(alice(), 300, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        assert_eq!(b, 100, "Invalid balance");
+
+        let request : DataRequest = contract.data_requests.get(0).unwrap();
+        assert_eq!(request.resolution_windows.len(), 2);
+
+        let round0 : ResolutionWindow = request.resolution_windows.get(0).unwrap();
+        assert_eq!(round0.round, 0);
+        assert_eq!(round0.end_time, 2100);
+        assert_eq!(round0.bond_size, 200);
+
+        let round1 : ResolutionWindow = request.resolution_windows.get(1).unwrap();
+        assert_eq!(round1.round, 1);
+        assert_eq!(round1.end_time, 1600);
+        assert_eq!(round1.bond_size, 400);
+    }
+
+    #[test]
+    #[should_panic(expected = "Can only be finalized by final arbitrator")]
+    fn dr_finalize_final_arb() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut c: oracle_config::OracleConfig = config();
+        c.final_arbitrator_invoke_amount = 150;
+        let mut contract = Contract::new(whitelist, c);
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        contract.dr_finalize(U64(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "No resolutions found, DataRequest not processed")]
+    fn dr_finalize_no_resolutions() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_finalize(U64(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "Challenge period not ended")]
+    fn dr_finalize_active_challenge() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        contract.dr_finalize(U64(0));
+    }
+
+    #[test]
+    fn dr_finalize_success() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        let mut ct : VMContext = get_context(token());
+        ct.block_timestamp = 1501;
+        testing_env!(ct);
+
+        contract.dr_finalize(U64(0));
+
+        let request : DataRequest = contract.data_requests.get(0).unwrap();
+        assert_eq!(request.resolution_windows.len(), 2);
+        assert_eq!(request.finalized_outcome.unwrap(), data_request::Outcome::Answer("a".to_string()));
+    }
 }
-
-// create data request
-    // Check if validation works
-    // Check if unspent tokens returned (in token too)
-
-// dr_stake
-    // Check validation
-    // Check partial stake
-    // Check partia then complete stake, should mint new window and confirm new window end time etc.
-    // Check overstake
-
-// dr_finalize
-    // check finalized answer is expected and can be finalized wen expected

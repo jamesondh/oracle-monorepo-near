@@ -26,16 +26,16 @@ impl Token {
     pub fn deposit(&mut self, receiver: AccountId, amount: u128) {
         let receiver_bal: u128 = self.get_balance_expect(receiver.to_string()).into();
         self.balances.insert(
-            &receiver, 
+            &receiver,
             &(receiver_bal + amount)
         );
     }
-    
+
     pub fn withdraw(&mut self, sender: AccountId, amount: u128) {
         let sender_bal: u128 = self.get_balance_expect(sender).into();
         assert!(sender_bal >= amount, "sender does not have enough tokens");
         self.balances.insert(
-            &env::predecessor_account_id(), 
+            &env::predecessor_account_id(),
             &(sender_bal - amount)
         );
     }
@@ -44,7 +44,7 @@ impl Token {
         self.withdraw(env::predecessor_account_id(), amount.into());
         self.deposit(new_owner_id, amount.into());
     }
-    
+
     pub fn internal_transfer(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
         self.withdraw(owner_id, amount.into());
         self.deposit(new_owner_id, amount.into());
@@ -64,9 +64,9 @@ pub trait FLXExternal {
 impl FLXExternal for Contract {
     // Transfer call mock
     fn transfer_call(
-        &mut self, 
-        receiver_id: String, 
-        amount: U128, 
+        &mut self,
+        receiver_id: String,
+        amount: U128,
         msg: String
     ) {
         self.stake_token.internal_transfer(env::predecessor_account_id(), receiver_id, amount);
@@ -85,11 +85,11 @@ mod mock_token_basic_tests {
     use near_sdk::{ serde_json::json };
 
     use super::*;
-    
+
     fn alice() -> AccountId {
         "alice.near".to_string()
     }
-    
+
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
@@ -152,16 +152,16 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
+
         let send_amount = 10000;
         contract.stake_token.transfer(bob(), send_amount.into());
         let bob_balance: u128 = contract.stake_token.get_balance_expect(bob()).into();
         let carol_new_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
-        
+
         assert_eq!(bob_balance, send_amount);
         assert_eq!(carol_new_balance, carol_balance - send_amount);
     }
-    
+
     #[test]
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn transfer_call_fails() {
@@ -171,13 +171,13 @@ mod mock_token_basic_tests {
         let msg = json!({
             "StakeDataRequest": {
                 "id": "0",
-                "answer": data_request::Outcome::Answer("42".to_string())
+                "outcome": data_request::Outcome::Answer("42".to_string())
             }
-           
+
         });
         contract.transfer_call(bob(), 0.into(), msg.to_string());
     }
-    
+
 
     #[test]
     #[should_panic(expected = "sender does not have enough tokens")]
@@ -186,7 +186,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
+
         let send_amount = DEFAULT_BALANCE + 1;
         contract.stake_token.transfer(bob(), send_amount.into());
     }
@@ -198,7 +198,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
+
         let send_amount = DEFAULT_BALANCE + 1;
         contract.stake_token.transfer(bob(), send_amount.into(),);
     }
@@ -210,7 +210,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
+
         let send_amount = DEFAULT_BALANCE + 1;
         contract.transfer_call(bob(), send_amount.into(), "".to_string());
     }
@@ -222,7 +222,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(None, config());
         let carol_balance: u128 = contract.stake_token.get_balance_expect(carol()).into();
         assert_eq!(carol_balance, DEFAULT_BALANCE);
-        
+
         let send_amount = DEFAULT_BALANCE + 1;
         contract.transfer_call(bob(), send_amount.into(), "".to_string());
     }
