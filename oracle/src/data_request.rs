@@ -308,6 +308,7 @@ impl DataRequestChange for DataRequest {
 
 trait DataRequestView {
     fn assert_valid_outcome(&self, outcome: &Outcome);
+    fn assert_can_stake_on_outcome(&self, outcome: &Outcome);
     fn assert_not_finalized(&self);
     fn assert_finalized(&self);
     fn assert_settlement_time_passed(&self);
@@ -333,16 +334,23 @@ impl DataRequestView for DataRequest {
         }
     }
 
+    fn assert_can_stake_on_outcome(&self, outcome: &Outcome) {
+        if self.resolution_windows.len() > 0 {
+            let prev_window = self.resolution_windows.get(self.resolution_windows.len() - 1).unwrap();
+            assert_ne!(prev_window.bonded_outcome, outcome, "Cannot stake on same outcome as last window")
+        }
+    }
+
     fn assert_not_finalized(&self) {
-        assert!(self.finalized_outcome.is_none(), "Can't stake in finalized market");
+        assert!(self.finalized_outcome.is_none(), "Can't stake in finalized DataRequest");
     }
  
     fn assert_finalized(&self) {
-        assert!(self.finalized_outcome.is_some(), "Can't stake in finalized market");
+        assert!(self.finalized_outcome.is_some(), "DataRequest is not finalized");
     }
 
     fn assert_settlement_time_passed(&self) {
-        assert!(env::block_timestamp() >= self.settlement_time, "Data request cannot be processed yet");
+        assert!(env::block_timestamp() >= self.settlement_time, "DataRequest cannot be processed yet");
     }
 
     fn assert_can_finalize(&self) {
