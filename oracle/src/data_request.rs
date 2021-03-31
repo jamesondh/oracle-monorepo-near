@@ -680,13 +680,22 @@ mod mock_token_basic_tests {
     }
 
     #[test]
+    #[should_panic(expected = "Too many sources provided, max sources is: 8")]
     fn dr_new_arg_source_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
-
+        let x1 = data_request::Source {end_point: "1".to_string(), source_path: "1".to_string()};
+        let x2 = data_request::Source {end_point: "2".to_string(), source_path: "2".to_string()};
+        let x3 = data_request::Source {end_point: "3".to_string(), source_path: "3".to_string()};
+        let x4 = data_request::Source {end_point: "4".to_string(), source_path: "4".to_string()};
+        let x5 = data_request::Source {end_point: "5".to_string(), source_path: "5".to_string()};
+        let x6 = data_request::Source {end_point: "6".to_string(), source_path: "6".to_string()};
+        let x7 = data_request::Source {end_point: "7".to_string(), source_path: "7".to_string()};
+        let x8 = data_request::Source {end_point: "8".to_string(), source_path: "8".to_string()};
+        let x9 = data_request::Source {end_point: "9".to_string(), source_path: "9".to_string()};
         contract.dr_new(bob(), 100, NewDataRequestArgs{
-            sources: Vec::new(), // todo call with 9 sources
+            sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
             settlement_time: 0,
             challenge_period: 1000,
@@ -695,6 +704,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
+    #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_new_arg_outcome_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -702,7 +712,17 @@ mod mock_token_basic_tests {
 
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
-            outcomes: None,  // todo call with 9 outcomes
+            outcomes: Some(vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+                "4".to_string(),
+                "5".to_string(),
+                "6".to_string(),
+                "7".to_string(),
+                "8".to_string(),
+                "9".to_string()
+            ]),
             settlement_time: 0,
             challenge_period: 1000,
             target_contract: target(),
