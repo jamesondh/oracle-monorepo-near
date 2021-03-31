@@ -607,7 +607,6 @@ mod mock_token_basic_tests {
             min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: 250,
             resolution_fee_percentage: 0,
-            challenge_exponent: 2,
         }
     }
 
@@ -623,7 +622,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
+            attached_deposit: 1000 * 10u128.pow(24),
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
@@ -792,7 +791,7 @@ mod mock_token_basic_tests {
     fn dr_new(contract : &mut Contract) {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
-            outcomes: Some(vec!["a".to_string()].to_vec()),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
@@ -841,7 +840,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Can't stake in finalized market")]
+    #[should_panic(expected = "Can't stake in finalized DataRequest")]
     fn dr_stake_finalized_market() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -867,7 +866,7 @@ mod mock_token_basic_tests {
 
 
     #[test]
-    #[should_panic(expected = "Data request cannot be processed yet")]
+    #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_stake_finalized_settlement_time() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -987,7 +986,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "No resolutions found, DataRequest not processed")]
+    #[should_panic(expected = "No resolution windows found, DataRequest not processed")]
     fn dr_finalize_no_resolutions() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -1035,4 +1034,25 @@ mod mock_token_basic_tests {
         assert_eq!(request.resolution_windows.len(), 2);
         assert_eq!(request.finalized_outcome.unwrap(), data_request::Outcome::Answer("a".to_string()));
     }
+
+    // #[test]
+    // #[should_panic(expected = "Yes")]
+    // fn dr_stake_same_outcome() {
+    //     testing_env!(get_context(token()));
+    //     let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+    //     let mut contract = Contract::new(whitelist, config());
+    //     dr_new(&mut contract);
+
+    //     contract.dr_stake(alice(), 300, StakeDataRequestArgs{
+    //         id: U64(0),
+    //         outcome: data_request::Outcome::Answer("a".to_string())
+    //     });
+
+    //     contract.dr_stake(alice(), 500, StakeDataRequestArgs{
+    //         id: U64(0),
+    //         outcome: data_request::Outcome::Answer("a".to_string())
+    //     });
+    // }
 }
+
+// TODO single outcome test

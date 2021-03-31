@@ -51,14 +51,14 @@ impl WhitelistHandler for Contract {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
-        
+
         let new_requestor = new_requestor.try_into().expect("Invalid account id");
         self.whitelist.0.insert(&new_requestor);
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
     }
- 
+
     fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
         self.assert_gov();
 
@@ -70,7 +70,7 @@ impl WhitelistHandler for Contract {
 
         self.whitelist.0.remove(&requestor)
     }
-   
+
     fn whitelist_contains(&self, requestor: AccountId) -> bool {
         self.whitelist.contains(requestor)
     }
@@ -89,11 +89,11 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use super::*;
-    
+
     fn alice() -> AccountId {
         "alice.near".to_string()
     }
-    
+
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
@@ -105,7 +105,7 @@ mod mock_token_basic_tests {
     fn token() -> AccountId {
         "token.near".to_string()
     }
- 
+
     fn gov() -> AccountId {
         "gov.near".to_string()
     }
@@ -141,7 +141,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
+            attached_deposit: 1000 * 10u128.pow(24),
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
