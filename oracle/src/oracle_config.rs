@@ -30,6 +30,7 @@ impl Contract {
 
         self.configs.push(&new_config);
 
+        logger::log_oracle_config(&new_config, self.configs.len() - 1);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }

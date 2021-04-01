@@ -13,6 +13,7 @@ mod whitelist;
 mod oracle_config;
 mod storage_manager;
 mod helpers;
+mod logger;
 
 /// Mocks
 mod mock_requestor;
@@ -52,6 +53,8 @@ impl Contract {
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());
         configs.push(&config);
+        logger::log_oracle_config(&config, 0);
+
         Self {
             whitelist: whitelist::Whitelist::new(initial_whitelist),
             configs,

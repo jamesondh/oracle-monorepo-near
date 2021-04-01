@@ -7,6 +7,7 @@ use near_sdk::{ env, Balance, AccountId };
 use near_sdk::collections::{ Vector, LookupMap };
 
 use crate::types::{ Timestamp, Duration, WrappedBalance };
+use crate::logger;
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
@@ -53,7 +54,7 @@ trait ResolutionWindowChange {
 
 impl ResolutionWindowChange for ResolutionWindow {
     fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self {
-        Self {
+        let new_resolution_window = Self {
             dr_id,
             round,
             end_time: env::block_timestamp() + challenge_period,
@@ -61,7 +62,10 @@ impl ResolutionWindowChange for ResolutionWindow {
             outcome_to_stake: LookupMap::new(format!("ots{}:{}", dr_id, round).as_bytes().to_vec()),
             user_to_outcome_to_stake: LookupMap::new(format!("utots{}:{}", dr_id, round).as_bytes().to_vec()),
             bonded_outcome: None
-        }
+        };
+
+        logger::log_resolution_window(&new_resolution_window);
+        return new_resolution_window;
     }
 
     // @returns amount to refund users because it was not staked
@@ -83,14 +87,19 @@ impl ResolutionWindowChange for ResolutionWindow {
 
         let new_stake_on_outcome = stake_on_outcome + staked;
         self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
-
+        logger::log_outcome_to_stake(self.dr_id, self.round, &outcome, new_stake_on_outcome);
+        
         let new_user_stake_on_outcome = user_stake_on_outcome + staked;
         user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
 
+        logger::log_user_stake(self.dr_id, self.round, &sender, &outcome, new_user_stake_on_outcome);
+        logger::log_stake_transaction(&sender, &self, amount, unspent, &outcome);
+
         // If this stake fills the bond set final outcome which will trigger a new resolution_window to be created
         if new_stake_on_outcome == self.bond_size {
             self.bonded_outcome = Some(outcome);
+            logger::log_resolution_window(&self);
         }
 
         unspent
@@ -109,10 +118,13 @@ impl ResolutionWindowChange for ResolutionWindow {
 
         let new_stake_on_outcome = stake_on_outcome - amount;
         self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
+        logger::log_outcome_to_stake(self.dr_id, self.round, &outcome, new_stake_on_outcome);
 
         let new_user_stake_on_outcome = user_stake_on_outcome - amount;
         user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
+        logger::log_user_stake(self.dr_id, self.round, &sender, &outcome, new_user_stake_on_outcome);
+        logger::log_unstake_transaction(&sender, &self, amount, &outcome);
 
         amount
     }
@@ -248,7 +260,6 @@ impl DataRequestChange for DataRequest {
                     self.request_config.default_challenge_window_duration
                 )
             );
-
         }
 
         unspent
@@ -314,7 +325,9 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
+        let payout = resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
+        logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, payout);
+        payout
     }
 
     // @notice Return what's left of validity_bond to requestor
@@ -476,6 +489,8 @@ impl Contract {
             &config,
             payload
         );
+
+        logger::log_new_data_request(&dr);
         self.data_requests.push(&dr);
 
         if amount > config.validity_bond {
@@ -499,6 +514,7 @@ impl Contract {
 
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
 
+        logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);
 
         unspent_stake
@@ -513,6 +529,7 @@ impl Contract {
         self.stake_token.transfer(env::predecessor_account_id(), unstaked.into());
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
+        logger::log_update_data_request(&dr);
 
         unstaked.into()
     }
@@ -530,6 +547,7 @@ impl Contract {
 
         self.stake_token.transfer(account_id, payout.into());
 
+        logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
         payout
@@ -546,6 +564,7 @@ impl Contract {
         dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
         dr.return_validity_bond(&mut self.validity_bond_token);
 
+        logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
@@ -562,6 +581,7 @@ impl Contract {
         dr.target_contract.set_outcome(request_id, outcome);
         dr.return_validity_bond(&mut self.validity_bond_token);
 
+        logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }

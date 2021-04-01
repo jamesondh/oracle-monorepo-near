@@ -44,3 +44,7 @@ pub fn refund_storage(initial_storage: StorageUsage, sender_id: AccountId) {
         Promise::new(sender_id).transfer(refund_amount);
     }
 }
+
+pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
+    ns_timestamp / 1_000_000
+}

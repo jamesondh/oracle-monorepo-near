@@ -55,8 +55,8 @@ impl WhitelistHandler for Contract {
         let new_requestor = new_requestor.try_into().expect("Invalid account id");
         self.whitelist.0.insert(&new_requestor);
 
+        logger::log_whitelist(&new_requestor, true);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-
     }
 
     fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
@@ -67,6 +67,7 @@ impl WhitelistHandler for Contract {
         let requestor = requestor.try_into().expect("Invalid account id");
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
+        logger::log_whitelist(&requestor, false);
 
         self.whitelist.0.remove(&requestor)
     }
