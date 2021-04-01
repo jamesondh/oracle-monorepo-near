@@ -39,11 +39,8 @@ impl Contract {
         self.configs.iter().last().unwrap()
     }
 
-    pub fn assert_bond_token(&self) {
-        assert_eq!(env::predecessor_account_id(), self.get_config().bond_token, "Only the bond token contract can call this function");
-    }
-    pub fn assert_stake_token(&self) {
-        assert_eq!(env::predecessor_account_id(), self.get_config().stake_token, "Only the stake token contract can call this function");
+    pub fn assert_sender(&self, expected_sender: &AccountId) {
+        assert_eq!(env::predecessor_account_id(), expected_sender, "This function can only be called by {}", expected_sender);
     }
 }
 

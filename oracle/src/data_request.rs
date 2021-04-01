@@ -463,8 +463,9 @@ impl DataRequestView for DataRequest {
 impl Contract {
     // Merge config and payload
     pub fn dr_new(&mut self, sender: AccountId, amount: Balance, payload: NewDataRequestArgs) -> Balance {
+        let config = self.get_config();
         self.assert_whitelisted(sender.to_string());
-        self.assert_bond_token();
+        self.assert_sender(&config.bond_token);
         self.dr_validate(&payload);
         assert!(amount >= self.get_config().validity_bond, "Validity bond not reached");
 
@@ -472,13 +473,13 @@ impl Contract {
             sender,
             self.data_requests.len() as u64,
             self.configs.len() - 1, // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
-            &self.get_config(),
+            &config,
             payload
         );
         self.data_requests.push(&dr);
 
-        if amount > self.get_config().validity_bond {
-            amount - self.get_config().validity_bond
+        if amount > config.validity_bond {
+            amount - config.validity_bond
         } else {
             0
         }
@@ -486,8 +487,9 @@ impl Contract {
 
     #[payable]
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
-        self.assert_stake_token();
         let mut dr = self.dr_get_expect(payload.id.into());
+        let config = self.configs.get(dr.global_config_id).unwrap();
+        self.assert_sender(&config.stake_token);
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
@@ -508,6 +510,7 @@ impl Contract {
 
         let mut dr = self.dr_get_expect(request_id.into());
         let unstaked = dr.unstake(env::predecessor_account_id(), resolution_round, outcome, amount);
+        self.stake_token.transfer(env::predecessor_account_id(), unstaked.into());
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
@@ -524,6 +527,7 @@ impl Contract {
         let mut dr = self.dr_get_expect(request_id.into());
         dr.assert_finalized();
         let payout = dr.claim(account_id.to_string());
+
         self.stake_token.transfer(account_id, payout.into());
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
