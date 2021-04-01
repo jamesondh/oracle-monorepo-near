@@ -1,5 +1,4 @@
 use super::*;
-use std::convert::TryInto;
 use near_sdk::{Promise};
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::Serialize;
@@ -94,9 +93,11 @@ impl StorageManager for Contract {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
+    use super::*;
+    use std::convert::TryInto;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-    use super::*;
+
 
     fn alice() -> AccountId {
         "alice.near".to_string()
