@@ -98,7 +98,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
+            attached_deposit: 15600000000000000000000,
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
