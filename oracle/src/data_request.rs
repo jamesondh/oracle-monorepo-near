@@ -149,20 +149,27 @@ impl ResolutionWindowChange for ResolutionWindow {
 pub struct DataRequest {
     pub id: u64,
     pub sources: Vec<Source>,
-    pub settlement_time: Timestamp,
     pub outcomes: Option<Vec<String>>,
     pub requestor: mock_requestor::Requestor,
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vector<ResolutionWindow>,
-    pub config: oracle_config::OracleConfig, // Config at initiation
+    pub global_config_id: u64, // Config id
+    pub request_config: DataRequestConfig, 
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: mock_target_contract::TargetContract
+}
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct DataRequestConfig {
+    default_challenge_window_duration: Duration,
+    final_arbitrator_invoke_amount: Balance,
+    final_arbitrator: AccountId,
+    validity_bond: Balance,
 }
 
 trait DataRequestChange {
-    fn new(sender: AccountId, id: u64, config: oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
+    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
@@ -176,6 +183,7 @@ impl DataRequestChange for DataRequest {
     fn new(
         sender: AccountId,
         id: u64,
+        global_config_id: u64,
         config: oracle_config::OracleConfig,
         request_data: NewDataRequestArgs
     ) -> Self {
@@ -183,12 +191,17 @@ impl DataRequestChange for DataRequest {
         Self {
             id: id,
             sources: request_data.sources,
-            settlement_time: request_data.settlement_time,
             outcomes: request_data.outcomes,
             requestor: mock_requestor::Requestor(sender),
             finalized_outcome: None,
             resolution_windows,
-            config,
+            global_config_id, 
+            request_config: DataRequestConfig {
+                default_challenge_window_duration: config.default_challenge_window_duration,
+                final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount,
+                final_arbitrator: config.final_arbitrator,
+                validity_bond: config.validity_bond
+            },
             initial_challenge_period: request_data.challenge_period,
             final_arbitrator_triggered: false,
             target_contract: mock_target_contract::TargetContract(request_data.target_contract)
@@ -196,7 +209,11 @@ impl DataRequestChange for DataRequest {
     }
 
     // @returns amount of tokens that didn't get staked
-    fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance {
+    fn stake(&mut self, 
+        sender: AccountId, 
+        outcome: Outcome, 
+        amount: Balance
+    ) -> Balance {
         let mut window = self.resolution_windows
             .iter()
             .last()
@@ -223,7 +240,7 @@ impl DataRequestChange for DataRequest {
                     self.id,
                     self.resolution_windows.len() as u16,
                     window.bond_size,
-                    self.config.default_challenge_window_duration
+                    self.request_config.default_challenge_window_duration
                 )
             );
 
@@ -249,7 +266,7 @@ impl DataRequestChange for DataRequest {
 
     // @returns wether final arbitrator was triggered
     fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool {
-        let should_invoke = bond_size >= self.config.final_arbitrator_invoke_amount;
+        let should_invoke = bond_size >= self.request_config.final_arbitrator_invoke_amount;
         if should_invoke { self.final_arbitrator_triggered = true }
         self.final_arbitrator_triggered
     }
@@ -312,7 +329,6 @@ trait DataRequestView {
     fn assert_can_stake_on_outcome(&self, outcome: &Outcome);
     fn assert_not_finalized(&self);
     fn assert_finalized(&self);
-    fn assert_settlement_time_passed(&self);
     fn assert_can_finalize(&self);
     fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
@@ -351,12 +367,8 @@ impl DataRequestView for DataRequest {
         assert!(self.finalized_outcome.is_some(), "DataRequest is not finalized");
     }
 
-    fn assert_settlement_time_passed(&self) {
-        assert!(env::block_timestamp() >= self.settlement_time, "DataRequest cannot be processed yet");
-    }
-
     fn assert_can_finalize(&self) {
-        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.config.final_arbitrator);
+        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
         let last_window = self.resolution_windows.iter().last().expect("No resolution windows found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
@@ -364,7 +376,7 @@ impl DataRequestView for DataRequest {
 
     fn assert_final_arbitrator(&self) {
         assert_eq!(
-            self.config.final_arbitrator,
+            self.request_config.final_arbitrator,
             env::predecessor_account_id(),
             "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}",
             env::predecessor_account_id()
@@ -391,7 +403,7 @@ impl DataRequestView for DataRequest {
 
     fn calc_fee(&self) -> Balance {
         let tvl = self.get_tvl();
-        self.config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
+        self.request_config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
     }
 
     /**
@@ -402,10 +414,10 @@ impl DataRequestView for DataRequest {
     fn calc_resolution_bond(&self) -> Balance {
         let fee = self.calc_fee();
 
-        if fee > self.config.validity_bond {
+        if fee > self.request_config.validity_bond {
             fee
         } else {
-            self.config.validity_bond
+            self.request_config.validity_bond
         }
     }
 
@@ -420,8 +432,8 @@ impl DataRequestView for DataRequest {
 
         match outcome {
             Outcome::Answer(_) => {
-                if fee > self.config.validity_bond {
-                    self.config.validity_bond
+                if fee > self.request_config.validity_bond {
+                    self.request_config.validity_bond
                 } else {
                     fee
                 }
@@ -429,7 +441,7 @@ impl DataRequestView for DataRequest {
             Outcome::Invalid => 0
         }
     }
-
+    
     /**
      * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
@@ -441,13 +453,13 @@ impl DataRequestView for DataRequest {
 
         match outcome {
             Outcome::Answer(_) => {
-                if fee > self.config.validity_bond {
+                if fee > self.request_config.validity_bond {
                     fee
                 } else {
-                    self.config.validity_bond
+                    self.request_config.validity_bond
                 }
             },
-            Outcome::Invalid => fee + self.config.validity_bond
+            Outcome::Invalid => fee + self.request_config.validity_bond
         }
     }
 }
@@ -459,18 +471,18 @@ impl Contract {
         self.assert_whitelisted(sender.to_string());
         self.assert_bond_token();
         self.dr_validate(&payload);
-        assert!(amount >= self.config.validity_bond, "Validity bond not reached");
+        assert!(amount >= self.get_config().validity_bond, "Validity bond not reached");
 
         let dr = DataRequest::new(
             sender,
             self.data_requests.len() as u64,
-            self.config.clone(), // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
+            self.configs.len() - 1, // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
             payload
         );
         self.data_requests.push(&dr);
 
-        if amount > self.config.validity_bond {
-            amount - self.config.validity_bond
+        if amount > self.get_config().validity_bond {
+            amount - self.get_config().validity_bond
         } else {
             0
         }
@@ -483,7 +495,7 @@ impl Contract {
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
-        dr.assert_settlement_time_passed();
+
         // TODO remove variable assignment?
         let _tvl = dr.get_tvl();
 
@@ -642,7 +654,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -658,7 +669,6 @@ mod mock_token_basic_tests {
         contract.dr_new(alice(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 0,
             target_contract: target(),
         });
@@ -673,7 +683,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 0,
             target_contract: target(),
         });
@@ -697,7 +706,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 1000,
             target_contract: target(),
         });
@@ -723,7 +731,6 @@ mod mock_token_basic_tests {
                 "8".to_string(),
                 "9".to_string()
             ]),
-            settlement_time: 0,
             challenge_period: 1000,
             target_contract: target(),
         });
@@ -739,7 +746,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 999,
             target_contract: target(),
         });
@@ -750,30 +756,12 @@ mod mock_token_basic_tests {
     fn dr_new_arg_challenge_period_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 3001,
-            target_contract: target(),
-        });
-    }
-
-    #[test]
-    #[should_panic(expected = "Exceeds max duration")]
-    fn dr_new_arg_settlement_time_exceed() {
-        testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut contract = Contract::new(whitelist, config());
-
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
-            sources: Vec::new(),
-            outcomes: None,
-            settlement_time: 1_000_000_000_000 * 1000 * 1000,
-            challenge_period: 1500,
             target_contract: target(),
         });
     }
@@ -788,7 +776,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 90, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -803,7 +790,6 @@ mod mock_token_basic_tests {
         let amount : Balance = contract.dr_new(bob(), 200, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -819,7 +805,6 @@ mod mock_token_basic_tests {
         let amount : Balance = contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -830,7 +815,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -913,7 +897,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
-            settlement_time: 1,
             challenge_period: 1500,
             target_contract: target(),
         });

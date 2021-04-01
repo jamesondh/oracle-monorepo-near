@@ -28,7 +28,7 @@ use data_request::{ DataRequest };
 #[derive(BorshSerialize, BorshDeserialize )]
 pub struct Contract {
     pub whitelist: whitelist::Whitelist,
-    pub config: oracle_config::OracleConfig,
+    pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
     pub stake_token: mock_token::Token,
@@ -50,9 +50,11 @@ impl Contract {
         initial_whitelist: Option<Vec<ValidAccountId>>,
         config: oracle_config::OracleConfig
     ) -> Self {
+        let mut configs = Vector::new(b"c".to_vec());
+        configs.push(&config);
         Self {
             whitelist: whitelist::Whitelist::new(initial_whitelist),
-            config,
+            configs,
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
@@ -66,11 +68,12 @@ impl Contract {
 
 impl Contract {
     fn assert_gov(&self) {
+        let config = self.configs.iter().last().unwrap();
         assert_eq!(
-            self.config.gov,
+            config.gov,
             env::predecessor_account_id(),
             "This method is only callable by the governance contract {}",
-            self.config.gov
+            config.gov
         );
     }
 }
