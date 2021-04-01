@@ -40,7 +40,7 @@ impl Contract {
     }
 
     pub fn assert_sender(&self, expected_sender: &AccountId) {
-        assert_eq!(env::predecessor_account_id(), expected_sender, "This function can only be called by {}", expected_sender);
+        assert_eq!(&env::predecessor_account_id(), expected_sender, "This function can only be called by {}", expected_sender);
     }
 }
 

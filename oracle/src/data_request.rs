@@ -676,7 +676,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Only the bond token contract can call this function")]
+    #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_new_non_bond_token() {
         testing_env!(get_context(alice()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -822,7 +822,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Only the stake token contract can call this function")]
+    #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_stake_non_stake_token() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);

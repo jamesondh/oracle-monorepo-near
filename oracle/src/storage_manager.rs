@@ -115,7 +115,7 @@ mod mock_token_basic_tests {
         "token.near".to_string()
     }
 
-    fn target() -> AccountId {
+    fn _target() -> AccountId {
         "target.near".to_string()
     }
 
@@ -180,7 +180,7 @@ mod mock_token_basic_tests {
         testing_env!(c);
         contract.storage_deposit(Some(to_valid(alice())));
 
-        let mut balance = contract.accounts.get(&alice()).unwrap_or(0);
+        let balance = contract.accounts.get(&alice()).unwrap_or(0);
         assert_eq!(balance, amount);
 
         //deposit again
@@ -216,7 +216,7 @@ mod mock_token_basic_tests {
         testing_env!(c);
 
         contract.storage_withdraw(U128(amount/2));
-        let mut balance = contract.accounts.get(&alice()).unwrap_or(0);
+        let balance = contract.accounts.get(&alice()).unwrap_or(0);
         assert_eq!(balance, amount/2);
     }
 

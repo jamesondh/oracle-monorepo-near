@@ -1,5 +1,4 @@
 use crate::*;
-use std::convert::TryInto;
 
 use storage_manager::{ STORAGE_PRICE_PER_BYTE };
 use near_sdk::serde::{ Serialize, Deserialize };
@@ -49,10 +48,12 @@ impl FungibleTokenReceiver for Contract {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
+    use super::*;
+    use std::convert::TryInto;
+
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
-    use super::*;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -128,7 +129,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
@@ -151,7 +151,6 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            settlement_time: 0,
             challenge_period: 1500,
             target_contract: target(),
         });
