@@ -1,5 +1,4 @@
 use crate::*;
-use std::convert::TryInto;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{ U64 };
@@ -166,10 +165,11 @@ pub struct DataRequestConfig {
     final_arbitrator_invoke_amount: Balance,
     final_arbitrator: AccountId,
     validity_bond: Balance,
+    fee: Balance
 }
 
 trait DataRequestChange {
-    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
+    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
@@ -184,23 +184,28 @@ impl DataRequestChange for DataRequest {
         sender: AccountId,
         id: u64,
         global_config_id: u64,
-        config: oracle_config::OracleConfig,
+        config: &oracle_config::OracleConfig,
         request_data: NewDataRequestArgs
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
+        let requestor = mock_requestor::Requestor(sender);
+        let tvl: u128 = requestor.get_tvl(id.into()).into();
+        let fee = config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
+
         Self {
             id: id,
             sources: request_data.sources,
             outcomes: request_data.outcomes,
-            requestor: mock_requestor::Requestor(sender),
+            requestor,
             finalized_outcome: None,
             resolution_windows,
             global_config_id, 
             request_config: DataRequestConfig {
                 default_challenge_window_duration: config.default_challenge_window_duration,
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount,
-                final_arbitrator: config.final_arbitrator,
-                validity_bond: config.validity_bond
+                final_arbitrator: config.final_arbitrator.to_string(),
+                validity_bond: config.validity_bond,
+                fee
             },
             initial_challenge_period: request_data.challenge_period,
             final_arbitrator_triggered: false,
@@ -334,7 +339,6 @@ trait DataRequestView {
     fn assert_final_arbitrator_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
-    fn calc_fee(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
     fn calc_validity_bond_to_return(&self) -> Balance;
     fn calc_resolution_fee_payout(&self) -> Balance;
@@ -401,21 +405,14 @@ impl DataRequestView for DataRequest {
         self.requestor.get_tvl(self.id.into()).into()
     }
 
-    fn calc_fee(&self) -> Balance {
-        let tvl = self.get_tvl();
-        self.request_config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
-    }
-
     /**
      * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        let fee = self.calc_fee();
-
-        if fee > self.request_config.validity_bond {
-            fee
+        if self.request_config.fee > self.request_config.validity_bond {
+            self.request_config.fee
         } else {
             self.request_config.validity_bond
         }
@@ -427,15 +424,14 @@ impl DataRequestView for DataRequest {
      * @returns How much of the `validity_bond` should be returned to the creator after resolution denominated in `stake_token`
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
-        let fee = self.calc_fee();
         let outcome = self.finalized_outcome.as_ref().unwrap();
 
         match outcome {
             Outcome::Answer(_) => {
-                if fee > self.request_config.validity_bond {
+                if self.request_config.fee > self.request_config.validity_bond {
                     self.request_config.validity_bond
                 } else {
-                    fee
+                    self.request_config.fee
                 }
             },
             Outcome::Invalid => 0
@@ -448,18 +444,17 @@ impl DataRequestView for DataRequest {
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
-        let fee = self.calc_fee();
         let outcome = self.finalized_outcome.as_ref().unwrap();
 
         match outcome {
             Outcome::Answer(_) => {
-                if fee > self.request_config.validity_bond {
-                    fee
+                if self.request_config.fee > self.request_config.validity_bond {
+                    self.request_config.fee
                 } else {
                     self.request_config.validity_bond
                 }
             },
-            Outcome::Invalid => fee + self.request_config.validity_bond
+            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
         }
     }
 }
@@ -477,6 +472,7 @@ impl Contract {
             sender,
             self.data_requests.len() as u64,
             self.configs.len() - 1, // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
+            &self.get_config(),
             payload
         );
         self.data_requests.push(&dr);
@@ -576,6 +572,7 @@ impl Contract {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
+    use std::convert::TryInto;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use super::*;

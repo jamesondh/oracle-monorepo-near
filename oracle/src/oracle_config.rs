@@ -35,8 +35,8 @@ impl Contract {
 }
 
 impl Contract {
-    pub fn get_config(&self) -> &OracleConfig {
-        &self.configs.iter().last().unwrap()
+    pub fn get_config(&self) -> OracleConfig {
+        self.configs.iter().last().unwrap()
     }
 
     pub fn assert_bond_token(&self) {

@@ -21,7 +21,7 @@ mod mock_target_contract;
 
 use callback_args::*;
 
-use types::{ Timestamp, Duration };
+use types::{ Timestamp };
 use data_request::{ DataRequest };
 
 #[near_bindgen]
