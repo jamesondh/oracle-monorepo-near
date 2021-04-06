@@ -58,12 +58,13 @@ impl Token {
 }
 
 pub trait FLXExternal {
-    fn transfer_call(&mut self, receiver_id: String, amount: U128, msg: String);
+    fn transfer_call_stake(&mut self, receiver_id: String, amount: U128, msg: String);
+    fn transfer_call_bond(&mut self, receiver_id: String, amount: U128, msg: String);
 }
 
 impl FLXExternal for Contract {
-    // Transfer call mock
-    fn transfer_call(
+    // Transfer call stake
+    fn transfer_call_stake(
         &mut self,
         receiver_id: String,
         amount: U128,
@@ -73,6 +74,19 @@ impl FLXExternal for Contract {
         let tokens_unspent: u128 = self.ft_on_transfer(env::predecessor_account_id(), amount, msg).into();
         if tokens_unspent > 0 {
             self.stake_token.deposit(env::predecessor_account_id(), tokens_unspent);
+        }
+    }
+    // Transfer call bond
+    fn transfer_call_bond(
+        &mut self,
+        receiver_id: String,
+        amount: U128,
+        msg: String
+    ) {
+        self.validity_bond_token.internal_transfer(env::predecessor_account_id(), receiver_id, amount);
+        let tokens_unspent: u128 = self.ft_on_transfer(env::predecessor_account_id(), amount, msg).into();
+        if tokens_unspent > 0 {
+            self.validity_bond_token.deposit(env::predecessor_account_id(), tokens_unspent);
         }
     }
 }
@@ -175,7 +189,7 @@ mod mock_token_basic_tests {
             }
 
         });
-        contract.transfer_call(bob(), 0.into(), msg.to_string());
+        contract.transfer_call_stake(bob(), 0.into(), msg.to_string());
     }
 
 
@@ -212,7 +226,7 @@ mod mock_token_basic_tests {
         assert_eq!(carol_balance, DEFAULT_BALANCE);
 
         let send_amount = DEFAULT_BALANCE + 1;
-        contract.transfer_call(bob(), send_amount.into(), "".to_string());
+        contract.transfer_call_stake(bob(), send_amount.into(), "".to_string());
     }
 
     #[test]
@@ -224,7 +238,7 @@ mod mock_token_basic_tests {
         assert_eq!(carol_balance, DEFAULT_BALANCE);
 
         let send_amount = DEFAULT_BALANCE + 1;
-        contract.transfer_call(bob(), send_amount.into(), "".to_string());
+        contract.transfer_call_stake(bob(), send_amount.into(), "".to_string());
     }
 }
 
