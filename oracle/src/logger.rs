@@ -184,7 +184,7 @@ pub fn log_claim(
 ) {
     env::log(
         json!({
-            "type": "user_stakes",
+            "type": "claims",
             "action": "update",
             "cap_id": format!("c_{}_{}", account_id, data_request_id),
             "params": {
