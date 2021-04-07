@@ -30,7 +30,7 @@ pub fn log_new_data_request(request: &DataRequest) {
             "action": "update",
             "cap_id": format!("dr_{}", request.id),
             "params": {
-                "id": request.id,
+                "id": U64(request.id),
                 "sources": request.sources,
                 "outcomes": request.outcomes,
                 "requestor": request.requestor.0,
@@ -56,7 +56,7 @@ pub fn log_update_data_request(request: &DataRequest) {
             "action": "update",
             "cap_id": format!("dr_{}", request.id),
             "params": {
-                "id": request.id,
+                "id": U64(request.id),
                 "sources": request.sources,
                 "outcomes": request.outcomes,
                 "requestor": request.requestor.0,
