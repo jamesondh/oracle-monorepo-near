@@ -88,7 +88,7 @@ impl ResolutionWindowChange for ResolutionWindow {
         let new_stake_on_outcome = stake_on_outcome + staked;
         self.outcome_to_stake.insert(&outcome, &new_stake_on_outcome);
         logger::log_outcome_to_stake(self.dr_id, self.round, &outcome, new_stake_on_outcome);
-        
+
         let new_user_stake_on_outcome = user_stake_on_outcome + staked;
         user_to_outcomes.insert(&outcome, &new_user_stake_on_outcome);
         self.user_to_outcome_to_stake.insert(&sender, &user_to_outcomes);
@@ -165,7 +165,7 @@ pub struct DataRequest {
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
-    pub request_config: DataRequestConfig, 
+    pub request_config: DataRequestConfig,
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: mock_target_contract::TargetContract
@@ -211,7 +211,7 @@ impl DataRequestChange for DataRequest {
             requestor,
             finalized_outcome: None,
             resolution_windows,
-            global_config_id, 
+            global_config_id,
             request_config: DataRequestConfig {
                 default_challenge_window_duration: config.default_challenge_window_duration,
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
@@ -226,9 +226,9 @@ impl DataRequestChange for DataRequest {
     }
 
     // @returns amount of tokens that didn't get staked
-    fn stake(&mut self, 
-        sender: AccountId, 
-        outcome: Outcome, 
+    fn stake(&mut self,
+        sender: AccountId,
+        outcome: Outcome,
         amount: Balance
     ) -> Balance {
         let mut window = self.resolution_windows
@@ -450,7 +450,7 @@ impl DataRequestView for DataRequest {
             Outcome::Invalid => 0
         }
     }
-    
+
     /**
      * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
      * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
@@ -479,7 +479,7 @@ impl Contract {
         let config = self.get_config();
         let validity_bond: u128 = config.validity_bond.into();
         self.assert_whitelisted(sender.to_string());
-        // self.assert_sender(&config.bond_token);
+        self.assert_sender(&config.bond_token);
         self.dr_validate(&payload);
         assert!(amount >=validity_bond, "Validity bond not reached");
 
@@ -505,7 +505,7 @@ impl Contract {
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-        // self.assert_sender(&config.stake_token);
+        self.assert_sender(&config.stake_token);
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
