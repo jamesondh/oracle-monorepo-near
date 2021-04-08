@@ -58,10 +58,12 @@ impl Token {
 }
 
 pub trait FLXExternal {
-    fn transfer_call_stake(&mut self, receiver_id: String, amount: U128, msg: String);
-    fn transfer_call_bond(&mut self, receiver_id: String, amount: U128, msg: String);
+    fn transfer_call_stake(&mut self, receiver_id: AccountId, amount: U128, msg: String);
+    fn transfer_call_bond(&mut self, receiver_id: AccountId, amount: U128, msg: String);
+    fn get_bond_balance(&self, account_id: AccountId) -> U128;
 }
 
+#[near_bindgen]
 impl FLXExternal for Contract {
     // Transfer call stake
     fn transfer_call_stake(
@@ -75,6 +77,10 @@ impl FLXExternal for Contract {
         if tokens_unspent > 0 {
             self.stake_token.deposit(env::predecessor_account_id(), tokens_unspent);
         }
+    }
+
+    fn get_bond_balance(&self, account_id: AccountId) -> U128 {
+        self.validity_bond_token.balances.get(&account_id).unwrap_or(0).into()
     }
     // Transfer call bond
     fn transfer_call_bond(
@@ -122,11 +128,11 @@ mod mock_token_basic_tests {
             final_arbitrator: alice(),
             bond_token: token(),
             stake_token: token(),
-            validity_bond: 0,
+            validity_bond: U128(0),
             max_outcomes: 8,
             default_challenge_window_duration: 1000,
             min_initial_challenge_window_duration: 1000,
-            final_arbitrator_invoke_amount: 25_000_000_000_000_000_000_000_000_000_000,
+            final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
             resolution_fee_percentage: 0,
         }
     }

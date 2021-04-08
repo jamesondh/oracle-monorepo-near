@@ -83,11 +83,11 @@ pub fn log_oracle_config(config: &OracleConfig, id: u64) {
                 "final_arbitrator": config.final_arbitrator,
                 "stake_token": config.stake_token,
                 "bond_token": config.bond_token,
-                "validity_bond": U128(config.validity_bond),
+                "validity_bond": config.validity_bond,
                 "max_outcomes": config.max_outcomes,
                 "default_challenge_window_duration": U64(config.default_challenge_window_duration),
                 "min_initial_challenge_window_duration": U64(config.min_initial_challenge_window_duration),
-                "final_arbitrator_invoke_amount": U128(config.final_arbitrator_invoke_amount),
+                "final_arbitrator_invoke_amount": config.final_arbitrator_invoke_amount,
                 "resolution_fee_percentage": config.resolution_fee_percentage,
                 
                 "date": U64(ns_to_ms(env::block_timestamp())),

@@ -214,9 +214,9 @@ impl DataRequestChange for DataRequest {
             global_config_id, 
             request_config: DataRequestConfig {
                 default_challenge_window_duration: config.default_challenge_window_duration,
-                final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount,
+                final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
                 final_arbitrator: config.final_arbitrator.to_string(),
-                validity_bond: config.validity_bond,
+                validity_bond: config.validity_bond.into(),
                 fee
             },
             initial_challenge_period: request_data.challenge_period,
@@ -477,10 +477,11 @@ impl Contract {
     // Merge config and payload
     pub fn dr_new(&mut self, sender: AccountId, amount: Balance, payload: NewDataRequestArgs) -> Balance {
         let config = self.get_config();
+        let validity_bond: u128 = config.validity_bond.into();
         self.assert_whitelisted(sender.to_string());
-        self.assert_sender(&config.bond_token);
+        // self.assert_sender(&config.bond_token);
         self.dr_validate(&payload);
-        assert!(amount >= self.get_config().validity_bond, "Validity bond not reached");
+        assert!(amount >=validity_bond, "Validity bond not reached");
 
         let dr = DataRequest::new(
             sender,
@@ -493,8 +494,8 @@ impl Contract {
         logger::log_new_data_request(&dr);
         self.data_requests.push(&dr);
 
-        if amount > config.validity_bond {
-            amount - config.validity_bond
+        if amount > validity_bond {
+            amount - validity_bond
         } else {
             0
         }
@@ -504,7 +505,7 @@ impl Contract {
     pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-        self.assert_sender(&config.stake_token);
+        // self.assert_sender(&config.stake_token);
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
@@ -635,11 +636,11 @@ mod mock_token_basic_tests {
             final_arbitrator: alice(),
             bond_token: token(),
             stake_token: token(),
-            validity_bond: 100,
+            validity_bond: U128(100),
             max_outcomes: 8,
             default_challenge_window_duration: 1000,
             min_initial_challenge_window_duration: 1000,
-            final_arbitrator_invoke_amount: 250,
+            final_arbitrator_invoke_amount: U128(250),
             resolution_fee_percentage: 0,
         }
     }
@@ -1015,7 +1016,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut c: oracle_config::OracleConfig = config();
-        c.final_arbitrator_invoke_amount = 150;
+        c.final_arbitrator_invoke_amount = U128(150);
         let mut contract = Contract::new(whitelist, c);
         dr_new(&mut contract);
 

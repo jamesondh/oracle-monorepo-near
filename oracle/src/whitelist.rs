@@ -46,7 +46,10 @@ trait WhitelistHandler {
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
+#[near_bindgen]
 impl WhitelistHandler for Contract {
+    
+    #[payable]
     fn add_to_whitelist(&mut self, new_requestor: ValidAccountId) {
         self.assert_gov();
 
@@ -59,6 +62,7 @@ impl WhitelistHandler for Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
+    #[payable]
     fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
         self.assert_gov();
 
@@ -121,11 +125,11 @@ mod mock_token_basic_tests {
             final_arbitrator: alice(),
             bond_token: token(),
             stake_token: token(),
-            validity_bond: 0,
+            validity_bond: U128(0),
             max_outcomes: 8,
             default_challenge_window_duration: 1000,
             min_initial_challenge_window_duration: 1000,
-            final_arbitrator_invoke_amount: 25_000_000_000_000_000_000_000_000_000_000,
+            final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
             resolution_fee_percentage: 0,
         }
     }

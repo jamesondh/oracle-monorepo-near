@@ -13,11 +13,11 @@ pub struct OracleConfig {
     pub final_arbitrator: AccountId, // Invoked to have last say in `DataRequest`, this happens when the `challenge_bond` for a `DataRequest` is >= than `final_arbitrator_invoke_amount` / 100 % of the total supply
     pub stake_token: AccountId,
     pub bond_token: AccountId,
-    pub validity_bond: u128,
+    pub validity_bond: U128,
     pub max_outcomes: u8,
     pub default_challenge_window_duration: Duration,
     pub min_initial_challenge_window_duration: Duration,
-    pub final_arbitrator_invoke_amount: u128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
+    pub final_arbitrator_invoke_amount: U128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
     pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
 }
 
@@ -75,11 +75,11 @@ mod mock_token_basic_tests {
             final_arbitrator: alice(),
             bond_token: token(),
             stake_token: token(),
-            validity_bond: 0,
+            validity_bond: U128(0),
             max_outcomes: 8,
             default_challenge_window_duration: 1000,
             min_initial_challenge_window_duration: 1000,
-            final_arbitrator_invoke_amount: 25_000_000_000_000_000_000_000_000_000_000,
+            final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
             resolution_fee_percentage: 0,
         }
     }
