@@ -1096,4 +1096,113 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
     }
+
+
+    fn dr_finalize(contract : &mut Contract, outcome : Outcome) {
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: outcome
+        });
+
+        let mut ct : VMContext = get_context(token());
+        ct.block_timestamp = 1501;
+        testing_env!(ct);
+
+        contract.dr_finalize(U64(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "DataRequest with this id does not exist")]
+    fn dr_unstake_invalid_id() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot withdraw from bonded outcome")]
+    fn dr_unstake_bonded_outcome() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "token.near has less staked on this outcome (0) than unstake amount")]
+    fn dr_unstake_bonded_outcome_c() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("c".to_string()), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "alice.near has less staked on this outcome (10) than unstake amount")]
+    fn dr_unstake_too_much() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        let outcome = data_request::Outcome::Answer("b".to_string());
+        contract.stake_token.transfer(alice(), U128(100));
+        contract.dr_stake(alice(), 10, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), 11);
+    }
+
+    #[test]
+    fn dr_unstake_success() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        let outcome = data_request::Outcome::Answer("b".to_string());
+        contract.stake_token.transfer(alice(), U128(100));
+        contract.dr_stake(alice(), 10, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        // TODO stake_token.balances should change?
+        // verify initial storage
+        assert_eq!(contract.stake_token.balances.get(&alice()).unwrap(), 100);
+        assert_eq!(contract.
+            data_requests.get(0).unwrap().
+            resolution_windows.get(0).unwrap().
+            user_to_outcome_to_stake.get(&alice()).unwrap().get(&outcome).unwrap(), 10);
+        assert_eq!(contract.
+            data_requests.get(0).unwrap().
+            resolution_windows.get(0).unwrap().
+            outcome_to_stake.get(&outcome).unwrap(), 10);
+
+        let unstaked: WrappedBalance = contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), 1);
+        assert_eq!(unstaked, U128(1));
+
+        // verify storage after unstake
+        assert_eq!(contract.stake_token.balances.get(&alice()).unwrap(), 100);
+        assert_eq!(contract.
+            data_requests.get(0).unwrap().
+            resolution_windows.get(0).unwrap().
+            user_to_outcome_to_stake.get(&alice()).unwrap().get(&outcome).unwrap(), 9);
+        assert_eq!(contract.
+            data_requests.get(0).unwrap().
+            resolution_windows.get(0).unwrap().
+            outcome_to_stake.get(&outcome).unwrap(), 9);
+    }
 }

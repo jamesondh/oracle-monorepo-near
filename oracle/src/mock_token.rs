@@ -35,6 +35,7 @@ impl Token {
         let sender_bal: u128 = self.get_balance_expect(sender).into();
         assert!(sender_bal >= amount, "sender does not have enough tokens");
         self.balances.insert(
+            // TODO sender?
             &env::predecessor_account_id(),
             &(sender_bal - amount)
         );
