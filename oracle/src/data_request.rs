@@ -305,7 +305,6 @@ impl DataRequestChange for DataRequest {
         for round in 0..self.resolution_windows.len() {
             let mut window = self.resolution_windows.get(round).unwrap();
             let stake_state: WindowStakeResult = window.claim_for(account_id.to_string(), self.finalized_outcome.as_ref().unwrap());
-
             match stake_state {
                 WindowStakeResult::Correct(correctly_staked) => {
                     // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
@@ -325,7 +324,11 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        let payout = resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
+        let payout = if total_correct_staked == 0 {
+            resolution_round_earnings
+        } else {
+            resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
+        };
         logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, payout);
         payout
     }
@@ -1099,7 +1102,7 @@ mod mock_token_basic_tests {
 
 
     fn dr_finalize(contract : &mut Contract, outcome : Outcome) {
-        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+        contract.dr_stake(alice(), 2000, StakeDataRequestArgs{
             id: U64(0),
             outcome: outcome
         });
@@ -1204,5 +1207,80 @@ mod mock_token_basic_tests {
             data_requests.get(0).unwrap().
             resolution_windows.get(0).unwrap().
             outcome_to_stake.get(&outcome).unwrap(), 9);
+    }
+
+    #[test]
+    #[should_panic(expected = "DataRequest with this id does not exist")]
+    fn dr_claim_invalid_id() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+
+        contract.dr_claim(alice(), U64(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: HostError(BalanceExceeded)")]
+    fn dr_claim_success() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        contract.dr_claim(alice(), U64(0));
+    }
+
+    #[test]
+    fn d_claim_single() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond
+        assert_eq!(d.claim(alice()), 100);
+    }
+
+    #[test]
+    fn d_claim_double() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond
+        assert_eq!(d.claim(alice()), 50);
+        assert_eq!(d.claim(bob()), 50);
+    }
+
+    #[test]
+    fn d_claim_2rounds() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("b".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond + round 0 stake
+        assert_eq!(d.claim(alice()), 300);
+        assert_eq!(d.claim(bob()), 0);
     }
 }
