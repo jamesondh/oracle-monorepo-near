@@ -203,7 +203,6 @@ impl DataRequestChange for DataRequest {
         let requestor = mock_requestor::Requestor(sender);
         let tvl: u128 = requestor.get_tvl(id.into()).into();
         let fee = config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
-
         Self {
             id: id,
             sources: request_data.sources,
@@ -300,6 +299,7 @@ impl DataRequestChange for DataRequest {
         // Metrics we need to calculate resolution round result
         let resolution_payout = self.calc_resolution_fee_payout();
         let mut resolution_round_earnings = 0;
+        let mut round0_correct = false;
 
         // For any round after the resolution round handle generically
         for round in 0..self.resolution_windows.len() {
@@ -309,6 +309,7 @@ impl DataRequestChange for DataRequest {
                 WindowStakeResult::Correct(correctly_staked) => {
                     // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
                     if round == 0 {
+                        round0_correct = true;
                         resolution_round_earnings = helpers::calc_product(correctly_staked.user_stake, resolution_payout, correctly_staked.bonded_stake)
                     } else {
                         total_correct_staked += correctly_staked.bonded_stake;
@@ -324,11 +325,17 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        let payout = if total_correct_staked == 0 {
+        let mut payout = if total_correct_staked == 0 {
             resolution_round_earnings
         } else {
-            resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
+            let mut payout = resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
+            if !round0_correct {
+                // divide resolution payout among all right users
+                payout += helpers::calc_product(user_correct_stake, resolution_payout, total_correct_staked);
+            }
+            payout
         };
+
         logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, payout);
         payout
     }
@@ -617,6 +624,10 @@ mod mock_token_basic_tests {
         "carol.near".to_string()
     }
 
+    fn dave() -> AccountId {
+        "dave.near".to_string()
+    }
+
     fn token() -> AccountId {
         "token.near".to_string()
     }
@@ -644,7 +655,7 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: 1000,
             min_initial_challenge_window_duration: 1000,
             final_arbitrator_invoke_amount: U128(250),
-            resolution_fee_percentage: 0,
+            resolution_fee_percentage: 10_000,
         }
     }
 
@@ -1220,7 +1231,6 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: HostError(BalanceExceeded)")]
     fn dr_claim_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -1245,6 +1255,35 @@ mod mock_token_basic_tests {
     }
 
     #[test]
+    fn d_claim_same_twice() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond
+        assert_eq!(d.claim(alice()), 100);
+        assert_eq!(d.claim(alice()), 0);
+    }
+
+    #[test]
+    fn d_validity_bond() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.validity_bond = U128(2);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // fees (100% of TVL)
+        assert_eq!(d.claim(alice()), 5);
+    }
+
+    #[test]
     fn d_claim_double() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -1264,7 +1303,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    fn d_claim_2rounds() {
+    fn d_claim_2rounds_single() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
@@ -1282,5 +1321,124 @@ mod mock_token_basic_tests {
         // validity bond + round 0 stake
         assert_eq!(d.claim(alice()), 300);
         assert_eq!(d.claim(bob()), 0);
+    }
+
+    #[test]
+    fn d_claim_2rounds_double() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("b".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond + round 0 stake
+        assert_eq!(d.claim(alice()), 225);
+        assert_eq!(d.claim(bob()), 0);
+        assert_eq!(d.claim(carol()), 75);
+    }
+
+    #[test]
+    fn d_claim_3rounds_single() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // round 1 stake
+        assert_eq!(d.claim(alice()), 400);
+        // validity bond
+        assert_eq!(d.claim(bob()), 100);
+        assert_eq!(d.claim(carol()), 0);
+    }
+
+    #[test]
+    fn d_claim_3rounds_double_round0() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(dave(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // round 1 stake
+        assert_eq!(d.claim(alice()), 400);
+        // 50% of validity bond
+        assert_eq!(d.claim(bob()), 50);
+        assert_eq!(d.claim(carol()), 0);
+        // 50% of validity bond
+        assert_eq!(d.claim(dave()), 50);
+    }
+
+    #[test]
+    fn d_claim_3rounds_double_round2() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(bob(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        contract.dr_stake(dave(), 300, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // 5/8 of round 1 stake
+        assert_eq!(d.claim(alice()), 250);
+        // validity bond
+        assert_eq!(d.claim(bob()), 100);
+        assert_eq!(d.claim(carol()), 0);
+        // 3/8 of round 1 stake
+        assert_eq!(d.claim(dave()), 150);
     }
 }
