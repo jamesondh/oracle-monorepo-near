@@ -360,6 +360,7 @@ trait DataRequestView {
     fn assert_can_finalize(&self);
     fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
+    fn assert_final_arbitrator_not_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
@@ -406,7 +407,7 @@ impl DataRequestView for DataRequest {
             self.request_config.final_arbitrator,
             env::predecessor_account_id(),
             "sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: {}",
-            env::predecessor_account_id()
+            self.request_config.final_arbitrator
         );
     }
 
@@ -414,6 +415,14 @@ impl DataRequestView for DataRequest {
         assert!(
             self.final_arbitrator_triggered,
             "Final arbitrator can not finalize `DataRequest` with id: {}",
+            self.id
+        );
+    }
+
+    fn assert_final_arbitrator_not_invoked(&self) {
+        assert!(
+            !self.final_arbitrator_triggered,
+            "Final arbitrator is invoked for `DataRequest` with id: {}",
             self.id
         );
     }
@@ -516,6 +525,7 @@ impl Contract {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         self.assert_sender(&config.stake_token);
+        dr.assert_final_arbitrator_not_invoked();
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
@@ -584,6 +594,7 @@ impl Contract {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id);
+        dr.assert_not_finalized();
         dr.assert_final_arbitrator();
         dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
@@ -592,6 +603,7 @@ impl Contract {
         dr.target_contract.set_outcome(request_id, outcome);
         dr.return_validity_bond(&mut self.validity_bond_token);
 
+        self.data_requests.replace(request_id.into(), &dr);
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
@@ -1440,5 +1452,224 @@ mod mock_token_basic_tests {
         assert_eq!(d.claim(carol()), 0);
         // 3/8 of round 1 stake
         assert_eq!(d.claim(dave()), 150);
+    }
+
+    #[test]
+    fn d_claim_final_arb() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        // This round exceeds final arb limit, will be used as signal
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // TODO should be 500, validity bond (100) + last round (400)
+        assert_eq!(d.claim(alice()), 500);
+        assert_eq!(d.claim(bob()), 0);
+    }
+
+    #[test]
+    fn d_claim_final_arb_extra_round() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(600);
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        // This round exceeds final arb limit, will be used as signal
+        contract.dr_stake(carol(), 800, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        // validity bond
+        assert_eq!(d.claim(alice()), 100);
+        assert_eq!(d.claim(bob()), 0);
+        // round 1 funds
+        assert_eq!(d.claim(carol()), 400);
+    }
+
+    #[test]
+    fn d_claim_final_arb_extra_round2() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(600);
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        // This round exceeds final arb limit, will be used as signal
+        contract.dr_stake(carol(), 800, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        assert_eq!(d.claim(alice()), 0);
+        // validity bond (100), round0 (200), round2 (800)
+        assert_eq!(d.claim(bob()), 1100);
+        assert_eq!(d.claim(carol()), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Final arbitrator is invoked for `DataRequest` with id: 0")]
+    fn dr_final_arb_invoked() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        let mut contract = Contract::new(whitelist, config);
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        contract.dr_stake(carol(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Incompatible outcome")]
+    fn dr_final_arb_invalid_outcome() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("c".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `\"alice.near\"`,\n right: `\"bob.near\"`: sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: alice.near")]
+    fn dr_final_arb_non_arb() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+
+        testing_env!(get_context(bob()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "Can't stake in finalized DataRequest")]
+    fn dr_final_arb_twice() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        // This round exceeds final arb limit, will be used as signal
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
+    }
+
+    #[test]
+    fn dr_final_arb_execute() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut config = config();
+        let mut contract = Contract::new(whitelist, config);
+        // needed for final arb function
+        contract.validity_bond_token.transfer(alice(), U128(100));
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        // This round exceeds final arb limit, will be used as signal
+        contract.dr_stake(bob(), 400, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+
+        testing_env!(get_context(alice()));
+        contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
+
+        let request : DataRequest = contract.data_requests.get(0).unwrap();
+        assert_eq!(request.resolution_windows.len(), 2);
+        assert_eq!(request.finalized_outcome.unwrap(), data_request::Outcome::Answer("b".to_string()));
     }
 }
