@@ -76,7 +76,7 @@ pub fn log_oracle_config(config: &OracleConfig, id: u64) {
         json!({
             "type": "oracle_configs",
             "action": "update",
-            // "cap_id": format!("oc_{}", config.id),
+            "cap_id": format!("oc_{}", id),
             "params": {
                 "id": U64(id),
                 "gov": config.gov,
