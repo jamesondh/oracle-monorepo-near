@@ -397,7 +397,6 @@ impl DataRequestView for DataRequest {
 
     fn assert_can_finalize(&self) {
         assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
-        println!("{:?}", self.resolution_windows.len());
         let last_window = self.resolution_windows.iter().last().expect("No resolution windows found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
