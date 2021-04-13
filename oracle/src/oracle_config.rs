@@ -21,7 +21,10 @@ pub struct OracleConfig {
     pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
 }
 
+#[near_bindgen]
 impl Contract {
+
+    #[payable]
     pub fn set_config(&mut self, new_config: OracleConfig) {
         self.assert_gov();
         assert!(new_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Fee cannot be higher than 33%");
