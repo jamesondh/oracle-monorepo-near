@@ -233,9 +233,9 @@ impl DataRequestChange for DataRequest {
         let mut window = self.resolution_windows
             .iter()
             .last()
-            .unwrap_or(
+            .unwrap_or_else( || {
                 ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
-            );
+            });
 
         let unspent = window.stake(sender, outcome, amount);
 
@@ -397,6 +397,7 @@ impl DataRequestView for DataRequest {
 
     fn assert_can_finalize(&self) {
         assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
+        println!("{:?}", self.resolution_windows.len());
         let last_window = self.resolution_windows.iter().last().expect("No resolution windows found, DataRequest not processed");
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
