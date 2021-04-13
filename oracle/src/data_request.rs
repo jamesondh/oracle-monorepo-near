@@ -325,7 +325,7 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        let mut payout = if total_correct_staked == 0 {
+        let payout = if total_correct_staked == 0 {
             resolution_round_earnings
         } else {
             let mut payout = resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
@@ -1179,7 +1179,6 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let outcome = data_request::Outcome::Answer("b".to_string());
         contract.stake_token.transfer(alice(), U128(100));
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
             id: U64(0),
@@ -1558,7 +1557,7 @@ mod mock_token_basic_tests {
     fn dr_final_arb_invoked() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut config = config();
+        let config = config();
         let mut contract = Contract::new(whitelist, config);
         dr_new(&mut contract);
 
@@ -1581,7 +1580,7 @@ mod mock_token_basic_tests {
     fn dr_final_arb_invalid_outcome() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut config = config();
+        let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
         contract.validity_bond_token.transfer(alice(), U128(100));
@@ -1602,7 +1601,7 @@ mod mock_token_basic_tests {
     fn dr_final_arb_non_arb() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut config = config();
+        let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
         contract.validity_bond_token.transfer(alice(), U128(100));
@@ -1623,7 +1622,7 @@ mod mock_token_basic_tests {
     fn dr_final_arb_twice() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut config = config();
+        let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
         contract.validity_bond_token.transfer(alice(), U128(100));
@@ -1649,7 +1648,7 @@ mod mock_token_basic_tests {
     fn dr_final_arb_execute() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
-        let mut config = config();
+        let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
         contract.validity_bond_token.transfer(alice(), U128(100));
