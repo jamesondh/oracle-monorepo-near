@@ -17,8 +17,8 @@ mod logger;
 
 /// Mocks
 mod mock_requestor;
-mod mock_token;
 mod mock_target_contract;
+mod fungible_token;
 
 use callback_args::*;
 
@@ -32,8 +32,6 @@ pub struct Contract {
     pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
-    pub stake_token: mock_token::Token,
-    pub validity_bond_token: mock_token::Token,
     // Storage map
     pub accounts: LookupMap<AccountId, Balance>
 }
@@ -61,10 +59,6 @@ impl Contract {
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
-
-            // Mock
-            stake_token: mock_token::Token::default_new(b"st".to_vec()),
-            validity_bond_token: mock_token::Token::default_new(b"vbt".to_vec()),
         }
     }
 }
