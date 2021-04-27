@@ -15,6 +15,7 @@ pub trait FungibleTokenReceiver {
     fn ft_on_transfer(&mut self, sender: AccountId, amount: U128, msg: String) -> U128;
 }
 
+#[near_bindgen]
 impl FungibleTokenReceiver for Contract {
     // @returns amount of unused tokens
     fn ft_on_transfer(
