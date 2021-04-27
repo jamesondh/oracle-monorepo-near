@@ -12,7 +12,7 @@ pub enum Payload {
 
 pub trait FungibleTokenReceiver {
     // @returns amount of unused tokens
-    fn ft_on_transfer(&mut self, sender: AccountId, amount: U128, msg: String) -> U128;
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
 }
 
 #[near_bindgen]
@@ -20,26 +20,26 @@ impl FungibleTokenReceiver for Contract {
     // @returns amount of unused tokens
     fn ft_on_transfer(
         &mut self,
-        sender: AccountId,
+        sender_id: AccountId,
         amount: U128,
         msg: String
     ) -> U128 {
         let initial_storage_usage = env::storage_usage();
-        let initial_user_balance = self.accounts.get(&sender).unwrap_or(0);
+        let initial_user_balance = self.accounts.get(&sender_id).unwrap_or(0);
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
         let unspent: U128 = match payload {
-            Payload::NewDataRequest(payload) => self.dr_new(sender.clone(), amount.into(), payload),
-            Payload::StakeDataRequest(payload) => self.dr_stake(sender.clone(), amount.into(), payload),
+            Payload::NewDataRequest(payload) => self.dr_new(sender_id.clone(), amount.into(), payload),
+            Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
         }.into();
 
         if env::storage_usage() >= initial_storage_usage {
             // used more storage, deduct from balance
             let difference : u128 = u128::from(env::storage_usage() - initial_storage_usage);
-            self.accounts.insert(&sender, &(initial_user_balance - difference * STORAGE_PRICE_PER_BYTE));
+            self.accounts.insert(&sender_id, &(initial_user_balance - difference * STORAGE_PRICE_PER_BYTE));
         } else {
             // freed up storage, add to balance
             let difference : u128 = u128::from(initial_storage_usage - env::storage_usage());
-            self.accounts.insert(&sender, &(initial_user_balance + difference * STORAGE_PRICE_PER_BYTE));
+            self.accounts.insert(&sender_id, &(initial_user_balance + difference * STORAGE_PRICE_PER_BYTE));
         }
 
         unspent
