@@ -544,11 +544,11 @@ impl Contract {
     }
 
     #[payable]
-    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: Balance) -> Promise {
+    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: U128) -> Promise {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
-        let unstaked = dr.unstake(env::predecessor_account_id(), resolution_round, outcome, amount);
+        let unstaked = dr.unstake(env::predecessor_account_id(), resolution_round, outcome, amount.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
                 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
