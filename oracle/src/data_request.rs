@@ -6,7 +6,7 @@ use near_sdk::serde::{ Deserialize, Serialize };
 use near_sdk::{ env, Balance, AccountId, Promise, PromiseOrValue };
 use near_sdk::collections::{ Vector, LookupMap };
 
-use crate::types::{ Timestamp, Duration, WrappedBalance };
+use crate::types::{ Timestamp, Duration };
 use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
