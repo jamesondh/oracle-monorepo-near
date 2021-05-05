@@ -436,10 +436,12 @@ impl DataRequestView for DataRequest {
     }
 
     fn assert_reached_settlement_time(&self) {
+        let settlement_time = u64::from(self.settlement_time);
         assert!(
-            u64::from(self.settlement_time) <= u64::from(env::block_timestamp()),
-            "Cannot stake on `DataRequest` {} until settlement time",
-            self.id
+            settlement_time <= u64::from(env::block_timestamp()),
+            "Cannot stake on `DataRequest` {} until settlement time {}",
+            self.id,
+            settlement_time
         );
     }
 
@@ -691,7 +693,7 @@ mod mock_token_basic_tests {
         }
     }
 
-    fn get_context(predecessor_account_id: AccountId) -> VMContext {
+    fn get_context(predecessor_account_id: AccountId, timestamp: u64) -> VMContext {
         VMContext {
             current_account_id: token(),
             signer_account_id: bob(),
@@ -699,7 +701,7 @@ mod mock_token_basic_tests {
             predecessor_account_id,
             input: vec![],
             block_index: 0,
-            block_timestamp: 0,
+            block_timestamp: timestamp,
             account_balance: 10000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
@@ -715,7 +717,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_new_single_outcome() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -732,7 +734,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Err predecessor is not whitelisted")]
     fn dr_new_non_whitelisted() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(alice(), 100, NewDataRequestArgs{
@@ -747,7 +749,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_new_non_bond_token() {
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(bob(), 100, NewDataRequestArgs{
@@ -762,7 +764,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Too many sources provided, max sources is: 8")]
     fn dr_new_arg_source_exceed() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         let x1 = data_request::Source {end_point: "1".to_string(), source_path: "1".to_string()};
@@ -786,7 +788,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_new_arg_outcome_exceed() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -812,7 +814,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Challenge shorter than minimum challenge period")]
     fn dr_new_arg_challenge_period_below_min() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -828,7 +830,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Challenge period exceeds maximum challenge period")]
     fn dr_new_arg_challenge_period_exceed() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -844,7 +846,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Validity bond not reached")]
     fn dr_new_not_enough_amount() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -859,7 +861,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_new_success_exceed_amount() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -875,7 +877,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_new_success() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -902,12 +904,12 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_stake_non_stake_token() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_stake(alice(),100,  StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("42".to_string())
@@ -917,7 +919,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_stake_not_existing() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_stake(alice(),100,  StakeDataRequestArgs{
@@ -929,7 +931,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Incompatible outcome")]
     fn dr_stake_incompatible_answer() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -943,7 +945,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Can't stake in finalized DataRequest")]
     fn dr_stake_finalized_market() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -953,7 +955,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        let mut ct : VMContext = get_context(token());
+        let mut ct : VMContext = get_context(token(), 0);
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
@@ -969,7 +971,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_stake_finalized_settlement_time() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -989,7 +991,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_stake_success_partial() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1012,7 +1014,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_stake_success_full_at_t0() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1039,12 +1041,12 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_stake_success_overstake_at_t600() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let mut ct : VMContext = get_context(token());
+        let mut ct : VMContext = get_context(token(), 0);
         ct.block_timestamp = 600;
         testing_env!(ct);
 
@@ -1071,7 +1073,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Can only be finalized by final arbitrator")]
     fn dr_finalize_final_arb() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut c: oracle_config::OracleConfig = config();
         c.final_arbitrator_invoke_amount = U128(150);
@@ -1089,7 +1091,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "No resolution windows found, DataRequest not processed")]
     fn dr_finalize_no_resolutions() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1100,7 +1102,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Challenge period not ended")]
     fn dr_finalize_active_challenge() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1115,7 +1117,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_finalize_success() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1125,7 +1127,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        let mut ct : VMContext = get_context(token());
+        let mut ct : VMContext = get_context(token(), 0);
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
@@ -1139,7 +1141,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Outcome is incompatible for this round")]
     fn dr_stake_same_outcome() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1162,7 +1164,7 @@ mod mock_token_basic_tests {
             outcome: outcome
         });
 
-        let mut ct : VMContext = get_context(token());
+        let mut ct : VMContext = get_context(token(), 0);
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
@@ -1172,7 +1174,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_unstake_invalid_id() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -1182,7 +1184,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Cannot withdraw from bonded outcome")]
     fn dr_unstake_bonded_outcome() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1194,7 +1196,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "token.near has less staked on this outcome (0) than unstake amount")]
     fn dr_unstake_bonded_outcome_c() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1206,7 +1208,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "alice.near has less staked on this outcome (10) than unstake amount")]
     fn dr_unstake_too_much() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1216,13 +1218,13 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), U128(11));
     }
 
     #[test]
     fn dr_unstake_success() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1233,7 +1235,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         // TODO stake_token.balances should change?
         // verify initial storage
         assert_eq!(contract.
@@ -1261,7 +1263,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_claim_invalid_id() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
@@ -1270,7 +1272,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn dr_claim_success() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1281,7 +1283,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_single() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1294,7 +1296,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_same_twice() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1308,7 +1310,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_validity_bond() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
@@ -1323,7 +1325,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_double() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
@@ -1342,7 +1344,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_2rounds_single() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
@@ -1363,7 +1365,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_2rounds_double() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
@@ -1389,7 +1391,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_3rounds_single() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
@@ -1416,7 +1418,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_3rounds_double_round0() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
@@ -1449,7 +1451,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_3rounds_double_round2() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
@@ -1482,7 +1484,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_final_arb() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
         // needed for final arb function
@@ -1498,7 +1500,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
@@ -1509,7 +1511,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_final_arb_extra_round() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
@@ -1531,7 +1533,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
@@ -1544,7 +1546,7 @@ mod mock_token_basic_tests {
 
     #[test]
     fn d_claim_final_arb_extra_round2() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
@@ -1566,7 +1568,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
@@ -1579,7 +1581,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Final arbitrator is invoked for `DataRequest` with id: 0")]
     fn dr_final_arb_invoked() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
@@ -1602,7 +1604,7 @@ mod mock_token_basic_tests {
     #[test]
     #[should_panic(expected = "Incompatible outcome")]
     fn dr_final_arb_invalid_outcome() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
@@ -1615,14 +1617,14 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("c".to_string()));
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `\"alice.near\"`,\n right: `\"bob.near\"`: sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: alice.near")]
     fn dr_final_arb_non_arb() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
@@ -1635,14 +1637,14 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("a".to_string())
         });
 
-        testing_env!(get_context(bob()));
+        testing_env!(get_context(bob(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
     }
 
     #[test]
     #[should_panic(expected = "Can't stake in finalized DataRequest")]
     fn dr_final_arb_twice() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
@@ -1660,14 +1662,14 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("a".to_string()));
     }
 
     #[test]
     fn dr_final_arb_execute() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
@@ -1684,7 +1686,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
-        testing_env!(get_context(alice()));
+        testing_env!(get_context(alice(), 0));
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer("b".to_string()));
 
         let request : DataRequest = contract.data_requests.get(0).unwrap();
@@ -1693,16 +1695,23 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    // #[should_panic(expected = "Cannot stake on `DataRequest` 0 until settlement time")]
+    #[should_panic(expected = "Cannot stake on `DataRequest` 0 until settlement time 100")]
     fn dr_stake_before_settlement_time() {
-        testing_env!(get_context(token()));
+        testing_env!(get_context(token(), 0));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
-        dr_new(&mut contract);
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: 1500,
+            settlement_time: U64(100),
+            target_contract: target(),
+        });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("b".to_string())
         });
+
     }
 }
