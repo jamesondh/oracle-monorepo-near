@@ -300,13 +300,8 @@ impl DataRequestChange for DataRequest {
     fn claim(&mut self, account_id: String) -> Balance {
         // Metrics for calculating payout
         let mut total_correct_staked = 0;
-        let mut total_incorrect_staked = 0;
+        let mut total_incorrect_staked = self.calc_resolution_fee_payout();
         let mut user_correct_stake = 0;
-
-        // Metrics we need to calculate resolution round result
-        let resolution_payout = self.calc_resolution_fee_payout();
-        let mut resolution_round_earnings = 0;
-        let mut round0_correct = false;
 
         // For any round after the resolution round handle generically
         for round in 0..self.resolution_windows.len() {
@@ -314,14 +309,8 @@ impl DataRequestChange for DataRequest {
             let stake_state: WindowStakeResult = window.claim_for(account_id.to_string(), self.finalized_outcome.as_ref().unwrap());
             match stake_state {
                 WindowStakeResult::Correct(correctly_staked) => {
-                    // If it's the first round and the round was correct this should count towards the users resolution payout, it is not seen as total stake
-                    if round == 0 {
-                        round0_correct = true;
-                        resolution_round_earnings = helpers::calc_product(correctly_staked.user_stake, resolution_payout, correctly_staked.bonded_stake)
-                    } else {
-                        total_correct_staked += correctly_staked.bonded_stake;
-                        user_correct_stake += correctly_staked.user_stake;
-                    }
+                    total_correct_staked += correctly_staked.bonded_stake;
+                    user_correct_stake += correctly_staked.user_stake;
                 },
                 WindowStakeResult::Incorrect(incorrectly_staked) => {
                     total_incorrect_staked += incorrectly_staked
@@ -332,19 +321,10 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        let payout = if total_correct_staked == 0 {
-            resolution_round_earnings
-        } else {
-            let mut payout = resolution_round_earnings + helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
-            if !round0_correct {
-                // divide resolution payout among all right users
-                payout += helpers::calc_product(user_correct_stake, resolution_payout, total_correct_staked);
-            }
-            payout
-        };
+        let profit = helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked);
 
-        logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, payout);
-        user_correct_stake + payout
+        logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, profit);
+        user_correct_stake + profit
     }
 
     // @notice Return what's left of validity_bond to requestor
@@ -1291,7 +1271,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 100);
+        assert_eq!(d.claim(alice()), 300);
     }
 
     #[test]
@@ -1304,7 +1284,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 100);
+        assert_eq!(d.claim(alice()), 300);
         assert_eq!(d.claim(alice()), 0);
     }
 
@@ -1320,7 +1300,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // fees (100% of TVL)
-        assert_eq!(d.claim(alice()), 5);
+        assert_eq!(d.claim(alice()), 15);
     }
 
     #[test]
@@ -1338,8 +1318,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 50);
-        assert_eq!(d.claim(bob()), 50);
+        assert_eq!(d.claim(alice()), 150);
+        assert_eq!(d.claim(bob()), 150);
     }
 
     #[test]
@@ -1412,7 +1392,7 @@ mod mock_token_basic_tests {
         // round 1 stake
         assert_eq!(d.claim(alice()), 1200);
         // validity bond
-        assert_eq!(d.claim(bob()), 100);
+        assert_eq!(d.claim(bob()), 300);
         assert_eq!(d.claim(carol()), 0);
     }
 
@@ -1443,10 +1423,10 @@ mod mock_token_basic_tests {
         // round 1 stake
         assert_eq!(d.claim(alice()), 1200);
         // 50% of validity bond
-        assert_eq!(d.claim(bob()), 50);
+        assert_eq!(d.claim(bob()), 150);
         assert_eq!(d.claim(carol()), 0);
         // 50% of validity bond
-        assert_eq!(d.claim(dave()), 50);
+        assert_eq!(d.claim(dave()), 150);
     }
 
     #[test]
@@ -1476,7 +1456,7 @@ mod mock_token_basic_tests {
         // 5/8 of round 1 stake
         assert_eq!(d.claim(alice()), 750);
         // validity bond
-        assert_eq!(d.claim(bob()), 100);
+        assert_eq!(d.claim(bob()), 300);
         assert_eq!(d.claim(carol()), 0);
         // 3/8 of round 1 stake
         assert_eq!(d.claim(dave()), 450);
@@ -1538,7 +1518,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 100);
+        assert_eq!(d.claim(alice()), 300);
         assert_eq!(d.claim(bob()), 0);
         // round 1 funds
         assert_eq!(d.claim(carol()), 1200);

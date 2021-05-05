@@ -5,6 +5,8 @@ use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector, LookupMap };
 use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 
+near_sdk::setup_alloc!();
+
 mod types;
 mod data_request;
 mod fungible_token_receiver;
