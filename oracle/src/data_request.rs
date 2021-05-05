@@ -39,6 +39,7 @@ pub struct Source {
 pub struct ResolutionWindow {
     pub dr_id: u64,
     pub round: u16,
+    pub start_time: Timestamp,
     pub end_time: Timestamp,
     pub bond_size: Balance,
     pub outcome_to_stake: LookupMap<Outcome, Balance>,
@@ -47,18 +48,19 @@ pub struct ResolutionWindow {
 }
 
 trait ResolutionWindowChange {
-    fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self;
+    fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64, start_time: u64) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn claim_for(&mut self, account_id: AccountId, final_outcome: &Outcome) -> WindowStakeResult;
 }
 
 impl ResolutionWindowChange for ResolutionWindow {
-    fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64) -> Self {
+    fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64, start_time: u64) -> Self {
         let new_resolution_window = Self {
             dr_id,
             round,
-            end_time: env::block_timestamp() + challenge_period,
+            start_time,
+            end_time: start_time + challenge_period,
             bond_size: prev_bond * 2,
             outcome_to_stake: LookupMap::new(format!("ots{}:{}", dr_id, round).as_bytes().to_vec()),
             user_to_outcome_to_stake: LookupMap::new(format!("utots{}:{}", dr_id, round).as_bytes().to_vec()),
@@ -238,7 +240,7 @@ impl DataRequestChange for DataRequest {
             .iter()
             .last()
             .unwrap_or_else( || {
-                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
+                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period, env::block_timestamp())
             });
 
         let unspent = window.stake(sender, outcome, amount);
@@ -260,7 +262,8 @@ impl DataRequestChange for DataRequest {
                     self.id,
                     self.resolution_windows.len() as u16,
                     window.bond_size,
-                    self.request_config.default_challenge_window_duration
+                    self.request_config.default_challenge_window_duration,
+                    env::block_timestamp()
                 )
             );
         }
@@ -273,7 +276,7 @@ impl DataRequestChange for DataRequest {
         let mut window = self.resolution_windows
             .get(round as u64)
             .unwrap_or(
-                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period)
+                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period, env::block_timestamp())
             );
 
         window.unstake(sender, outcome, amount)
@@ -365,6 +368,7 @@ trait DataRequestView {
     fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
     fn assert_final_arbitrator_not_invoked(&self);
+    fn assert_reached_settlement_time(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
@@ -427,6 +431,14 @@ impl DataRequestView for DataRequest {
         assert!(
             !self.final_arbitrator_triggered,
             "Final arbitrator is invoked for `DataRequest` with id: {}",
+            self.id
+        );
+    }
+
+    fn assert_reached_settlement_time(&self) {
+        assert!(
+            u64::from(self.settlement_time) <= u64::from(env::block_timestamp()),
+            "Cannot stake on `DataRequest` {} until settlement time",
             self.id
         );
     }
@@ -529,6 +541,7 @@ impl Contract {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         self.assert_sender(&config.stake_token);
+        dr.assert_reached_settlement_time();
         dr.assert_final_arbitrator_not_invoked();
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
@@ -1677,5 +1690,19 @@ mod mock_token_basic_tests {
         let request : DataRequest = contract.data_requests.get(0).unwrap();
         assert_eq!(request.resolution_windows.len(), 2);
         assert_eq!(request.finalized_outcome.unwrap(), data_request::Outcome::Answer("b".to_string()));
+    }
+
+    #[test]
+    // #[should_panic(expected = "Cannot stake on `DataRequest` 0 until settlement time")]
+    fn dr_stake_before_settlement_time() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+
+        contract.dr_stake(alice(), 10, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
     }
 }
