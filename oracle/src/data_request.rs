@@ -167,6 +167,7 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
     pub request_config: DataRequestConfig,
+    pub settlement_time: U64,
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: mock_target_contract::TargetContract
@@ -221,6 +222,7 @@ impl DataRequestChange for DataRequest {
                 fee
             },
             initial_challenge_period: request_data.challenge_period,
+            settlement_time: request_data.settlement_time,
             final_arbitrator_triggered: false,
             target_contract: mock_target_contract::TargetContract(request_data.target_contract)
         }
@@ -708,6 +710,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -723,6 +726,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 0,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -737,6 +741,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 0,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -760,6 +765,7 @@ mod mock_token_basic_tests {
             sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
             challenge_period: 1000,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -785,6 +791,7 @@ mod mock_token_basic_tests {
                 "9".to_string()
             ]),
             challenge_period: 1000,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -800,6 +807,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 999,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -815,6 +823,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 3001,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -830,6 +839,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -844,6 +854,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
         assert_eq!(amount, 100);
@@ -859,6 +870,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
         assert_eq!(amount, 0);
@@ -869,6 +881,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
     }
@@ -951,6 +964,7 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: 1500,
+            settlement_time: U64(0),
             target_contract: target(),
         });
 

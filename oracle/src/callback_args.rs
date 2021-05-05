@@ -10,7 +10,8 @@ pub struct NewDataRequestArgs {
     pub sources: Vec<data_request::Source>,
     pub outcomes: Option<Vec<String>>,
     pub challenge_period: Timestamp,
-    pub target_contract: AccountId
+    pub settlement_time: U64,
+    pub target_contract: AccountId,
 }
 
 impl Contract {
