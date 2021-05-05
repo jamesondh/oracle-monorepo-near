@@ -1149,7 +1149,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), 0);
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), U128(0));
     }
 
     #[test]
@@ -1161,7 +1161,7 @@ mod mock_token_basic_tests {
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
-        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), 0);
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), U128(0));
     }
 
     #[test]
@@ -1173,7 +1173,7 @@ mod mock_token_basic_tests {
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
-        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("c".to_string()), 1);
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("c".to_string()), U128(1));
     }
 
     #[test]
@@ -1190,7 +1190,7 @@ mod mock_token_basic_tests {
         });
 
         testing_env!(get_context(alice()));
-        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), 11);
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), U128(11));
     }
 
     #[test]
@@ -1218,7 +1218,7 @@ mod mock_token_basic_tests {
             resolution_windows.get(0).unwrap().
             outcome_to_stake.get(&outcome).unwrap(), 10);
 
-        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), 1);
+        contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("b".to_string()), U128(1));
 
         // verify storage after unstake
         assert_eq!(contract.
