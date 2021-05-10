@@ -169,7 +169,7 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
     pub request_config: DataRequestConfig,
-    pub settlement_time: U64,
+    pub settlement_time: u64,
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: mock_target_contract::TargetContract
@@ -224,7 +224,7 @@ impl DataRequestChange for DataRequest {
                 fee
             },
             initial_challenge_period: request_data.challenge_period,
-            settlement_time: request_data.settlement_time,
+            settlement_time: request_data.settlement_time.into(),
             final_arbitrator_triggered: false,
             target_contract: mock_target_contract::TargetContract(request_data.target_contract)
         }
