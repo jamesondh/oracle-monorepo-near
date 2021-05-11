@@ -24,7 +24,7 @@ mod fungible_token;
 
 use callback_args::*;
 
-use types::{ Timestamp };
+use types::*;
 use data_request::{ DataRequest };
 
 #[near_bindgen]

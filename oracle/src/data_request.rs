@@ -224,7 +224,7 @@ impl DataRequestChange for DataRequest {
                 validity_bond: config.validity_bond.into(),
                 fee
             },
-            initial_challenge_period: request_data.challenge_period,
+            initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
             final_arbitrator_triggered: false,
             target_contract: mock_target_contract::TargetContract(request_data.target_contract),
@@ -708,7 +708,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -725,7 +725,7 @@ mod mock_token_basic_tests {
         contract.dr_new(alice(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 0,
+            challenge_period: U64(0),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -741,7 +741,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 0,
+            challenge_period: U64(0),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -766,7 +766,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
-            challenge_period: 1000,
+            challenge_period: U64(1000),
             settlement_time: U64(0),
             target_contract: target(),
             description: None,
@@ -793,7 +793,7 @@ mod mock_token_basic_tests {
                 "8".to_string(),
                 "9".to_string()
             ]),
-            challenge_period: 1000,
+            challenge_period: U64(1000),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -809,7 +809,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: vec![],
             outcomes: None,
-            challenge_period: 1000,
+            challenge_period: U64(1000),
             settlement_time: U64(0),
             target_contract: target(),
             description: None,
@@ -826,7 +826,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 999,
+            challenge_period: U64(999),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -843,7 +843,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 3001,
+            challenge_period: U64(3001),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -860,7 +860,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 90, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -876,7 +876,7 @@ mod mock_token_basic_tests {
         let amount : Balance = contract.dr_new(bob(), 200, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -893,7 +893,7 @@ mod mock_token_basic_tests {
         let amount : Balance = contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -905,7 +905,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -989,7 +989,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
@@ -1715,7 +1715,7 @@ mod mock_token_basic_tests {
         contract.dr_new(bob(), 100, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            challenge_period: 1500,
+            challenge_period: U64(1500),
             settlement_time: U64(100),
             target_contract: target(),
             description: Some("a".to_string()),
