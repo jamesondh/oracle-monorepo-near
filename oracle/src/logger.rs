@@ -23,7 +23,7 @@ use crate::{
     }
 };
 
-pub fn log_new_data_request(request: &DataRequest) {
+pub fn log_new_data_request(request: &DataRequest, tags: &Option<Vec<String>>) {
     env::log(
         json!({
             "type": "data_requests",
@@ -41,6 +41,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract.0,
                 "global_config_id": U64(request.global_config_id),
+                "tags": tags,
 
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),

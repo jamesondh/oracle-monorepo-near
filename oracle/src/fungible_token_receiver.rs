@@ -134,6 +134,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
+            tags: None,
         });
 
         let msg = serde_json::json!({
@@ -158,6 +159,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
+            tags: None,
         });
 
         let storage_start = 10u128.pow(24);
