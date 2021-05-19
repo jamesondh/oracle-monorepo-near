@@ -518,6 +518,8 @@ impl Contract {
             payload
         );
 
+        logger::log_new_data_request(&dr);
+
         self.data_requests.push(&dr);
 
         if amount > validity_bond {
