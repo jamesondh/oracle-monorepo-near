@@ -25,22 +25,14 @@ impl FungibleTokenReceiver for Contract {
         msg: String
     ) -> U128 {
         let initial_storage_usage = env::storage_usage();
-        let initial_user_balance = self.accounts.get(&sender_id).unwrap_or(0);
+        let account = self.get_storage_account(&sender_id);
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
         let unspent: U128 = match payload {
             Payload::NewDataRequest(payload) => self.dr_new(sender_id.clone(), amount.into(), payload),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
         }.into();
 
-        if env::storage_usage() >= initial_storage_usage {
-            // used more storage, deduct from balance
-            let difference : u128 = u128::from(env::storage_usage() - initial_storage_usage);
-            self.accounts.insert(&sender_id, &(initial_user_balance - difference * STORAGE_PRICE_PER_BYTE));
-        } else {
-            // freed up storage, add to balance
-            let difference : u128 = u128::from(initial_storage_usage - env::storage_usage());
-            self.accounts.insert(&sender_id, &(initial_user_balance + difference * STORAGE_PRICE_PER_BYTE));
-        }
+        self.use_storage(&sender_id, initial_storage_usage, account.available);
 
         unspent
     }

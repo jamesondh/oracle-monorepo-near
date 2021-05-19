@@ -27,6 +27,7 @@ use callback_args::*;
 
 use types::*;
 use data_request::{ DataRequest };
+use storage_manager::AccountStorageBalance;
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
@@ -36,7 +37,7 @@ pub struct Contract {
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
     // Storage map
-    pub accounts: LookupMap<AccountId, Balance>
+    pub accounts: LookupMap<AccountId, AccountStorageBalance>
 }
 
 impl Default for Contract {
