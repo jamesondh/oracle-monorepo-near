@@ -212,8 +212,8 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, 0);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, 0);
 
         let amount = 10u128.pow(24);
 
@@ -223,8 +223,8 @@ mod mock_token_basic_tests {
         testing_env!(c);
         contract.storage_deposit(Some(to_valid(alice())));
 
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, amount);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, amount);
 
         //deposit again
         let mut c : VMContext = get_context(alice());
@@ -232,8 +232,8 @@ mod mock_token_basic_tests {
         testing_env!(c);
         contract.storage_deposit(Some(to_valid(alice())));
 
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, amount*2);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, amount*2);
     }
 
     #[test]
@@ -242,8 +242,8 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, 0);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, 0);
 
         let amount = 10u128.pow(24);
 
@@ -259,8 +259,8 @@ mod mock_token_basic_tests {
         testing_env!(c);
 
         contract.storage_withdraw(U128(amount/2));
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, amount/2);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, amount/2);
     }
 
     #[test]
@@ -270,8 +270,8 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        let balance = contract.accounts.get(&alice()).unwrap_or(0);
-        assert_eq!(balance, 0);
+        let account = contract.get_storage_account(&alice());
+        assert_eq!(account.available, 0);
 
         let amount = 10u128.pow(24);
 

@@ -170,7 +170,7 @@ mod mock_token_basic_tests {
         });
         contract.ft_on_transfer(alice(), U128(100), msg.to_string());
 
-        let b = contract.accounts.get(&alice());
-        assert!(b.unwrap() < storage_start);
+        let account = contract.accounts.get(&alice());
+        assert!(account.unwrap().available < storage_start);
     }
 }
