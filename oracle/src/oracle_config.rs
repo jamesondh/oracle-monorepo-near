@@ -22,6 +22,9 @@ pub struct OracleConfig {
 
 #[near_bindgen]
 impl Contract {
+    pub fn get_config(&self) -> OracleConfig {
+        self.configs.iter().last().unwrap()
+    }
 
     #[payable]
     pub fn set_config(&mut self, new_config: OracleConfig) {
@@ -34,10 +37,6 @@ impl Contract {
 
         logger::log_oracle_config(&new_config, self.configs.len() - 1);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-    }
-    
-    pub fn get_config(&self) -> OracleConfig {
-        self.configs.iter().last().unwrap()
     }
 }
 
