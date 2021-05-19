@@ -174,6 +174,7 @@ pub struct DataRequest {
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: mock_target_contract::TargetContract,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -209,7 +210,7 @@ impl DataRequestChange for DataRequest {
         let tvl: u128 = requestor.get_tvl(id.into()).into();
         let fee = config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
 
-        let dr = Self {
+        Self {
             id: id,
             sources: request_data.sources,
             outcomes: request_data.outcomes,
@@ -229,11 +230,8 @@ impl DataRequestChange for DataRequest {
             final_arbitrator_triggered: false,
             target_contract: mock_target_contract::TargetContract(request_data.target_contract),
             description: request_data.description,
-        };
-
-        logger::log_new_data_request(&dr, &request_data.tags);
-
-        dr
+            tags: request_data.tags,
+        }
     }
 
     // @returns amount of tokens that didn't get staked
