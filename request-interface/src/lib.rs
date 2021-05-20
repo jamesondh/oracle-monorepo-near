@@ -3,10 +3,11 @@ use near_sdk::{env, near_bindgen, AccountId};
 
 near_sdk::setup_alloc!();
 
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct RequestInterfaceContract {
-    name: String
+    pub oracle: AccountId,
 }
 
 impl Default for RequestInterfaceContract {
@@ -15,14 +16,21 @@ impl Default for RequestInterfaceContract {
     }
 }
 
+// Private methods
+impl RequestInterfaceContract {
+    pub fn assert_oracle(&self) {
+        assert_eq!(&env::predecessor_account_id(), &self.oracle, "ERR_INVALID_ORACLE_ADDRESS");
+    }
+}
+
 #[near_bindgen]
 impl RequestInterfaceContract {
     #[init]
     pub fn new(
-        name: String
+        oracle: AccountId
     ) -> Self {
         Self {
-            name
+            oracle
         }
     }
 
