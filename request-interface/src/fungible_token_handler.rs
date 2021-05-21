@@ -37,7 +37,7 @@ impl RequestInterfaceContract {
         amount: Balance,
         receiver_id: AccountId
     ) -> Promise {
-        assert_eq!(env::current_account_id(), self.oracle.clone(), "ERR_MUST_BE_ORACLE");
+        self.assert_oracle();
         fungible_token_transfer(self.stake_token.clone(), receiver_id.clone(), amount)
     }
 

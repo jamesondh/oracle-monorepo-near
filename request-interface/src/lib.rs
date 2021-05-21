@@ -1,6 +1,5 @@
 use near_sdk::{env, near_bindgen, AccountId, Balance};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
 
 near_sdk::setup_alloc!();
 
@@ -40,10 +39,6 @@ impl RequestInterfaceContract {
             tvl: 0
         }
     }
-
-    pub fn test_panic_macro(&mut self) {
-        panic!("PANIC!");
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -52,6 +47,10 @@ mod tests {
     use super::*;
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
+
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
 
     fn request_interface() -> AccountId {
         "request-interface.near".to_string()
@@ -63,7 +62,7 @@ mod tests {
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
-            current_account_id: "alice_near".to_string(),
+            current_account_id: alice(),
             signer_account_id: "bob_near".to_string(),
             signer_account_pk: vec![0, 1, 2],
             predecessor_account_id: "carol_near".to_string(),
@@ -83,14 +82,17 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "PANIC!")]
-    fn ri_test_panic() {
+    #[should_panic(expected = "ERR_INVALID_ORACLE_ADDRESS")]
+    fn ri_not_oracle() {
         let context = get_context(vec![], false);
         testing_env!(context);
-        let mut contract = RequestInterfaceContract::new(
+        let contract = RequestInterfaceContract::new(
             request_interface(),
             token()
         );
-        contract.test_panic_macro();
+        contract.request_ft_transfer(
+            100,
+            alice()
+        );
     }
 }
