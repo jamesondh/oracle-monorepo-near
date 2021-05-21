@@ -517,8 +517,12 @@ impl Contract {
 
         self.data_requests.push(&dr);
 
+        // forward amount minus validity bond to request interface
+        let amount_to_send = amount - validity_bond;
+        fungible_token_transfer(config.stake_token, dr.requestor, amount_to_send);
+
         if amount > validity_bond {
-            amount - validity_bond
+            amount_to_send
         } else {
             0
         }
@@ -546,7 +550,7 @@ impl Contract {
         logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);
 
-        // transfer to Request Interface
+        // forward stake to request interface
         fungible_token_transfer(config.stake_token, dr.requestor, spent_stake);
 
         PromiseOrValue::Value(unspent_stake)
@@ -563,7 +567,6 @@ impl Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_update_data_request(&dr);
 
-        // fungible_token_transfer(config.stake_token, env::predecessor_account_id(), unstaked)
         self.request_ft_from_requestor_callback(dr.requestor, env::predecessor_account_id(), unstaked)
     }
 
@@ -571,7 +574,7 @@ impl Contract {
      * @returns amount of tokens claimed
      */
     #[payable]
-    pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> Promise {
+    pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> PromiseOrValue<bool> {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
@@ -581,7 +584,7 @@ impl Contract {
 
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        fungible_token_transfer(config.stake_token, account_id, payout)
+        self.request_ft_from_requestor_callback(dr.requestor, account_id, payout)
     }
 
     #[payable]
