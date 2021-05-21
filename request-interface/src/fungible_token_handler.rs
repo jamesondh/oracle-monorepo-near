@@ -4,6 +4,7 @@ use near_sdk::{
     AccountId,
     Gas,
     Promise,
+    PromiseOrValue,
     json_types::U128,
     ext_contract,
 };
@@ -11,6 +12,7 @@ use near_sdk::{
 #[ext_contract]
 pub trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+    fn ft_balance_of(&self, account_id: AccountId);
 }
 
 const GAS_BASE_TRANSFER: Gas = 5_000_000_000_000;
@@ -37,5 +39,17 @@ impl RequestInterfaceContract {
     ) -> Promise {
         assert_eq!(env::current_account_id(), self.oracle.clone(), "ERR_MUST_BE_ORACLE");
         fungible_token_transfer(self.stake_token.clone(), receiver_id.clone(), amount)
+    }
+
+    pub fn get_tvl(&self) -> PromiseOrValue<U128> {
+        let tvl = fungible_token::ft_balance_of(
+            env::current_account_id(),
+            // Near params
+            &self.stake_token.clone(),
+            1,
+            GAS_BASE_TRANSFER
+        );
+
+        PromiseOrValue::Promise(tvl)
     }
 }

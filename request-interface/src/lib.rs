@@ -41,10 +41,6 @@ impl RequestInterfaceContract {
         }
     }
 
-    pub fn get_tvl(&self) -> U128 {
-        5.into()
-    }
-
     pub fn test_panic_macro(&mut self) {
         panic!("PANIC!");
     }
