@@ -9,6 +9,7 @@ near_sdk::setup_alloc!();
 
 mod types;
 mod data_request;
+mod data_request_creation;
 mod fungible_token_receiver;
 pub mod callback_args;
 mod whitelist;
@@ -19,7 +20,6 @@ mod logger;
 mod upgrade;
 
 /// Mocks
-mod mock_requestor;
 mod mock_target_contract;
 mod fungible_token;
 

@@ -1,5 +1,6 @@
+use near_sdk::{env, near_bindgen, AccountId, Balance};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId};
+use near_sdk::json_types::U128;
 
 near_sdk::setup_alloc!();
 
@@ -8,6 +9,7 @@ near_sdk::setup_alloc!();
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct RequestInterfaceContract {
     pub oracle: AccountId,
+    pub tvl: Balance
 }
 
 impl Default for RequestInterfaceContract {
@@ -30,8 +32,13 @@ impl RequestInterfaceContract {
         oracle: AccountId
     ) -> Self {
         Self {
-            oracle
+            oracle,
+            tvl: 0
         }
+    }
+
+    pub fn get_tvl(&self) -> U128 {
+        5.into()
     }
 
     pub fn test_panic_macro(&mut self) {

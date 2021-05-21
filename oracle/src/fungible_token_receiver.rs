@@ -1,6 +1,7 @@
 use crate::*;
 
 use storage_manager::{ STORAGE_PRICE_PER_BYTE };
+use near_sdk::PromiseOrValue;
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::serde_json;
 
@@ -12,7 +13,7 @@ pub enum Payload {
 
 pub trait FungibleTokenReceiver {
     // @returns amount of unused tokens
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<Balance>;
 }
 
 #[near_bindgen]
@@ -23,14 +24,14 @@ impl FungibleTokenReceiver for Contract {
         sender_id: AccountId,
         amount: U128,
         msg: String
-    ) -> U128 {
+    ) -> PromiseOrValue<Balance> {
         let initial_storage_usage = env::storage_usage();
         let account = self.get_storage_account(&sender_id);
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
-        let unspent: U128 = match payload {
-            Payload::NewDataRequest(payload) => self.dr_new(sender_id.clone(), amount.into(), payload),
+        let unspent: PromiseOrValue<Balance> = match payload {
+            Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
-        }.into();
+        };
 
         self.use_storage(&sender_id, initial_storage_usage, account.available);
 
@@ -119,7 +120,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
@@ -144,7 +145,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
