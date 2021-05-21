@@ -4,11 +4,13 @@ use near_sdk::json_types::U128;
 
 near_sdk::setup_alloc!();
 
+mod fungible_token_handler;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct RequestInterfaceContract {
     pub oracle: AccountId,
+    pub stake_token: AccountId,
     pub tvl: Balance
 }
 
@@ -29,10 +31,12 @@ impl RequestInterfaceContract {
 impl RequestInterfaceContract {
     #[init]
     pub fn new(
-        oracle: AccountId
+        oracle: AccountId,
+        stake_token: AccountId
     ) -> Self {
         Self {
             oracle,
+            stake_token,
             tvl: 0
         }
     }
@@ -55,6 +59,10 @@ mod tests {
 
     fn request_interface() -> AccountId {
         "request-interface.near".to_string()
+    }
+
+    fn token() -> AccountId {
+        "token.near".to_string()
     }
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
@@ -83,7 +91,10 @@ mod tests {
     fn ri_test_panic() {
         let context = get_context(vec![], false);
         testing_env!(context);
-        let mut contract = RequestInterfaceContract::new(request_interface());
+        let mut contract = RequestInterfaceContract::new(
+            request_interface(),
+            token()
+        );
         contract.test_panic_macro();
     }
 }

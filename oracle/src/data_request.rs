@@ -541,15 +541,19 @@ impl Contract {
 
 
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
+        let spent_stake = amount - unspent_stake;
 
         logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);
+
+        // transfer to Request Interface
+        fungible_token_transfer(config.stake_token, dr.requestor, spent_stake);
 
         PromiseOrValue::Value(unspent_stake)
     }
 
     #[payable]
-    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: U128) -> Promise {
+    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: U128) -> PromiseOrValue<bool> {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
@@ -559,7 +563,8 @@ impl Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_update_data_request(&dr);
 
-        fungible_token_transfer(config.stake_token, env::predecessor_account_id(), unstaked)
+        // fungible_token_transfer(config.stake_token, env::predecessor_account_id(), unstaked)
+        self.request_ft_from_requestor_callback(dr.requestor, env::predecessor_account_id(), unstaked)
     }
 
     /**

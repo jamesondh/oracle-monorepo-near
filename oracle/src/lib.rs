@@ -9,7 +9,7 @@ near_sdk::setup_alloc!();
 
 mod types;
 mod data_request;
-mod data_request_creation;
+mod requestor_handler;
 mod fungible_token_receiver;
 pub mod callback_args;
 mod whitelist;
