@@ -1,10 +1,11 @@
 use crate::*;
 use near_sdk::{Promise, PromiseResult, PromiseOrValue, ext_contract};
 use near_sdk::serde_json::from_slice;
+use crate::fungible_token::fungible_token_balance_of;
 
 #[ext_contract]
 pub trait RequestorContractExt {
-    fn get_tvl() -> Promise;
+    // fn get_tvl() -> Promise;
     fn request_ft_transfer(amount: Balance) -> Promise;
 }
 
@@ -14,11 +15,7 @@ trait SelfExt {
     fn proceed_request_ft_from_requestor();
 }
 
-pub fn fetch_tvl(requestor: AccountId) -> Promise {
-    requestor_contract_ext::get_tvl(&requestor, 0, 4_000_000_000_000)
-}
-
-pub fn request_ft_from_requestor(requestor: AccountId, receiver: AccountId, amount: Balance) -> Promise {
+pub fn request_ft_from_requestor(receiver: AccountId, amount: Balance) -> Promise {
     requestor_contract_ext::request_ft_transfer(amount, &receiver, 0, 4_000_000_000_000)
 }
 
@@ -36,7 +33,7 @@ impl Contract {
         payload: NewDataRequestArgs
     ) -> PromiseOrValue<Balance> {
 
-        let requestor_tvl = fetch_tvl(sender.clone())
+        let requestor_tvl = fungible_token_balance_of(self.get_config().stake_token, sender.clone())
             .then(
                 ext_self::proceed_dr_new(
                     sender,
@@ -79,11 +76,10 @@ impl Contract {
 
     pub fn request_ft_from_requestor_callback(
         &mut self,
-        requestor: AccountId,
         reciever: AccountId,
         amount: Balance,
     ) -> PromiseOrValue<bool> {
-        let result = request_ft_from_requestor(requestor, reciever, amount)
+        let result = request_ft_from_requestor(reciever, amount)
             .then(
                 ext_self::proceed_request_ft_from_requestor(
                     &env::current_account_id(),
@@ -101,7 +97,7 @@ impl Contract {
             PromiseResult::Failed => env::panic(b"ERR_FAILED_FETCHING_FT_FROM_REQUESTOR"),
             PromiseResult::Successful(value) => {
                 match from_slice::<bool>(&value) {
-                    Ok(value) => true,
+                    Ok(_value) => true,
                     Err(_e) => false,
                 }
             },

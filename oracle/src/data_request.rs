@@ -3,7 +3,7 @@ use crate::*;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{U64, U128};
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ env, Balance, AccountId, Promise, PromiseOrValue };
+use near_sdk::{ env, Balance, AccountId, PromiseOrValue };
 use near_sdk::collections::{ Vector, LookupMap };
 
 use crate::types::{ Timestamp, Duration };
@@ -567,7 +567,7 @@ impl Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_update_data_request(&dr);
 
-        self.request_ft_from_requestor_callback(dr.requestor, env::predecessor_account_id(), unstaked)
+        self.request_ft_from_requestor_callback(env::predecessor_account_id(), unstaked)
     }
 
     /**
@@ -584,7 +584,7 @@ impl Contract {
 
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        self.request_ft_from_requestor_callback(dr.requestor, account_id, payout)
+        self.request_ft_from_requestor_callback(account_id, payout)
     }
 
     #[payable]
