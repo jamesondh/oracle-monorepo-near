@@ -74,6 +74,7 @@ impl Contract {
         self.dr_new(sender.clone(), amount.into(), tvl, payload)
     }
 
+    #[private]
     pub fn request_ft_from_requestor_callback(
         &mut self,
         reciever: AccountId,

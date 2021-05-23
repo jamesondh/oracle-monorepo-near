@@ -39,7 +39,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "initial_challenge_period": U64(request.initial_challenge_period),
                 "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
-                "target_contract": request.target_contract.0,
+                "target_contract": request.target_contract,
                 "global_config_id": U64(request.global_config_id),
                 "tags": request.tags,
 
@@ -67,7 +67,7 @@ pub fn log_update_data_request(request: &DataRequest) {
                 "initial_challenge_period": U64(request.initial_challenge_period),
                 "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
-                "target_contract": request.target_contract.0,
+                "target_contract": request.target_contract,
             }
         })
         .to_string()

@@ -4,6 +4,8 @@ use near_sdk::serde::{ Deserialize, Serialize };
 
 near_sdk::setup_alloc!();
 
+// TODO: implement request ID
+
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
     Answer(String),

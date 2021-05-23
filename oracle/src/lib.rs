@@ -18,9 +18,9 @@ mod storage_manager;
 mod helpers;
 mod logger;
 mod upgrade;
+mod target_contract_handler;
 
 /// Mocks
-mod mock_target_contract;
 mod fungible_token;
 
 use callback_args::*;

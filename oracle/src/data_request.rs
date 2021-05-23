@@ -173,7 +173,7 @@ pub struct DataRequest {
     pub settlement_time: u64,
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
-    pub target_contract: mock_target_contract::TargetContract,
+    pub target_contract: AccountId, // target contract
     pub tags: Option<Vec<String>>,
 }
 
@@ -227,7 +227,7 @@ impl DataRequestChange for DataRequest {
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
             final_arbitrator_triggered: false,
-            target_contract: mock_target_contract::TargetContract(request_data.target_contract),
+            target_contract: request_data.target_contract,
             description: request_data.description,
             tags: request_data.tags
         }
@@ -597,7 +597,7 @@ impl Contract {
         dr.finalize();
         self.data_requests.replace(request_id.into(), &dr);
 
-        dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
+        self.tc_set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone(), dr.target_contract.clone());
 
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
@@ -617,7 +617,7 @@ impl Contract {
         dr.finalize_final_arbitrator(outcome.clone());
 
         let config = self.configs.get(dr.global_config_id).unwrap();
-        dr.target_contract.set_outcome(request_id, outcome);
+        self.tc_set_outcome(request_id, outcome, dr.target_contract.clone());
         self.data_requests.replace(request_id.into(), &dr);
 
         logger::log_update_data_request(&dr);
