@@ -2,7 +2,8 @@
 members = [
   "oracle",
   "token",
-  "request-interface"
+  "request-interface",
+  "target-contract"
 ]
 
 [profile.release]
