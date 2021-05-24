@@ -16,7 +16,7 @@ pub enum Outcome {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct TargetContract {
     pub oracle: AccountId,
-    pub data_requests: LookupMap<U64, Option<Outcome>>
+    pub data_requests: LookupMap<U64, Outcome>
 }
 
 impl Default for TargetContract {
@@ -44,6 +44,9 @@ impl TargetContract {
         }
     }
 
+    /**
+     * @notice called by oracle to finalize the outcome result of a data request
+     */
     pub fn set_outcome(
         &mut self,
         request_id: U64,
@@ -52,7 +55,7 @@ impl TargetContract {
         self.assert_oracle();
         self.data_requests.insert(
             &request_id,
-            &Some(outcome)
+            &outcome
         );
     }
 }
@@ -121,6 +124,8 @@ mod tests {
         let mut contract = TargetContract::new(
             oracle()
         );
+        assert_eq!(contract.data_requests.get(&U64(0)), None);
         contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
+        assert_eq!(contract.data_requests.get(&U64(0)), Some(Outcome::Answer("outcome".to_string())));
     }
 }
