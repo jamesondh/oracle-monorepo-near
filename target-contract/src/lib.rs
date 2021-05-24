@@ -1,10 +1,10 @@
 use near_sdk::{env, near_bindgen, AccountId};
+use near_sdk::json_types::U64;
+use near_sdk::collections::LookupMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{ Deserialize, Serialize };
 
 near_sdk::setup_alloc!();
-
-// TODO: implement request ID
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
@@ -16,7 +16,7 @@ pub enum Outcome {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct TargetContract {
     pub oracle: AccountId,
-    pub outcome: Option<Outcome>
+    pub data_requests: LookupMap<U64, Option<Outcome>>
 }
 
 impl Default for TargetContract {
@@ -40,16 +40,20 @@ impl TargetContract {
     ) -> Self {
         Self {
             oracle,
-            outcome: None
+            data_requests: LookupMap::new(b"d".to_vec())
         }
     }
 
     pub fn set_outcome(
         &mut self,
+        request_id: U64,
         outcome: Outcome
     ) {
         self.assert_oracle();
-        self.outcome = Some(outcome);
+        self.data_requests.insert(
+            &request_id,
+            &Some(outcome)
+        );
     }
 }
 
@@ -96,7 +100,7 @@ mod tests {
         let contract = TargetContract::new(
             oracle()
         );
-        assert_eq!(contract.outcome, None);
+        assert_eq!(contract.data_requests.get(&U64(0)), None);
     }
 
     #[test]
@@ -107,7 +111,7 @@ mod tests {
         let mut contract = TargetContract::new(
             oracle()
         );
-        contract.set_outcome(Outcome::Answer("outcome".to_string()));
+        contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
     }
 
     #[test]
@@ -117,6 +121,6 @@ mod tests {
         let mut contract = TargetContract::new(
             oracle()
         );
-        contract.set_outcome(Outcome::Answer("outcome".to_string()));
+        contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
     }
 }
