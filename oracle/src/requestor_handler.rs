@@ -6,7 +6,7 @@ use crate::fungible_token::fungible_token_balance_of;
 #[ext_contract]
 pub trait RequestorContractExt {
     // fn get_tvl() -> Promise;
-    fn request_ft_transfer(amount: Balance) -> Promise;
+    fn request_ft_transfer(token: AccountId, amount: Balance) -> Promise;
 }
 
 #[ext_contract(ext_self)]
@@ -15,8 +15,8 @@ trait SelfExt {
     fn proceed_request_ft_from_requestor();
 }
 
-pub fn request_ft_from_requestor(receiver: AccountId, amount: Balance) -> Promise {
-    requestor_contract_ext::request_ft_transfer(amount, &receiver, 0, 4_000_000_000_000)
+pub fn request_ft_from_requestor(token: AccountId, receiver: AccountId, amount: Balance) -> Promise {
+    requestor_contract_ext::request_ft_transfer(token, amount, &receiver, 0, 4_000_000_000_000)
 }
 
 #[near_bindgen]
@@ -75,12 +75,13 @@ impl Contract {
     }
 
     #[private]
-    pub fn request_ft_from_requestor_callback(
+    pub fn request_ft_from_requestor(
         &mut self,
+        token: AccountId,
         reciever: AccountId,
         amount: Balance,
     ) -> PromiseOrValue<bool> {
-        let result = request_ft_from_requestor(reciever, amount)
+        let result = request_ft_from_requestor(token, reciever, amount)
             .then(
                 ext_self::proceed_request_ft_from_requestor(
                     &env::current_account_id(),

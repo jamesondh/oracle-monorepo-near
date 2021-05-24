@@ -91,6 +91,7 @@ mod tests {
             token()
         );
         contract.request_ft_transfer(
+            token(),
             100,
             alice()
         );
