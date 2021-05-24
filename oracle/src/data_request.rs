@@ -1033,7 +1033,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
+        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });
@@ -1056,7 +1056,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });
@@ -1087,7 +1087,7 @@ mod mock_token_basic_tests {
         ct.block_timestamp = 600;
         testing_env!(ct);
 
-        let b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 300, StakeDataRequestArgs{
+        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 300, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });

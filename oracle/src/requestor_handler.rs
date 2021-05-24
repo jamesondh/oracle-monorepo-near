@@ -1,4 +1,5 @@
 use crate::*;
+use crate::helpers::{assert_self, assert_prev_promise_successful};
 use near_sdk::{Promise, PromiseResult, PromiseOrValue, ext_contract};
 use near_sdk::serde_json::from_slice;
 use crate::fungible_token::fungible_token_balance_of;
@@ -15,7 +16,7 @@ trait SelfExt {
     fn proceed_request_ft_from_requestor();
 }
 
-pub fn request_ft_from_requestor(token: AccountId, receiver: AccountId, amount: Balance) -> Promise {
+pub fn request_ft_from_requestor_ext(token: AccountId, receiver: AccountId, amount: Balance) -> Promise {
     requestor_contract_ext::request_ft_transfer(token, amount, &receiver, 0, 4_000_000_000_000)
 }
 
@@ -32,20 +33,42 @@ impl Contract {
         amount: Balance,
         payload: NewDataRequestArgs
     ) -> PromiseOrValue<Balance> {
-
-        let requestor_tvl = fungible_token_balance_of(self.get_config().stake_token, sender.clone())
-            .then(
-                ext_self::proceed_dr_new(
-                    sender,
-                    amount,
-                    payload,
-                    &env::current_account_id(),
-                    0,
-                    4_000_000_000_000
+        PromiseOrValue::Promise(
+            // instead of calling get_tvl on requestor, call ft_balance_of directly on token
+            fungible_token_balance_of(self.get_config().stake_token, sender.clone())
+                .then(
+                    ext_self::proceed_dr_new(
+                        sender,
+                        amount,
+                        payload,
+                        &env::current_account_id(),
+                        0,
+                        4_000_000_000_000
+                    )
                 )
-            );
+        )
+    }
 
-        PromiseOrValue::Promise(requestor_tvl)
+    /**
+     * @notice called in data_request to request a transfer from a request interface
+     */
+    #[private]
+    pub fn request_ft_from_requestor(
+        &mut self,
+        token: AccountId,
+        reciever: AccountId,
+        amount: Balance,
+    ) -> PromiseOrValue<bool> {
+        PromiseOrValue::Promise(
+            request_ft_from_requestor_ext(token, reciever, amount)
+                .then(
+                    ext_self::proceed_request_ft_from_requestor(
+                        &env::current_account_id(),
+                        0,
+                        4_000_000_000_000
+                    )
+                )
+        )
     }
 
     /**
@@ -57,8 +80,8 @@ impl Contract {
         amount: Balance,
         payload: NewDataRequestArgs
     ) -> Balance {
-
-        // TODO: validate sender
+        assert_self();
+        assert_prev_promise_successful();
 
         let tvl = match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
@@ -74,26 +97,10 @@ impl Contract {
         self.dr_new(sender.clone(), amount.into(), tvl, payload)
     }
 
-    #[private]
-    pub fn request_ft_from_requestor(
-        &mut self,
-        token: AccountId,
-        reciever: AccountId,
-        amount: Balance,
-    ) -> PromiseOrValue<bool> {
-        let result = request_ft_from_requestor(token, reciever, amount)
-            .then(
-                ext_self::proceed_request_ft_from_requestor(
-                    &env::current_account_id(),
-                    0,
-                    4_000_000_000_000
-                )
-            );
-
-        PromiseOrValue::Promise(result)
-    }
-
     pub fn proceed_request_ft_from_requestor() -> bool {
+        assert_self();
+        assert_prev_promise_successful();
+
         match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Failed => env::panic(b"ERR_FAILED_FETCHING_FT_FROM_REQUESTOR"),
