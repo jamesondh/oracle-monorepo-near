@@ -1,16 +1,38 @@
-use near_sdk::{env, near_bindgen, AccountId, Balance};
+use near_sdk::{env, near_bindgen, AccountId, Balance, PromiseOrValue};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::serde::{ Deserialize, Serialize };
+use near_sdk::serde_json::json;
+use near_sdk::json_types::U64;
+use fungible_token_handler::fungible_token_transfer_call;
 
 near_sdk::setup_alloc!();
 
 mod fungible_token_handler;
 
+pub type WrappedTimestamp = U64;
+
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
+pub struct Source {
+    pub end_point: String,
+    pub source_path: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewDataRequestArgs {
+    pub sources: Vec<Source>,
+    pub tags: Option<Vec<String>>,
+    pub description: Option<String>,
+    pub outcomes: Option<Vec<String>>,
+    pub challenge_period: WrappedTimestamp,
+    pub settlement_time: WrappedTimestamp,
+    pub target_contract: AccountId,
+}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct RequestInterfaceContract {
     pub oracle: AccountId,
-    pub stake_token: AccountId,
-    pub tvl: Balance
+    pub stake_token: AccountId
 }
 
 impl Default for RequestInterfaceContract {
@@ -35,9 +57,27 @@ impl RequestInterfaceContract {
     ) -> Self {
         Self {
             oracle,
-            stake_token,
-            tvl: 0
+            stake_token
         }
+    }
+
+    /**
+     * @notice creates a new data request on the oracle (must be whitelisted on oracle first)
+     * @returns ID of data request
+     */
+    pub fn create_data_request(
+        &self,
+        amount: Balance,
+        payload: NewDataRequestArgs
+    ) -> PromiseOrValue<U64> {
+        PromiseOrValue::Promise(
+            fungible_token_transfer_call(
+                self.stake_token.clone(),
+                self.oracle.clone(),
+                amount,
+                json!(payload).to_string()
+            )
+        )
     }
 }
 
@@ -52,12 +92,16 @@ mod tests {
         "alice.near".to_string()
     }
 
-    fn request_interface() -> AccountId {
-        "request-interface.near".to_string()
+    fn oracle() -> AccountId {
+        "oracle.near".to_string()
     }
 
     fn token() -> AccountId {
         "token.near".to_string()
+    }
+
+    fn target() -> AccountId {
+        "target.near".to_string()
     }
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
@@ -69,7 +113,7 @@ mod tests {
             input,
             block_index: 0,
             block_timestamp: 0,
-            account_balance: 0,
+            account_balance: 10000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 0,
             attached_deposit: 0,
@@ -87,7 +131,7 @@ mod tests {
         let context = get_context(vec![], false);
         testing_env!(context);
         let contract = RequestInterfaceContract::new(
-            request_interface(),
+            oracle(),
             token()
         );
         contract.request_ft_transfer(
@@ -95,5 +139,25 @@ mod tests {
             100,
             alice()
         );
+    }
+
+    #[test]
+    fn ri_create_dr_success() {
+         let context = get_context(vec![], false);
+        testing_env!(context);
+        let contract = RequestInterfaceContract::new(
+            oracle(),
+            token()
+        );
+
+        contract.create_data_request(100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+        });
     }
 }

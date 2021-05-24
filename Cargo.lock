@@ -1938,6 +1938,7 @@ name = "request-interface"
 version = "0.1.0"
 dependencies = [
  "near-sdk 3.0.0-pre.3",
+ "serde",
 ]
 
 [[package]]

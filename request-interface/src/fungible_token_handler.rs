@@ -12,6 +12,7 @@ use near_sdk::{
 #[ext_contract]
 pub trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+    fn ft_transfer_call(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>, msg: String);
     fn ft_balance_of(&self, account_id: AccountId);
 }
 
@@ -22,6 +23,20 @@ pub fn fungible_token_transfer(token_account_id: AccountId, receiver_id: Account
         receiver_id,
         U128(value),
         None,
+
+        // Near params
+        &token_account_id,
+        1,
+        GAS_BASE_TRANSFER
+    )
+}
+
+pub fn fungible_token_transfer_call(token_account_id: AccountId, receiver_id: AccountId, value: u128, msg: String) -> Promise {
+    fungible_token::ft_transfer_call(
+        receiver_id,
+        U128(value),
+        None,
+        msg,
 
         // Near params
         &token_account_id,
