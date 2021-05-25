@@ -1,23 +1,19 @@
 use crate::*;
 use crate::helpers::{assert_self, assert_prev_promise_successful};
-use near_sdk::{Promise, PromiseResult, PromiseOrValue, ext_contract};
-use near_sdk::serde_json::from_slice;
+use near_sdk::{PromiseResult, PromiseOrValue, ext_contract};
+use near_sdk::serde_json::{from_slice, json};
 use crate::fungible_token::fungible_token_balance_of;
 
-#[ext_contract]
-pub trait RequestorContractExt {
-    // fn get_tvl() -> Promise;
-    fn request_ft_transfer(token: AccountId, amount: Balance) -> Promise;
-}
+// #[ext_contract]
+// pub trait RequestorContractExt {
+//     // fn get_tvl() -> Promise;
+//     fn request_ft_transfer(token: AccountId, amount: Balance) -> Promise;
+// }
 
 #[ext_contract(ext_self)]
 trait SelfExt {
     fn proceed_dr_new(&mut self, sender: AccountId, amount: Balance, payload: NewDataRequestArgs);
-    fn proceed_request_ft_from_requestor();
-}
-
-pub fn request_ft_from_requestor_ext(token: AccountId, receiver: AccountId, amount: Balance) -> Promise {
-    requestor_contract_ext::request_ft_transfer(token, amount, &receiver, 0, 4_000_000_000_000)
+    // fn proceed_request_ft_from_requestor();
 }
 
 #[near_bindgen]
@@ -55,20 +51,34 @@ impl Contract {
     #[private]
     pub fn request_ft_from_requestor(
         &mut self,
+        requestor: AccountId,
         token: AccountId,
-        reciever: AccountId,
+        receiver: AccountId,
         amount: Balance,
-    ) -> PromiseOrValue<bool> {
-        PromiseOrValue::Promise(
-            request_ft_from_requestor_ext(token, reciever, amount)
-                .then(
-                    ext_self::proceed_request_ft_from_requestor(
-                        &env::current_account_id(),
-                        0,
-                        4_000_000_000_000
-                    )
-                )
-        )
+        callback: String
+    ) {
+        let promise0 = env::promise_create(
+            requestor,
+            callback.as_bytes(),
+            json!({
+                "token": token,
+                "receiver": receiver,
+                "amount": U128(amount),
+            }).to_string().as_bytes(),
+            0,
+            4_000_000_000_000
+        );
+
+        let promise1 = env::promise_then(
+            promise0,
+            env::current_account_id(),
+            b"proceed_request_ft_from_requestor",
+            json!({}).to_string().as_bytes(),
+            0,
+            4_000_000_000_000
+        );
+
+        env::promise_return(promise1);
     }
 
     /**

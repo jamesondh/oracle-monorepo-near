@@ -170,6 +170,15 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
+            interface_name: account.clone(),
+            contract_entry: account.clone(),
+            callback: "request_ft_transfer".to_string(),
+            code_base_url: None
+        }
+    }
+
     fn config() -> oracle_config::OracleConfig {
         oracle_config::OracleConfig {
             gov: gov(),
@@ -209,7 +218,7 @@ mod mock_token_basic_tests {
     #[test]
     fn storage_manager_deposit() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         let account = contract.get_storage_account(&alice());
@@ -239,7 +248,7 @@ mod mock_token_basic_tests {
     #[test]
     fn storage_manager_withdraw() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         let account = contract.get_storage_account(&alice());
@@ -267,7 +276,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "attempt to subtract with overflow")]
     fn storage_manager_withdraw_too_much() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         let account = contract.get_storage_account(&alice());

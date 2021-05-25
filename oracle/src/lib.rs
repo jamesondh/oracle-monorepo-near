@@ -28,6 +28,7 @@ use callback_args::*;
 use types::*;
 use data_request::{ DataRequest };
 use storage_manager::AccountStorageBalance;
+use whitelist::RegistryEntry;
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
@@ -50,7 +51,7 @@ impl Default for Contract {
 impl Contract {
     #[init]
     pub fn new(
-        initial_whitelist: Option<Vec<ValidAccountId>>,
+        initial_whitelist: Option<Vec<RegistryEntry>>,
         config: oracle_config::OracleConfig
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());

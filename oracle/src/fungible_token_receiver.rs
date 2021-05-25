@@ -77,6 +77,15 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
+            interface_name: account.clone(),
+            contract_entry: account.clone(),
+            callback: "request_ft_transfer".to_string(),
+            code_base_url: None
+        }
+    }
+
     fn config() -> oracle_config::OracleConfig {
         oracle_config::OracleConfig {
             gov: gov(),
@@ -117,7 +126,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "attempt to subtract with overflow")]
     fn transfer_storage_no_funds() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -142,7 +151,7 @@ mod mock_token_basic_tests {
     #[test]
     fn transfer_storage_funds() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{

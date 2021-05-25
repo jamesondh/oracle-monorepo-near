@@ -1,11 +1,9 @@
 use crate::*;
-use std::convert::TryInto;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::AccountId;
-use near_sdk::collections::LookupSet;
-use near_sdk::json_types::ValidAccountId;
+use near_sdk::collections::LookupMap;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -13,22 +11,21 @@ pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
     pub callback: String,
-    pub tvs_method: String,
-    pub rvs_method: String,
-    pub code_base_url: String
+    // pub tvs_method: String,
+    // pub rvs_method: String,
+    pub code_base_url: Option<String>
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Whitelist(LookupSet<AccountId>);
+pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);
 
 impl Whitelist {
-    pub fn new(initial_whitelist: Option<Vec<ValidAccountId>>) -> Self {
-        let mut whitelist: LookupSet<AccountId> = LookupSet::new(b"wlr".to_vec());
+    pub fn new(initial_whitelist: Option<Vec<RegistryEntry>>) -> Self {
+        let mut whitelist: LookupMap<AccountId, RegistryEntry> = LookupMap::new(b"wlr".to_vec());
 
         if initial_whitelist.is_some() {
-            for valid_account_id in initial_whitelist.unwrap() {
-                let account_id: AccountId = valid_account_id.try_into().expect("Invalid account_id");
-                whitelist.insert(&account_id);
+            for requestor in initial_whitelist.unwrap() {
+                whitelist.insert(&requestor.contract_entry, &requestor);
             }
         }
 
@@ -36,13 +33,16 @@ impl Whitelist {
     }
 
     pub fn contains(&self, requestor: AccountId) -> bool {
-        self.0.contains(&requestor)
+        match self.0.get(&requestor) {
+            None => false,
+            _ => true
+        }
     }
 }
 
 trait WhitelistHandler {
-    fn add_to_whitelist(&mut self, new_requestor: ValidAccountId);
-    fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool;
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry);
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntry);
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
@@ -50,30 +50,27 @@ trait WhitelistHandler {
 impl WhitelistHandler for Contract {
     
     #[payable]
-    fn add_to_whitelist(&mut self, new_requestor: ValidAccountId) {
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
 
-        let new_requestor = new_requestor.try_into().expect("Invalid account id");
-        self.whitelist.0.insert(&new_requestor);
+        self.whitelist.0.insert(&new_requestor.contract_entry, &new_requestor);
 
-        logger::log_whitelist(&new_requestor, true);
+        logger::log_whitelist(&new_requestor.contract_entry, true); // TODO: use RegistryEntry inside logger
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
     #[payable]
-    fn remove_from_whitelist(&mut self, requestor: ValidAccountId) -> bool {
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntry) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
 
-        let requestor = requestor.try_into().expect("Invalid account id");
-
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        logger::log_whitelist(&requestor, false);
+        logger::log_whitelist(&requestor.contract_entry, false);
 
-        self.whitelist.0.remove(&requestor)
+        self.whitelist.0.remove(&requestor.contract_entry);
     }
 
     fn whitelist_contains(&self, requestor: AccountId) -> bool {
@@ -84,6 +81,9 @@ impl WhitelistHandler for Contract {
 impl Contract {
     pub (crate) fn assert_whitelisted(&self, requestor: AccountId) {
         assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
+    }
+    pub fn whitelist_get(&self, requestor: AccountId) -> Option<RegistryEntry> {
+        self.whitelist.0.get(&requestor)
     }
 }
 
@@ -115,8 +115,13 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn to_valid(account: AccountId) -> ValidAccountId {
-        account.try_into().expect("invalid account")
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
+            interface_name: account.clone(),
+            contract_entry: account.clone(),
+            callback: "request_ft_transfer".to_string(),
+            code_base_url: None
+        }
     }
 
     fn config() -> oracle_config::OracleConfig {
@@ -158,7 +163,7 @@ mod mock_token_basic_tests {
     #[test]
     fn setting_initial_whitelist() {
         testing_env!(get_context(carol()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let contract = Contract::new(whitelist, config());
         let alice_is_whitelisted = contract.whitelist_contains(alice());
         let bob_is_whitelisted = contract.whitelist_contains(bob());
@@ -171,13 +176,13 @@ mod mock_token_basic_tests {
     #[test]
     fn whitelist_add_remove() {
         testing_env!(get_context(gov()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         assert!(!contract.whitelist_contains(alice()));
-        contract.add_to_whitelist(to_valid(alice()));
+        contract.add_to_whitelist(registry_entry(alice()));
         assert!(contract.whitelist_contains(alice()));
-        contract.remove_from_whitelist(to_valid(alice()));
+        contract.remove_from_whitelist(registry_entry(alice()));
         assert!(!contract.whitelist_contains(alice()));
     }
 
@@ -185,17 +190,17 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
     fn only_gov_can_add() {
         testing_env!(get_context(alice()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
-        contract.add_to_whitelist(to_valid(alice()));
+        contract.add_to_whitelist(registry_entry(alice()));
     }
 
     #[test]
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
     fn only_gov_can_remove() {
         testing_env!(get_context(alice()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
-        contract.remove_from_whitelist(to_valid(alice()));
+        contract.remove_from_whitelist(registry_entry(alice()));
     }
 }

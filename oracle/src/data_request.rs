@@ -557,7 +557,7 @@ impl Contract {
     }
 
     #[payable]
-    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: U128) -> PromiseOrValue<bool> {
+    pub fn dr_unstake(&mut self, request_id: U64, resolution_round: u16, outcome: Outcome, amount: U128) {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
@@ -567,14 +567,16 @@ impl Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_update_data_request(&dr);
 
-        self.request_ft_from_requestor(config.stake_token, env::predecessor_account_id(), unstaked)
+        let callback = self.whitelist_get(dr.requestor.clone()).unwrap().callback;
+
+        self.request_ft_from_requestor(dr.requestor, config.stake_token, env::predecessor_account_id(), unstaked, callback);
     }
 
     /**
      * @returns amount of tokens claimed
      */
     #[payable]
-    pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> PromiseOrValue<bool> {
+    pub fn dr_claim(&mut self, account_id: String, request_id: U64) {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
@@ -584,7 +586,9 @@ impl Contract {
 
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        self.request_ft_from_requestor(config.stake_token, account_id, payout)
+
+        let callback = self.whitelist_get(dr.requestor.clone()).unwrap().callback;
+        self.request_ft_from_requestor(dr.requestor, config.stake_token, account_id, payout, callback);
     }
 
     #[payable]
@@ -637,7 +641,6 @@ impl Contract {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
-    use std::convert::TryInto;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use super::*;
@@ -670,8 +673,13 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn to_valid(account: AccountId) -> ValidAccountId {
-        account.try_into().expect("invalid account")
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
+            interface_name: account.clone(),
+            contract_entry: account.clone(),
+            callback: "request_ft_transfer".to_string(),
+            code_base_url: None
+        }
     }
 
     fn config() -> oracle_config::OracleConfig {
@@ -714,7 +722,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_new_single_outcome() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -733,7 +741,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Err predecessor is not whitelisted")]
     fn dr_new_non_whitelisted() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(alice(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -750,7 +758,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_new_non_bond_token() {
         testing_env!(get_context(alice()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -767,7 +775,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Too many sources provided, max sources is: 8")]
     fn dr_new_arg_source_exceed() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         let x1 = data_request::Source {end_point: "1".to_string(), source_path: "1".to_string()};
         let x2 = data_request::Source {end_point: "2".to_string(), source_path: "2".to_string()};
@@ -793,7 +801,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_new_arg_outcome_exceed() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -821,7 +829,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Description should be filled when no sources are given")]
     fn dr_description_required_no_sources() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: vec![],
@@ -838,7 +846,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Challenge shorter than minimum challenge period")]
     fn dr_new_arg_challenge_period_below_min() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -856,7 +864,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Challenge period exceeds maximum challenge period")]
     fn dr_new_arg_challenge_period_exceed() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -874,7 +882,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Validity bond not reached")]
     fn dr_new_not_enough_amount() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 90, 5, NewDataRequestArgs{
@@ -891,7 +899,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_new_success_exceed_amount() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         let amount : Balance = contract.dr_new(bob(), 200, 5, NewDataRequestArgs{
@@ -909,7 +917,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_new_success() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         let amount : Balance = contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -940,7 +948,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "This function can only be called by token.near")]
     fn dr_stake_non_stake_token() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -955,7 +963,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_stake_not_existing() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_stake(alice(),100,  StakeDataRequestArgs{
             id: U64(0),
@@ -967,7 +975,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Incompatible outcome")]
     fn dr_stake_incompatible_answer() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -981,7 +989,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Can't stake in finalized DataRequest")]
     fn dr_stake_finalized_market() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1007,7 +1015,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
     fn dr_stake_finalized_settlement_time() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
@@ -1029,7 +1037,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_success_partial() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1052,7 +1060,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_success_full_at_t0() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1079,7 +1087,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_success_overstake_at_t600() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1111,7 +1119,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Can only be finalized by final arbitrator")]
     fn dr_finalize_final_arb() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut c: oracle_config::OracleConfig = config();
         c.final_arbitrator_invoke_amount = U128(150);
         let mut contract = Contract::new(whitelist, c);
@@ -1129,7 +1137,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "No resolution windows found, DataRequest not processed")]
     fn dr_finalize_no_resolutions() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1140,7 +1148,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Challenge period not ended")]
     fn dr_finalize_active_challenge() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1155,7 +1163,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_finalize_success() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1179,7 +1187,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Outcome is incompatible for this round")]
     fn dr_stake_same_outcome() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1212,7 +1220,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_unstake_invalid_id() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer("a".to_string()), U128(0));
@@ -1222,7 +1230,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Cannot withdraw from bonded outcome")]
     fn dr_unstake_bonded_outcome() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
@@ -1234,7 +1242,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "token.near has less staked on this outcome (0) than unstake amount")]
     fn dr_unstake_bonded_outcome_c() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
@@ -1246,7 +1254,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "alice.near has less staked on this outcome (10) than unstake amount")]
     fn dr_unstake_too_much() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1262,7 +1270,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_unstake_success() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1301,7 +1309,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "DataRequest with this id does not exist")]
     fn dr_claim_invalid_id() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
         contract.dr_claim(alice(), U64(0));
@@ -1310,7 +1318,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_claim_success() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
@@ -1321,7 +1329,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_single() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
@@ -1334,7 +1342,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_same_twice() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
@@ -1348,7 +1356,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_validity_bond() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
         let mut contract = Contract::new(whitelist, config);
@@ -1363,7 +1371,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_double() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
@@ -1382,7 +1390,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_2rounds_single() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1403,7 +1411,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_2rounds_double() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1429,7 +1437,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_3rounds_single() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1456,7 +1464,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_3rounds_double_round0() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1489,7 +1497,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_3rounds_double_round2() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1522,7 +1530,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_final_arb() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         // needed for final arb function
         dr_new(&mut contract);
@@ -1549,7 +1557,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_final_arb_extra_round() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
         let mut contract = Contract::new(whitelist, config);
@@ -1584,7 +1592,7 @@ mod mock_token_basic_tests {
     #[test]
     fn d_claim_final_arb_extra_round2() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
         let mut contract = Contract::new(whitelist, config);
@@ -1619,7 +1627,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Final arbitrator is invoked for `DataRequest` with id: 0")]
     fn dr_final_arb_invoked() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
         dr_new(&mut contract);
@@ -1642,7 +1650,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Incompatible outcome")]
     fn dr_final_arb_invalid_outcome() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
@@ -1662,7 +1670,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `\"alice.near\"`,\n right: `\"bob.near\"`: sender is not the final arbitrator of this `DataRequest`, the final arbitrator is: alice.near")]
     fn dr_final_arb_non_arb() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
@@ -1682,7 +1690,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Can't stake in finalized DataRequest")]
     fn dr_final_arb_twice() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
@@ -1707,7 +1715,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_final_arb_execute() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
         let mut contract = Contract::new(whitelist, config);
         // needed for final arb function
@@ -1735,7 +1743,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "Cannot stake on `DataRequest` 0 until settlement time 100")]
     fn dr_stake_before_settlement_time() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1757,7 +1765,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_tvl_increases() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
