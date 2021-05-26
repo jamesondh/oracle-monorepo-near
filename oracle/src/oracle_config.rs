@@ -18,6 +18,7 @@ pub struct OracleConfig {
     pub min_initial_challenge_window_duration: WrappedTimestamp,
     pub final_arbitrator_invoke_amount: U128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
     pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
+    pub market_cap: WrappedBalance // $FLUX market cap, settable by council
 }
 
 #[near_bindgen]
@@ -37,6 +38,20 @@ impl Contract {
 
         logger::log_oracle_config(&new_config, self.configs.len() - 1);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
+    }
+
+    /*
+     * @notice Mutates the current config to update the market cap, callable only by council
+     */
+    pub fn set_market_cap(&mut self, amount: WrappedBalance) {
+        self.assert_gov(); // TODO: assert council
+
+        let mut current_config = self.configs.pop().unwrap();
+        current_config.market_cap = amount;
+
+        self.configs.push(&current_config);
+
+        // TODO: log
     }
 }
 
@@ -83,6 +98,7 @@ mod mock_token_basic_tests {
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
             resolution_fee_percentage: 0,
+            market_cap: U128(1_000_000_000_000_000_000_000_000_000_000_000)
         }
     }
 
@@ -98,7 +114,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 15600000000000000000000,
+            attached_deposit: 17200000000000000000000,
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
@@ -108,7 +124,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    fn set_config_from_gov() {
+    fn oc_set_config_from_gov() {
         testing_env!(get_context(gov()));
         let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
@@ -117,9 +133,25 @@ mod mock_token_basic_tests {
 
     #[test]
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
-    fn fail_set_config_from_user() {
+    fn oc_fail_set_config_from_user() {
         testing_env!(get_context(alice()));
         let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
+    }
+
+    #[test]
+    fn oc_set_market_cap_from_gov() {
+        testing_env!(get_context(gov()));
+        let mut contract = Contract::new(None, config(gov()));
+        contract.set_market_cap(U128(100));
+        assert_eq!(contract.get_config().market_cap, U128(100));
+    }
+
+    #[test]
+    #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
+    fn oc_fail_set_market_cap_from_user() {
+        testing_env!(get_context(alice()));
+        let mut contract = Contract::new(None, config(gov()));
+        contract.set_market_cap(U128(100));
     }
 }

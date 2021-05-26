@@ -88,6 +88,7 @@ mod mock_token_basic_tests {
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
             resolution_fee_percentage: 0,
+            market_cap: U128(1_000_000_000_000_000_000_000_000_000_000_000)
         }
     }
 
