@@ -183,13 +183,15 @@ pub struct DataRequestConfig {
     final_arbitrator_invoke_amount: Balance,
     final_arbitrator: AccountId,
     validity_bond: Balance,
-    fee: Balance
+    fee: Option<Balance>,
+    max_fee_percentage: Balance
 }
 
 trait DataRequestChange {
     fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
+    fn set_fee(&mut self, resolution_fee_percentage: Balance);
     fn finalize(&mut self);
     fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
@@ -208,10 +210,9 @@ impl DataRequestChange for DataRequest {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         let requestor = mock_requestor::Requestor(sender);
         let tvl: u128 = requestor.get_tvl(id.into()).into();
-        let fee = config.resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
 
         Self {
-            id: id,
+            id,
             sources: request_data.sources,
             outcomes: request_data.outcomes,
             requestor,
@@ -223,7 +224,8 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
-                fee
+                fee: None,
+                max_fee_percentage: 200 // 2% TODO: pass as argument
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -284,6 +286,11 @@ impl DataRequestChange for DataRequest {
             );
 
         window.unstake(sender, outcome, amount)
+    }
+
+    fn set_fee(&mut self, resolution_fee_percentage: Balance) {
+        let tvl: u128 = self.requestor.get_tvl(self.id.into()).into();
+        self.request_config.fee = Some(resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance);
     }
 
     fn finalize(&mut self) {
@@ -447,11 +454,12 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        if self.request_config.fee > self.request_config.validity_bond {
-            self.request_config.fee
-        } else {
-            self.request_config.validity_bond
-        }
+        // if self.request_config.fee > self.request_config.validity_bond {
+        //     self.request_config.fee
+        // } else {
+        //     self.request_config.validity_bond
+        // }
+        self.request_config.validity_bond
     }
 
      /**
@@ -461,13 +469,14 @@ impl DataRequestView for DataRequest {
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
+        let fee = self.request_config.fee.unwrap();
 
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
+                if fee > self.request_config.validity_bond {
                     self.request_config.validity_bond
                 } else {
-                    self.request_config.fee
+                   fee
                 }
             },
             Outcome::Invalid => 0
@@ -481,16 +490,17 @@ impl DataRequestView for DataRequest {
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
+        let fee = self.request_config.fee.unwrap();
 
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
-                    self.request_config.fee
+                if fee > self.request_config.validity_bond {
+                    fee
                 } else {
                     self.request_config.validity_bond
                 }
             },
-            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
+            Outcome::Invalid => fee + self.request_config.validity_bond
         }
     }
 }
@@ -590,6 +600,7 @@ impl Contract {
 
         dr.assert_can_finalize();
         dr.finalize();
+        dr.set_fee(config.resolution_fee_percentage.into());
         self.data_requests.replace(request_id.into(), &dr);
 
         dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
@@ -605,11 +616,14 @@ impl Contract {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id);
+        let config = self.configs.get(dr.global_config_id).unwrap();
+
         dr.assert_not_finalized();
         dr.assert_final_arbitrator();
         dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
         dr.finalize_final_arbitrator(outcome.clone());
+        dr.set_fee(config.resolution_fee_percentage.into());
 
         let config = self.configs.get(dr.global_config_id).unwrap();
         dr.target_contract.set_outcome(request_id, outcome);
