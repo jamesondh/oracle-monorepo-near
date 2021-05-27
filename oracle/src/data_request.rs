@@ -454,12 +454,13 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        // if self.request_config.fee > self.request_config.validity_bond {
-        //     self.request_config.fee
-        // } else {
-        //     self.request_config.validity_bond
-        // }
-        self.request_config.validity_bond
+        let fee = self.request_config.fee;
+        let validity_bond = self.request_config.validity_bond;
+        match fee {
+            None => validity_bond,
+            f if ( f.is_some() && (f.unwrap() > validity_bond) ) => validity_bond,
+            _ => fee.unwrap()
+        }
     }
 
      /**
