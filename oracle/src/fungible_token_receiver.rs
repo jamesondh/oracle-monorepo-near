@@ -128,6 +128,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
 
         let msg = serde_json::json!({
@@ -153,6 +154,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
 
         let storage_start = 10u128.pow(24);

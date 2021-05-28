@@ -209,7 +209,6 @@ impl DataRequestChange for DataRequest {
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         let requestor = mock_requestor::Requestor(sender);
-        let tvl: u128 = requestor.get_tvl(id.into()).into();
 
         Self {
             id,
@@ -225,7 +224,7 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
                 fee: None,
-                max_fee_percentage: 200 // 2% TODO: pass as argument
+                max_fee_percentage: request_data.max_fee_percentage.into(),
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -736,6 +735,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -754,6 +754,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -771,6 +772,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -797,6 +799,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -825,6 +828,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -842,6 +846,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -860,6 +865,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -878,6 +884,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -896,6 +903,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -913,6 +921,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
         assert_eq!(amount, 100);
     }
@@ -931,6 +940,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
         assert_eq!(amount, 0);
     }
@@ -944,6 +954,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
     }
 
@@ -1029,6 +1040,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1756,6 +1768,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            max_fee_percentage: U128(200) // 2%
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
