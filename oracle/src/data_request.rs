@@ -288,7 +288,7 @@ impl DataRequestChange for DataRequest {
     }
 
     fn set_fee(&mut self, resolution_fee_percentage: Balance) {
-        let tvl: u128 = self.requestor.get_tvl(self.id.into()).into();
+        let tvl: Balance = self.requestor.get_tvl(self.id.into()).into();
         self.request_config.fee = Some(resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance);
     }
 
@@ -362,6 +362,7 @@ trait DataRequestView {
     fn assert_final_arbitrator_invoked(&self);
     fn assert_final_arbitrator_not_invoked(&self);
     fn assert_reached_settlement_time(&self);
+    fn assert_fee_percentage_in_range(&self, fee: Balance);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
@@ -434,6 +435,17 @@ impl DataRequestView for DataRequest {
             "Cannot stake on `DataRequest` {} until settlement time {}",
             self.id,
             self.settlement_time
+        );
+    }
+
+    fn assert_fee_percentage_in_range(&self, fee: Balance) {
+        let tvl: Balance = self.requestor.get_tvl(self.id.into()).into();
+        let max_fee = self.request_config.max_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
+        assert!(
+            fee <= max_fee,
+            "Exceeded maximum resolution fee of {} with {}",
+            max_fee,
+            fee
         );
     }
 
@@ -597,14 +609,16 @@ impl Contract {
         let initial_storage = env::storage_usage();
         let mut dr = self.dr_get_expect(request_id);
         let config = self.configs.get(dr.global_config_id).unwrap();
+        let fee = config.resolution_fee_percentage.into();
 
         dr.assert_can_finalize();
+        dr.assert_fee_percentage_in_range(fee);
         dr.finalize();
-        dr.set_fee(config.resolution_fee_percentage.into());
+        dr.set_fee(fee);
         self.data_requests.replace(request_id.into(), &dr);
 
         dr.target_contract.set_outcome(request_id, dr.finalized_outcome.as_ref().unwrap().clone());
-        
+
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
@@ -617,8 +631,10 @@ impl Contract {
 
         let mut dr = self.dr_get_expect(request_id);
         let config = self.configs.get(dr.global_config_id).unwrap();
+        let fee = config.resolution_fee_percentage.into();
 
         dr.assert_not_finalized();
+        dr.assert_fee_percentage_in_range(fee);
         dr.assert_final_arbitrator();
         dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
