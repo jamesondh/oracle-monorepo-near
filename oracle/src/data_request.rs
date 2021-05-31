@@ -539,11 +539,6 @@ impl Contract {
         dr.assert_valid_outcome(&payload.outcome);
         dr.assert_not_finalized();
 
-        // TODO remove variable assignment?
-        //let _tvl = dr.get_tvl();
-
-
-
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
         let spent_stake = amount - unspent_stake;
 
