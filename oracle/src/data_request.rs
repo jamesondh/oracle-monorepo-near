@@ -443,9 +443,10 @@ impl DataRequestView for DataRequest {
         let max_fee = self.request_config.max_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
         assert!(
             fee <= max_fee,
-            "Exceeded maximum resolution fee of {} with {}",
+            "Resolution fee {} exceeds maximum of {} of requestor with TVL {}",
+            fee,
             max_fee,
-            fee
+            tvl
         );
     }
 
@@ -1792,5 +1793,24 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer("b".to_string())
         });
 
+    }
+
+    #[test]
+    #[should_panic(expected = "Resolution fee 10000 exceeds maximum of 2 of requestor with TVL 5")]
+    fn dr_finalize_exceeded_max_fee() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.dr_new(bob(), 100, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            max_fee_percentage: U128(5_000) // 50%
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
     }
 }
