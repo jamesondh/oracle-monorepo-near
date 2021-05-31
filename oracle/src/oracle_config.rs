@@ -51,7 +51,7 @@ impl Contract {
 
         self.configs.push(&current_config);
 
-        // TODO: log
+        logger::log_oracle_config(&current_config, self.configs.len() - 1);
     }
 }
 
