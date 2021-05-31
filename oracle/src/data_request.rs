@@ -191,7 +191,8 @@ trait DataRequestChange {
     fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
-    fn set_fee(&mut self, resolution_fee_percentage: Balance);
+    fn calculate_fee(&mut self, resolution_fee_percentage: Balance) -> Balance;
+    fn set_fee(&mut self, fee: Balance);
     fn finalize(&mut self);
     fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
@@ -210,6 +211,13 @@ impl DataRequestChange for DataRequest {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         let requestor = mock_requestor::Requestor(sender);
 
+        // If max fee is not passed or set to zero, set to 100% (otherwise all finalizations will fail)
+        let max_fee : Balance = request_data.max_fee_percentage.into();
+        let max_fee_percentage : Balance = match max_fee {
+            0 => 10_000,
+            _ => max_fee
+        };
+
         Self {
             id,
             sources: request_data.sources,
@@ -224,7 +232,7 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
                 fee: None,
-                max_fee_percentage: request_data.max_fee_percentage.into(),
+                max_fee_percentage
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -287,9 +295,13 @@ impl DataRequestChange for DataRequest {
         window.unstake(sender, outcome, amount)
     }
 
-    fn set_fee(&mut self, resolution_fee_percentage: Balance) {
+    fn calculate_fee(&mut self, resolution_fee_percentage: Balance) -> Balance  {
         let tvl: Balance = self.requestor.get_tvl(self.id.into()).into();
-        self.request_config.fee = Some(resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance);
+        resolution_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance
+    }
+
+    fn set_fee(&mut self, fee: Balance) {
+        self.request_config.fee = Some(fee);
     }
 
     fn finalize(&mut self) {
@@ -362,7 +374,7 @@ trait DataRequestView {
     fn assert_final_arbitrator_invoked(&self);
     fn assert_final_arbitrator_not_invoked(&self);
     fn assert_reached_settlement_time(&self);
-    fn assert_fee_percentage_in_range(&self, fee: Balance);
+    fn assert_fee_in_range(&self, fee: Balance);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn get_tvl(&self) -> Balance;
     fn calc_resolution_bond(&self) -> Balance;
@@ -438,15 +450,16 @@ impl DataRequestView for DataRequest {
         );
     }
 
-    fn assert_fee_percentage_in_range(&self, fee: Balance) {
+    fn assert_fee_in_range(&self, fee: Balance) {
         let tvl: Balance = self.requestor.get_tvl(self.id.into()).into();
         let max_fee = self.request_config.max_fee_percentage as Balance * tvl / PERCENTAGE_DIVISOR as Balance;
+        // let max_fee = self.request_config.max_fee_percentage as Balance;
         assert!(
             fee <= max_fee,
             "Resolution fee {} exceeds maximum of {} of requestor with TVL {}",
-            fee,
-            max_fee,
-            tvl
+            fee / 10u128.pow(24),
+            max_fee / 10u128.pow(24),
+            tvl / 10u128.pow(24)
         );
     }
 
@@ -610,10 +623,10 @@ impl Contract {
         let initial_storage = env::storage_usage();
         let mut dr = self.dr_get_expect(request_id);
         let config = self.configs.get(dr.global_config_id).unwrap();
-        let fee = config.resolution_fee_percentage.into();
+        let fee = dr.calculate_fee(config.resolution_fee_percentage.into());
 
         dr.assert_can_finalize();
-        dr.assert_fee_percentage_in_range(fee);
+        dr.assert_fee_in_range(fee);
         dr.finalize();
         dr.set_fee(fee);
         self.data_requests.replace(request_id.into(), &dr);
@@ -632,10 +645,10 @@ impl Contract {
 
         let mut dr = self.dr_get_expect(request_id);
         let config = self.configs.get(dr.global_config_id).unwrap();
-        let fee = config.resolution_fee_percentage.into();
+        let fee = dr.calculate_fee(config.resolution_fee_percentage.into());
 
         dr.assert_not_finalized();
-        dr.assert_fee_percentage_in_range(fee);
+        dr.assert_fee_in_range(fee);
         dr.assert_final_arbitrator();
         dr.assert_valid_outcome(&outcome);
         dr.assert_final_arbitrator_invoked();
@@ -752,7 +765,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -771,7 +784,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -789,7 +802,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -816,7 +829,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -845,7 +858,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -863,7 +876,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -882,7 +895,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -901,7 +914,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -920,7 +933,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -938,7 +951,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
         assert_eq!(amount, 100);
     }
@@ -957,7 +970,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
         assert_eq!(amount, 0);
     }
@@ -971,7 +984,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
     }
 
@@ -1057,7 +1070,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1785,7 +1798,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(200) // 2%
+            max_fee_percentage: U128(10000) // 100%
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
@@ -1796,7 +1809,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Resolution fee 10000 exceeds maximum of 2 of requestor with TVL 5")]
+    #[should_panic(expected = "Resolution fee 50000 exceeds maximum of 5 of requestor with TVL 50000")]
     fn dr_finalize_exceeded_max_fee() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![to_valid(bob()), to_valid(carol())]);
@@ -1809,7 +1822,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            max_fee_percentage: U128(5_000) // 50%
+            max_fee_percentage: U128(1) // 0.01%
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
     }

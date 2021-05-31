@@ -8,6 +8,6 @@ pub struct Requestor( pub AccountId);
 impl Requestor {
     pub fn get_tvl(&self, _request_id: U64) -> U128 {
         // TODO: Call tvl function on ext_contract
-        5.into()
+        (50_000 * 10u128.pow(24)).into()
     }
 }
