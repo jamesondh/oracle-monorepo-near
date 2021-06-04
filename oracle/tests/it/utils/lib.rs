@@ -1,6 +1,7 @@
 #![allow(clippy::needless_pass_by_value)]
 use std::convert::TryInto;
 use near_sdk::{
+    AccountId,
     json_types::{
         U64,
         U128,
@@ -24,11 +25,13 @@ mod oracle_utils;
 mod token_utils;
 mod target_contract_utils;
 mod request_interface_utils;
+mod deposit;
 
 // pub use account_utils::*;
 extern crate oracle;
 pub use oracle::*;
 pub use account_utils::*;
+use deposit::*;
 use request_interface;
 use target_contract;
 use token;
@@ -71,7 +74,7 @@ impl TestUtils {
         let oracle_init_res = oracle_utils::OracleUtils::new(&master_account);  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
-        
+
         Self {
             alice: TestAccount::new(Some(&master_account.account), Some("alice")),
             bob: TestAccount::new(Some(&master_account.account), Some("bob")),

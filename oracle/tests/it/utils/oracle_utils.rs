@@ -6,11 +6,11 @@ pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
 }
 
-fn new_registry_entry() -> RegistryEntry {
+fn new_registry_entry(contract_id: String) -> RegistryEntry {
     RegistryEntry {
-        callback: "resolve".to_string(),
+        callback: "dr_resolve".to_string(),
         code_base_url: None,
-        contract_entry: "test.near".to_string(),
+        contract_entry: contract_id,
         interface_name: "test".to_string(),
     }
 }
@@ -44,10 +44,8 @@ impl OracleUtils {
             // init method
             init_method: new(
                 Some(vec![
-                    new_registry_entry(), 
-                    new_registry_entry()
-                    // "amm".to_string().try_into().expect("invalid acc id"), 
-                    // "alice".to_string().try_into().expect("invalid acc id")
+                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string()), 
+                        new_registry_entry(TARGET_CONTRACT_ID.to_string())
                     ]
                 ), 
                 config
