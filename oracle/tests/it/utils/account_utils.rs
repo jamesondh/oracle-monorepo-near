@@ -1,6 +1,5 @@
 use crate::utils::*;
 
-const AMM_DEPOSIT: u128 = 50000000000000000000000;
 pub fn init_balance() -> u128 {
     to_yocto("1000")
 }
@@ -27,6 +26,7 @@ impl TestAccount {
             None => Self { account: init_simulator(None) }
         }
     }
+
     /*** Getters ***/
     pub fn get_token_balance(&self, account_id: Option<String>) -> u128 {
         let account_id = match account_id {

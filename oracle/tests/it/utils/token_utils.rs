@@ -17,10 +17,7 @@ impl TokenUtils {
             signer_account: master_account.account,
             deposit: to_yocto("1000"),
             // init method
-            init_method: new_default_meta(
-                "alice".try_into().expect("invalid_account_id"),
-                U128(to_yocto("1000000000"))
-            )
+            init_method: new()
         );
 
         Self {

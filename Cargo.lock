@@ -1503,14 +1503,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
-name = "near-contract-standards"
-version = "3.0.0-pre.3"
-source = "git+https://github.com/near/near-sdk-rs.git?rev=249dacdcd3fd34bc00f0895a275f33f05cd910c1#249dacdcd3fd34bc00f0895a275f33f05cd910c1"
-dependencies = [
- "near-sdk",
-]
-
-[[package]]
 name = "near-crypto"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2816,10 +2808,10 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "token"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
- "near-contract-standards",
  "near-sdk",
+ "near-sdk-sim",
 ]
 
 [[package]]
