@@ -21,7 +21,7 @@ impl TokenContract {
         let balance = self
             .accounts
             .get(&account_id)
-            .expect("The account is not registered");
+            .expect(format!("The account: {} is not registered", account_id).as_str());
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(&account_id, &new_balance);
         } else {
