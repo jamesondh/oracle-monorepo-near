@@ -3,3 +3,4 @@ mod utils;
 
 mod init;
 mod dr_creation_tests;
+mod dr_resolution_tests;
