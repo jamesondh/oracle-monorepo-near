@@ -27,7 +27,7 @@ impl Contract {
         sender: AccountId,
         amount: Balance,
         payload: NewDataRequestArgs
-    ) -> u128 {
-        self.dr_new(sender.clone(), amount.into(), 0, payload)
+    ) -> PromiseOrValue<WrappedBalance> {
+        PromiseOrValue::Value(U128(self.dr_new(sender.clone(), amount.into(), 0, payload)))
     }
 }
