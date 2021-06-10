@@ -13,7 +13,7 @@ pub enum Payload {
 
 pub trait FungibleTokenReceiver {
     // @returns amount of unused tokens
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<Balance>;
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Balance;
 }
 
 #[near_bindgen]
@@ -24,12 +24,13 @@ impl FungibleTokenReceiver for Contract {
         sender_id: AccountId,
         amount: U128,
         msg: String
-    ) -> PromiseOrValue<Balance> {
+    ) -> Balance {
         let initial_storage_usage = env::storage_usage();
         let account = self.get_storage_account(&sender_id);
+
         let payload: Payload =  serde_json::from_str(&msg).expect("Failed to parse the payload, invalid `msg` format");
-        let unspent: PromiseOrValue<Balance> = match payload {
-            Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload),
+        let unspent = match payload {
+            Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload).into(),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
         };
 
@@ -81,7 +82,6 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            callback: "request_ft_transfer".to_string(),
             code_base_url: None
         }
     }
@@ -123,7 +123,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "attempt to subtract with overflow")]
+    #[should_panic(expected = "alice.near has 0 deposited, 3520000000000000000000 is required for this transaction")]
     fn transfer_storage_no_funds() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);

@@ -30,3 +30,4 @@ impl Contract {
     ) -> u128 {
         self.dr_new(sender.clone(), amount.into(), 0, payload)
     }
+}

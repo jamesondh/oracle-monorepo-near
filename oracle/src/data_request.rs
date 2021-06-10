@@ -3,7 +3,7 @@ use crate::*;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{U64, U128};
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ env, Balance, AccountId, PromiseOrValue };
+use near_sdk::{ env, Balance, AccountId, PromiseOrValue, Promise };
 use near_sdk::collections::{ Vector, LookupMap };
 
 use crate::types::{ Timestamp, Duration };
@@ -529,7 +529,7 @@ impl Contract {
     }
 
     #[payable]
-    pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> PromiseOrValue<Balance> {
+    pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         self.assert_sender(&config.stake_token);
@@ -548,7 +548,7 @@ impl Contract {
         // forward stake to request interface
         fungible_token_transfer(config.stake_token, dr.requestor, spent_stake);
 
-        PromiseOrValue::Value(unspent_stake)
+        unspent_stake
     }
 
     #[payable]
@@ -562,28 +562,31 @@ impl Contract {
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_update_data_request(&dr);
 
-        let callback = self.whitelist_get(dr.requestor.clone()).unwrap().callback;
-
-        self.request_ft_from_requestor(dr.requestor, config.stake_token, env::predecessor_account_id(), unstaked, callback);
+        fungible_token_transfer(config.stake_token, env::predecessor_account_id(), unstaked);
     }
 
     /**
      * @returns amount of tokens claimed
      */
     #[payable]
-    pub fn dr_claim(&mut self, account_id: String, request_id: U64) {
+    pub fn dr_claim(&mut self, account_id: String, request_id: U64) -> Promise {
         let initial_storage = env::storage_usage();
 
         let mut dr = self.dr_get_expect(request_id.into());
         dr.assert_finalized();
-        let payout = dr.claim(account_id.to_string());
+        let stake_payout = dr.claim(account_id.to_string());
         let config = self.configs.get(dr.global_config_id).unwrap();
 
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
-        let callback = self.whitelist_get(dr.requestor.clone()).unwrap().callback;
-        self.request_ft_from_requestor(dr.requestor, config.stake_token, account_id, payout, callback);
+        // TODO: get fee paid from dr
+
+        // transfer owed stake tokens
+        fungible_token_transfer(config.stake_token, account_id, stake_payout)
+
+        // transfer fee amount
+
     }
 
     #[payable]
@@ -672,7 +675,6 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            callback: "request_ft_transfer".to_string(),
             code_base_url: None
         }
     }
@@ -1036,7 +1038,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
+        let _b = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });
@@ -1059,7 +1061,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
+        let _b = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });
@@ -1090,7 +1092,7 @@ mod mock_token_basic_tests {
         ct.block_timestamp = 600;
         testing_env!(ct);
 
-        let _b : PromiseOrValue<Balance> = contract.dr_stake(alice(), 300, StakeDataRequestArgs{
+        let _b = contract.dr_stake(alice(), 300, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer("a".to_string())
         });
