@@ -1,7 +1,6 @@
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::serde_json;
 use near_sdk::serde_json::json;
 use near_sdk::json_types::{U64, U128};
 use fungible_token_handler::fungible_token_transfer_call;

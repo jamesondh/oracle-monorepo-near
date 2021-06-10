@@ -1,14 +1,5 @@
 use crate::*;
-use crate::helpers::{assert_self, assert_prev_promise_successful};
-use near_sdk::{PromiseResult, PromiseOrValue, ext_contract};
-use near_sdk::serde_json::{from_slice, json};
-use crate::fungible_token::fungible_token_balance_of;
-
-// #[ext_contract]
-// pub trait RequestorContractExt {
-//     // fn get_tvl() -> Promise;
-//     fn request_ft_transfer(token: AccountId, amount: Balance) -> Promise;
-// }
+use near_sdk::{PromiseOrValue, ext_contract};
 
 #[ext_contract(ext_self)]
 trait SelfExt {

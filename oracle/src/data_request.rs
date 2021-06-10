@@ -547,7 +547,7 @@ impl Contract {
         dr.assert_not_finalized();
 
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
-        let spent_stake = amount - unspent_stake;
+        let _spent_stake = amount - unspent_stake;
 
         logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);

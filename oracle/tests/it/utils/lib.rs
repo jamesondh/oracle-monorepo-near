@@ -1,5 +1,4 @@
 #![allow(clippy::needless_pass_by_value)]
-use std::convert::TryInto;
 use near_sdk::{
     AccountId,
     json_types::{

@@ -28,12 +28,3 @@ pub fn fungible_token_transfer(token_account_id: AccountId, receiver_id: Account
         GAS_BASE_TRANSFER
     )
 }
-
-pub fn fungible_token_balance_of(token_account_id: AccountId, account_id: AccountId) -> Promise {
-    fungible_token::ft_balance_of(
-        account_id,
-        &token_account_id,
-        0,
-        4_000_000_000_000
-    )
-}

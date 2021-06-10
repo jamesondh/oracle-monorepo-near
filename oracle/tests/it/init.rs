@@ -2,7 +2,7 @@ use crate::utils::*;
 
 #[test]
 fn test_initiation() {
-    let init_res = TestUtils::init();
+    let _init_res = TestUtils::init();
 }
 
 #[test]

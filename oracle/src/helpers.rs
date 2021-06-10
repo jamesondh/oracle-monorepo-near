@@ -5,7 +5,6 @@ use near_sdk::{
     AccountId, 
     Balance,
     Promise,
-    PromiseResult
 };
 
 const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
@@ -48,31 +47,4 @@ pub fn refund_storage(initial_storage: StorageUsage, sender_id: AccountId) {
 
 pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
     ns_timestamp / 1_000_000
-}
-
-/**
- * @panics if the caller is not the contract itself (for promises)
- */
-pub(crate) fn assert_self() {
-    assert_eq!(
-        env::predecessor_account_id(),
-        env::current_account_id(),
-        "Method is private"
-    );
-}
-
-pub(crate) fn is_promise_success() -> bool {
-    assert_eq!(
-        env::promise_results_count(),
-        1,
-        "Contract expected a result on the callback"
-    );
-    match env::promise_result(0) {
-        PromiseResult::Successful(_) => true,
-        _ => false,
-    }
-}
-
-pub(crate) fn assert_prev_promise_successful() {
-    assert_eq!(is_promise_success(), true, "previous promise failed");
 }

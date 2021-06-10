@@ -8,15 +8,15 @@ fn dr_resolution_flow_test() {
     let init_res = TestUtils::init();
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
-    let res = init_res.alice.dr_new();
-    let post_new_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
+    let _res = init_res.alice.dr_new();
+    let _post_new_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
     let outcome = data_request::Outcome::Answer("test".to_string());
-    let res = init_res.alice.stake(0, outcome, stake_amount);
+    let _res = init_res.alice.stake(0, outcome, stake_amount);
 
-    let post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
+    let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
     assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - dr_cost);
     
