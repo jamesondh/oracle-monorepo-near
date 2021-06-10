@@ -529,7 +529,7 @@ impl Contract {
     }
 
     #[payable]
-    pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> Balance {
+    pub fn dr_stake(&mut self, sender: AccountId, amount: Balance, payload: StakeDataRequestArgs) -> PromiseOrValue<WrappedBalance> {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         self.assert_sender(&config.stake_token);
@@ -545,10 +545,7 @@ impl Contract {
         logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);
 
-        // forward stake to request interface
-        fungible_token_transfer(config.stake_token, dr.requestor, spent_stake);
-
-        unspent_stake
+        PromiseOrValue::Value(U128(unspent_stake))
     }
 
     #[payable]
