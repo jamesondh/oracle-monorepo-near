@@ -13,7 +13,7 @@ pub enum Payload {
 
 pub trait FungibleTokenReceiver {
     // @returns amount of unused tokens
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Balance;
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<WrappedBalance>;
 }
 
 #[near_bindgen]
@@ -24,7 +24,7 @@ impl FungibleTokenReceiver for Contract {
         sender_id: AccountId,
         amount: U128,
         msg: String
-    ) -> Balance {
+    ) -> PromiseOrValue<WrappedBalance> {
         let initial_storage_usage = env::storage_usage();
         let account = self.get_storage_account(&sender_id);
 
