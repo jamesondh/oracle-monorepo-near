@@ -119,6 +119,8 @@ impl Contract {
             // used more storage, deduct from balance
             let difference : u128 = u128::from(env::storage_usage() - initial_storage_usage);
             let mut account = self.get_storage_account(sender_id);
+            let cost = difference * STORAGE_PRICE_PER_BYTE;
+            assert!(cost <= initial_available_balance, "{} has {} deposited, {} is required for this transaction", sender_id, initial_available_balance, cost);
             account.available = initial_available_balance - difference * STORAGE_PRICE_PER_BYTE;
 
             self.accounts.insert(sender_id, &account);
@@ -174,7 +176,6 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            callback: "request_ft_transfer".to_string(),
             code_base_url: None
         }
     }
