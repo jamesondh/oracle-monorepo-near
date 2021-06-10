@@ -1,8 +1,9 @@
-use near_sdk::{env, near_bindgen, AccountId, Balance, PromiseOrValue};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{ Deserialize, Serialize };
+use near_sdk::serde_json;
 use near_sdk::serde_json::json;
-use near_sdk::json_types::U64;
+use near_sdk::json_types::{U64, U128};
 use fungible_token_handler::fungible_token_transfer_call;
 
 near_sdk::setup_alloc!();
@@ -10,6 +11,7 @@ near_sdk::setup_alloc!();
 mod fungible_token_handler;
 
 pub type WrappedTimestamp = U64;
+pub type WrappedBalance = U128;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
 pub struct Source {
@@ -67,16 +69,14 @@ impl RequestInterfaceContract {
      */
     pub fn create_data_request(
         &self,
-        amount: Balance,
+        amount: WrappedBalance,
         payload: NewDataRequestArgs
-    ) -> PromiseOrValue<U64> {
-        PromiseOrValue::Promise(
-            fungible_token_transfer_call(
-                self.stake_token.clone(),
-                self.oracle.clone(),
-                amount,
-                json!(payload).to_string()
-            )
+    ) -> Promise {
+        fungible_token_transfer_call(
+            self.stake_token.clone(),
+            self.oracle.clone(),
+            amount.into(),
+            json!({"NewDataRequest": payload}).to_string() 
         )
     }
 }
@@ -150,7 +150,7 @@ mod tests {
             token()
         );
 
-        contract.create_data_request(100, NewDataRequestArgs{
+        contract.create_data_request(U128(100), NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: U64(1500),
