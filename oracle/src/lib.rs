@@ -8,7 +8,7 @@ use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 near_sdk::setup_alloc!();
 
 mod types;
-mod data_request;
+pub mod data_request;
 mod requestor_handler;
 mod fungible_token_receiver;
 pub mod callback_args;
@@ -23,10 +23,10 @@ mod target_contract_handler;
 /// Mocks
 mod fungible_token;
 
-use callback_args::*;
+pub use callback_args::*;
 
 use types::*;
-use data_request::{ DataRequest };
+pub use data_request::{ DataRequest, Source };
 use storage_manager::AccountStorageBalance;
 use whitelist::RegistryEntry;
 
