@@ -10,7 +10,6 @@ use near_sdk::collections::LookupMap;
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
-    pub callback: String,
     // pub tvs_method: String,
     // pub rvs_method: String,
     pub code_base_url: Option<String>
@@ -119,7 +118,6 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            callback: "request_ft_transfer".to_string(),
             code_base_url: None
         }
     }
