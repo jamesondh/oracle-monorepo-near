@@ -11,7 +11,7 @@ use near_sdk::{
     // serde_json
 };
 
-use near_sdk_sim::{
+pub use near_sdk_sim::{
     ExecutionResult,
     deploy, 
     init_simulator, 
@@ -46,6 +46,7 @@ pub const ORACLE_CONTRACT_ID: &str = "oracle";
 pub const REQUEST_INTERFACE_CONTRACT_ID: &str = "requestor";
 pub const TARGET_CONTRACT_ID: &str = "target";
 pub const SAFE_STORAGE_AMOUNT: u128 = 1250000000000000000000;
+pub const VALIDITY_BOND: u128 = 100;
 
 // Load in contract bytes
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {

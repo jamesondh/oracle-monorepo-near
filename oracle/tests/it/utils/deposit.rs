@@ -15,6 +15,7 @@ pub fn storage_deposit(
         DEFAULT_GAS,
         deposit
     );
+
     assert!(res.is_ok(), "storage deposit failed with res: {:?}", res);
 }
 

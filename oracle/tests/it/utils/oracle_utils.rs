@@ -8,7 +8,6 @@ pub struct OracleUtils {
 
 fn new_registry_entry(contract_id: String) -> RegistryEntry {
     RegistryEntry {
-        callback: "dr_resolve".to_string(),
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),
@@ -22,7 +21,7 @@ impl OracleUtils {
             final_arbitrator: "alice".to_string(),
             bond_token: TOKEN_CONTRACT_ID.to_string(),
             stake_token: TOKEN_CONTRACT_ID.to_string(),
-            validity_bond: U128(100),
+            validity_bond: U128(VALIDITY_BOND),
             max_outcomes: 8,
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
@@ -52,9 +51,7 @@ impl OracleUtils {
             )
         );
 
-        // storage_deposit(TOKEN_CONTRACT_ID, &master_account.account, SAFE_STORAGE_AMOUNT, Some(ORACLE_CONTRACT_ID.to_string()));
-        // storage_deposit(ORACLE_CONTRACT_ID, &master_account.account, SAFE_STORAGE_AMOUNT, Some(TOKEN_CONTRACT_ID.to_string()));
-        // storage_deposit(ORACLE_CONTRACT_ID, &master_account.account, SAFE_STORAGE_AMOUNT, Some(AMM_CONTRACT_ID.to_string()));
+        storage_deposit(TOKEN_CONTRACT_ID, &master_account.account, SAFE_STORAGE_AMOUNT, Some(ORACLE_CONTRACT_ID.to_string()));
 
 
         Self {

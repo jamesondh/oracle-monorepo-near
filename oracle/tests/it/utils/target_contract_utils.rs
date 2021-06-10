@@ -22,6 +22,8 @@ impl TargetContractUtils {
             )
         );
 
+        storage_deposit(TOKEN_CONTRACT_ID, &master_account.account, SAFE_STORAGE_AMOUNT, Some(TARGET_CONTRACT_ID.to_string()));
+
         Self {
             contract
         }
