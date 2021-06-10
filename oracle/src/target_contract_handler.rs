@@ -1,23 +1,32 @@
 use crate::*;
-use crate::data_request::Outcome;
-use near_sdk::{Promise, PromiseOrValue, ext_contract};
-use near_sdk::json_types::U64;
+use near_sdk::json_types::{ U64 };
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+use near_sdk::serde::{ Deserialize, Serialize };
+use near_sdk::{ AccountId, Gas, ext_contract, Promise };
+use data_request::Outcome;
 
 #[ext_contract]
-pub trait TargetContractExt {
-    fn set_outcome(request_id: U64, outcome: Outcome) -> Promise;
+pub trait TargetContractExtern {
+    fn set_outcome(request_id: U64, requestor: AccountId, outcome: Outcome, tags: Option<Vec<String>>);
 }
 
-pub fn ext_set_outcome(request_id: U64, outcome: Outcome, target: AccountId) -> Promise {
-    target_contract_ext::set_outcome(request_id, outcome, &target, 0, 4_000_000_000_000)
-}
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+pub struct TargetContract(pub AccountId);
 
-#[near_bindgen]
-impl Contract {
+const GAS_BASE_SET_OUTCOME: Gas = 5_000_000_000_000;
 
-    #[private]
-    pub fn tc_set_outcome(&self, request_id: U64, outcome: Outcome, target: AccountId) -> PromiseOrValue<bool> {
-        PromiseOrValue::Promise(ext_set_outcome(request_id, outcome, target))
+impl TargetContract {
+    pub fn set_outcome(&self, request_id: U64, requestor: AccountId, outcome: data_request::Outcome, tags: Option<Vec<String>>) -> Promise {
+        target_contract_extern::set_outcome(
+            request_id,
+            requestor,
+            outcome,
+            tags,
+
+            // NEAR params
+            &self.0,
+            0, 
+            GAS_BASE_SET_OUTCOME,
+        )
     }
-
 }

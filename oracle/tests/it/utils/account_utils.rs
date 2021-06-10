@@ -1,3 +1,4 @@
+use oracle::data_request::DataRequestDataType;
 use crate::utils::*;
 
 pub fn init_balance() -> u128 {
@@ -86,6 +87,7 @@ impl TestAccount {
                     challenge_period: U64(1000),
                     settlement_time: U64(10000),
                     target_contract: TARGET_CONTRACT_ID.to_string(),
+                    data_type: DataRequestDataType::String
                 }
             }).to_string().as_bytes(),
             DEFAULT_GAS,
