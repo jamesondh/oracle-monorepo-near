@@ -3,9 +3,9 @@ use crate::*;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::AccountId;
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::UnorderedMap;
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RegistryEntry {
     pub interface_name: String,
@@ -16,11 +16,11 @@ pub struct RegistryEntry {
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);
+pub struct Whitelist(pub UnorderedMap<AccountId, RegistryEntry>);
 
 impl Whitelist {
     pub fn new(initial_whitelist: Option<Vec<RegistryEntry>>) -> Self {
-        let mut whitelist: LookupMap<AccountId, RegistryEntry> = LookupMap::new(b"wlr".to_vec());
+        let mut whitelist: UnorderedMap<AccountId, RegistryEntry> = UnorderedMap::new(b"wlr".to_vec());
 
         if initial_whitelist.is_some() {
             for requestor in initial_whitelist.unwrap() {

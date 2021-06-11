@@ -1,8 +1,6 @@
 use crate::*;
-
+use near_sdk::PromiseOrValue;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::AccountId;
-use near_sdk::collections::LookupMap;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct FeeStatus {
@@ -22,7 +20,97 @@ impl FeeStatus {
 }
 
 impl Contract {
-    pub fn fetch_tvs(&self) -> U128{
-        0.into()
+    // TODO needs to be recursuve promise chain
+    pub fn fetch_tvs(&self) -> U128 {
+        let mut total_tvs = 0;
+        for (_i, requestor) in self.whitelist.0.iter() {
+            total_tvs += match self.requestor_get_tvl(requestor.contract_entry) {
+                PromiseOrValue::Value(val) => val.into(),
+                _ => 0
+            };
+        }
+        total_tvs.into()
+    }
+}
+
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod mock_token_basic_tests {
+    use near_sdk::{ MockedBlockchain };
+    use near_sdk::{ testing_env, VMContext };
+    use super::*;
+
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
+
+    fn bob() -> AccountId {
+        "bob.near".to_string()
+    }
+
+    fn carol() -> AccountId {
+        "carol.near".to_string()
+    }
+
+    fn token() -> AccountId {
+        "token.near".to_string()
+    }
+
+    fn gov() -> AccountId {
+        "gov.near".to_string()
+    }
+
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
+            interface_name: account.clone(),
+            contract_entry: account.clone(),
+            code_base_url: None
+        }
+    }
+
+    fn config() -> oracle_config::OracleConfig {
+        oracle_config::OracleConfig {
+            gov: gov(),
+            final_arbitrator: alice(),
+            bond_token: token(),
+            stake_token: token(),
+            validity_bond: U128(0),
+            max_outcomes: 8,
+            default_challenge_window_duration: U64(1000),
+            min_initial_challenge_window_duration: U64(1000),
+            final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
+            resolution_fee_percentage: 0,
+        }
+    }
+
+    fn get_context(predecessor_account_id: AccountId) -> VMContext {
+        VMContext {
+            current_account_id: token(),
+            signer_account_id: bob(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id,
+            input: vec![],
+            block_index: 0,
+            block_timestamp: 0,
+            account_balance: 1000 * 10u128.pow(24),
+            account_locked_balance: 0,
+            storage_usage: 10u64.pow(6),
+            attached_deposit: 1000 * 10u128.pow(24),
+            prepaid_gas: 10u64.pow(18),
+            random_seed: vec![0, 1, 2],
+            is_view: false,
+            output_data_receivers: vec![],
+            epoch_height: 0,
+        }
+    }
+
+    #[test]
+    fn fetch_tvs() {
+        testing_env!(get_context(carol()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let contract = Contract::new(whitelist, config());
+        let tvs = contract.fetch_tvs();
+        println!("tvs: {:?}", tvs);
     }
 }
