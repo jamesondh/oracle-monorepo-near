@@ -86,7 +86,8 @@ impl TestAccount {
                     outcomes: None,
                     challenge_period: U64(1000),
                     settlement_time: U64(10000),
-                    target_contract: TARGET_CONTRACT_ID.to_string()
+                    target_contract: TARGET_CONTRACT_ID.to_string(),
+                    stake_multiplier: None
                 }
             }).to_string().as_bytes(),
             DEFAULT_GAS,

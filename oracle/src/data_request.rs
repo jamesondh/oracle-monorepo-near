@@ -188,7 +188,8 @@ pub struct DataRequestConfig {
     final_arbitrator_invoke_amount: Balance,
     final_arbitrator: AccountId,
     validity_bond: Balance,
-    fee: Balance
+    fee: Balance,
+    stake_multiplier: Balance
 }
 
 trait DataRequestChange {
@@ -213,6 +214,7 @@ impl DataRequestChange for DataRequest {
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         let fee = config.resolution_fee_percentage as Balance * tvl_of_requestor / PERCENTAGE_DIVISOR as Balance;
+        let stake_multiplier: Balance = request_data.stake_multiplier.unwrap_or(10u128.pow(24));
 
         Self {
             id,
@@ -227,7 +229,8 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
-                fee
+                fee,
+                stake_multiplier
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -446,7 +449,9 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        if self.request_config.fee > self.request_config.validity_bond {
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
+        // let weighted_validity_bond = self.request_config.validity_bond;
+        if self.request_config.fee > weighted_validity_bond {
             self.request_config.fee
         } else {
             self.request_config.validity_bond
@@ -460,11 +465,12 @@ impl DataRequestView for DataRequest {
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
 
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
-                    self.request_config.validity_bond
+                if self.request_config.fee > weighted_validity_bond {
+                    weighted_validity_bond
                 } else {
                     self.request_config.fee
                 }
@@ -480,16 +486,17 @@ impl DataRequestView for DataRequest {
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
 
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
-                    self.request_config.fee
+                if self.request_config.fee > weighted_validity_bond {
+                    weighted_validity_bond
                 } else {
                     self.request_config.validity_bond
                 }
             },
-            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
+            Outcome::Invalid => self.request_config.fee + weighted_validity_bond
         }
     }
 }
@@ -732,6 +739,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -750,6 +758,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -767,6 +776,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -793,6 +803,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -821,6 +832,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -838,6 +850,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -856,6 +869,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -874,6 +888,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -892,6 +907,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -909,6 +925,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
         assert_eq!(amount, 100);
     }
@@ -927,6 +944,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
         assert_eq!(amount, 0);
     }
@@ -940,6 +958,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
     }
 
@@ -1025,6 +1044,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1752,6 +1772,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
+            stake_multiplier: None
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
