@@ -14,6 +14,7 @@ mod fungible_token_receiver;
 pub mod callback_args;
 pub mod whitelist;
 pub mod oracle_config;
+mod fee_status;
 mod storage_manager;
 mod helpers;
 mod logger;
@@ -37,6 +38,7 @@ pub struct Contract {
     pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
+    pub fee_status: fee_status::FeeStatus,
     // Storage map
     pub accounts: LookupMap<AccountId, AccountStorageBalance>
 }
@@ -63,6 +65,7 @@ impl Contract {
             configs,
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
+            fee_status: fee_status::FeeStatus::new(),
             accounts: LookupMap::new(b"a".to_vec()),
         }
     }
