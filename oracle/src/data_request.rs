@@ -11,6 +11,7 @@ use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
 const PERCENTAGE_DIVISOR: u16 = 10_000;
+const WEIGHTED_STAKE_DIVISOR: u128 = 1_000_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
@@ -449,12 +450,11 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
-        // let weighted_validity_bond = self.request_config.validity_bond;
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
         if self.request_config.fee > weighted_validity_bond {
             self.request_config.fee
         } else {
-            self.request_config.validity_bond
+            weighted_validity_bond
         }
     }
 
@@ -465,7 +465,7 @@ impl DataRequestView for DataRequest {
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
 
         match outcome {
             Outcome::Answer(_) => {
@@ -486,14 +486,14 @@ impl DataRequestView for DataRequest {
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier;
+        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
 
         match outcome {
             Outcome::Answer(_) => {
                 if self.request_config.fee > weighted_validity_bond {
-                    weighted_validity_bond
+                    self.request_config.fee
                 } else {
-                    self.request_config.validity_bond
+                    weighted_validity_bond
                 }
             },
             Outcome::Invalid => self.request_config.fee + weighted_validity_bond
@@ -1794,6 +1794,27 @@ mod mock_token_basic_tests {
             id: U64(0),
             outcome
         });
+    }
+
+    #[test]
+    fn dr_stake_multiplier() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            stake_multiplier: Some(1_020_000_000_000_000_000_000_000) // 102%
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        assert_eq!(d.claim(alice()), 306);
     }
 
 }
