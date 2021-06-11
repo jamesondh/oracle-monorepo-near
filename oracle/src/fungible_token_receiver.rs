@@ -136,7 +136,6 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            data_type: data_request::DataRequestDataType::String,
         });
 
         let msg = serde_json::json!({
@@ -162,7 +161,6 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            data_type: data_request::DataRequestDataType::String,
         });
 
         let storage_start = 10u128.pow(24);
