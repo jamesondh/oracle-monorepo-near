@@ -190,7 +190,7 @@ pub struct DataRequestConfig {
     final_arbitrator: AccountId,
     validity_bond: Balance,
     fee: Balance,
-    stake_multiplier: Balance
+    stake_multiplier: Option<Balance>
 }
 
 trait DataRequestChange {
@@ -215,7 +215,6 @@ impl DataRequestChange for DataRequest {
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
         let fee = config.resolution_fee_percentage as Balance * tvl_of_requestor / PERCENTAGE_DIVISOR as Balance;
-        let stake_multiplier: Balance = request_data.stake_multiplier.unwrap_or(10u128.pow(24));
 
         Self {
             id,
@@ -231,7 +230,7 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
                 fee,
-                stake_multiplier
+                stake_multiplier: request_data.stake_multiplier,
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -450,7 +449,10 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
+        let weighted_validity_bond = match self.request_config.stake_multiplier {
+            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
+            None => self.request_config.validity_bond
+        };
         if self.request_config.fee > weighted_validity_bond {
             self.request_config.fee
         } else {
@@ -465,8 +467,10 @@ impl DataRequestView for DataRequest {
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
-
+        let weighted_validity_bond = match self.request_config.stake_multiplier {
+            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
+            None => self.request_config.validity_bond
+        };
         match outcome {
             Outcome::Answer(_) => {
                 if self.request_config.fee > weighted_validity_bond {
@@ -486,8 +490,10 @@ impl DataRequestView for DataRequest {
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = self.request_config.validity_bond * self.request_config.stake_multiplier / WEIGHTED_STAKE_DIVISOR;
-
+        let weighted_validity_bond = match self.request_config.stake_multiplier {
+            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
+            None => self.request_config.validity_bond
+        };
         match outcome {
             Outcome::Answer(_) => {
                 if self.request_config.fee > weighted_validity_bond {
