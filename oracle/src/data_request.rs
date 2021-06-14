@@ -1806,7 +1806,9 @@ mod mock_token_basic_tests {
     fn dr_stake_multiplier() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(500);
+        let mut contract = Contract::new(whitelist, config);
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
@@ -1815,12 +1817,56 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: Some(1_020_000_000_000_000_000_000_000) // 102%
+            stake_multiplier: Some(1_050_000_000_000_000_000_000_000) // 105%
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(d.claim(alice()), 306);
+        assert_eq!(d.claim(alice()), 315);
+    }
+
+    #[test]
+    fn dr_stake_multiplier_scenario0() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            stake_multiplier: Some(1_050_000_000_000_000_000_000_000) // 105%
+        });
+
+        contract.dr_stake(bob(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(dave(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+
+        // // round 1 stake
+        assert_eq!(d.claim(alice()), 15);
+        // 50% of validity bond
+        assert_eq!(d.claim(bob()), 150);
+        assert_eq!(d.claim(carol()), 0);
+        // 50% of validity bond
+        assert_eq!(d.claim(dave()), 150);
+        
     }
 
 }
