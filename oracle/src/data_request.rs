@@ -214,7 +214,16 @@ impl DataRequestChange for DataRequest {
         request_data: NewDataRequestArgs
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
-        let fee = config.resolution_fee_percentage as Balance * tvl_of_requestor / PERCENTAGE_DIVISOR as Balance;
+        // set fee to fixed fee if found, otherwise set to percentage of requestor's TVL
+        let fee : Balance = match request_data.fixed_fee {
+            Some(_) => request_data.fixed_fee.unwrap().into(),
+            None => config.resolution_fee_percentage as Balance * tvl_of_requestor / PERCENTAGE_DIVISOR as Balance
+        };
+        // set stake_multiplier if found (get Option<u128> from Option<U128>)
+        let stake_multiplier = match request_data.stake_multiplier {
+            Some(_) => Option::Some(request_data.stake_multiplier.unwrap().into()),
+            None => None
+        };
 
         Self {
             id,
@@ -230,7 +239,7 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
                 fee,
-                stake_multiplier: request_data.stake_multiplier,
+                stake_multiplier,
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -745,7 +754,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -764,7 +774,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -782,7 +793,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -809,7 +821,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -838,7 +851,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -856,7 +870,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: None,
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -875,7 +890,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -894,7 +910,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -913,7 +930,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -931,7 +949,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
         assert_eq!(amount, 100);
     }
@@ -950,7 +969,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
         assert_eq!(amount, 0);
     }
@@ -964,7 +984,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
     }
 
@@ -1050,7 +1071,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1778,7 +1800,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None
+            stake_multiplier: None,
+            fixed_fee: None
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
@@ -1817,7 +1840,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: Some(1_050_000_000_000_000_000_000_000) // 105%
+            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
+            fixed_fee: None
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
@@ -1840,7 +1864,8 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: Some(1_050_000_000_000_000_000_000_000) // 105%
+            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
+            fixed_fee: None
         });
 
         contract.dr_stake(bob(), 100, StakeDataRequestArgs{

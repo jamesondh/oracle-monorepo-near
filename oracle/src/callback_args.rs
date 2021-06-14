@@ -15,7 +15,8 @@ pub struct NewDataRequestArgs {
     pub challenge_period: WrappedTimestamp,
     pub settlement_time: WrappedTimestamp,
     pub target_contract: AccountId,
-    pub stake_multiplier: Option<Balance>
+    pub stake_multiplier: Option<WrappedBalance>,
+    pub fixed_fee: Option<WrappedBalance>
 }
 
 impl Contract {

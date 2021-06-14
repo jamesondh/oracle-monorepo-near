@@ -18,6 +18,9 @@ pub struct Source {
     pub source_path: String
 }
 
+// Formatted data request args (user passes this)
+// Excludes stake_multiplier and fixed_fee since those are global variables
+//  and passed internally inside create_data_request()
 #[derive(Serialize, Deserialize)]
 pub struct NewDataRequestArgs {
     pub sources: Vec<Source>,
@@ -29,11 +32,28 @@ pub struct NewDataRequestArgs {
     pub target_contract: AccountId,
 }
 
+// Internal data request args with stake_multiplier and fixed_fee
+// Matches NewDataRequestArgs in oracle/src/callback_args.rs
+#[derive(Serialize, Deserialize)]
+pub struct NewDataRequestArgsInternal {
+    pub sources: Vec<Source>,
+    pub tags: Option<Vec<String>>,
+    pub description: Option<String>,
+    pub outcomes: Option<Vec<String>>,
+    pub challenge_period: WrappedTimestamp,
+    pub settlement_time: WrappedTimestamp,
+    pub target_contract: AccountId,
+    pub stake_multiplier: Option<WrappedBalance>,
+    pub fixed_fee: Option<WrappedBalance>
+}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct RequestInterfaceContract {
     pub oracle: AccountId,
-    pub stake_token: AccountId
+    pub stake_token: AccountId,
+    pub stake_multiplier: Option<WrappedBalance>,
+    pub fixed_fee: Option<WrappedBalance>
 }
 
 impl Default for RequestInterfaceContract {
@@ -54,11 +74,15 @@ impl RequestInterfaceContract {
     #[init]
     pub fn new(
         oracle: AccountId,
-        stake_token: AccountId
+        stake_token: AccountId,
+        stake_multiplier: Option<WrappedBalance>,
+        fixed_fee: Option<WrappedBalance>
     ) -> Self {
         Self {
             oracle,
-            stake_token
+            stake_token,
+            stake_multiplier,
+            fixed_fee
         }
     }
 
@@ -71,11 +95,22 @@ impl RequestInterfaceContract {
         amount: WrappedBalance,
         payload: NewDataRequestArgs
     ) -> Promise {
+        let payload_formatted = NewDataRequestArgsInternal {
+            sources: payload.sources,
+            tags: payload.tags,
+            description: payload.description,
+            outcomes: payload.outcomes,
+            challenge_period: payload.challenge_period,
+            settlement_time: payload.settlement_time,
+            target_contract: payload.target_contract,
+            stake_multiplier: self.stake_multiplier,
+            fixed_fee: self.fixed_fee
+        };
         fungible_token_transfer_call(
             self.stake_token.clone(),
             self.oracle.clone(),
             amount.into(),
-            json!({"NewDataRequest": payload}).to_string() 
+            json!({"NewDataRequest": payload_formatted}).to_string() 
         )
     }
 }
@@ -131,7 +166,9 @@ mod tests {
         testing_env!(context);
         let contract = RequestInterfaceContract::new(
             oracle(),
-            token()
+            token(),
+            None,
+            None
         );
         contract.request_ft_transfer(
             token(),
@@ -146,7 +183,9 @@ mod tests {
         testing_env!(context);
         let contract = RequestInterfaceContract::new(
             oracle(),
-            token()
+            token(),
+            None,
+            None
         );
 
         contract.create_data_request(U128(100), NewDataRequestArgs{
