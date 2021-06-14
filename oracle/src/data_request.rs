@@ -476,14 +476,10 @@ impl DataRequestView for DataRequest {
      */
     fn calc_validity_bond_to_return(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = match self.request_config.stake_multiplier {
-            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
-            None => self.request_config.validity_bond
-        };
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > weighted_validity_bond {
-                    weighted_validity_bond
+                if self.request_config.fee > self.request_config.validity_bond {
+                    self.request_config.validity_bond
                 } else {
                     self.request_config.fee
                 }
@@ -499,19 +495,15 @@ impl DataRequestView for DataRequest {
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
         let outcome = self.finalized_outcome.as_ref().unwrap();
-        let weighted_validity_bond = match self.request_config.stake_multiplier {
-            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
-            None => self.request_config.validity_bond
-        };
         match outcome {
             Outcome::Answer(_) => {
-                if self.request_config.fee > weighted_validity_bond {
+                if self.request_config.fee > self.request_config.validity_bond {
                     self.request_config.fee
                 } else {
-                    weighted_validity_bond
+                    self.request_config.validity_bond
                 }
             },
-            Outcome::Invalid => self.request_config.fee + weighted_validity_bond
+            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
         }
     }
 }
@@ -1846,7 +1838,7 @@ mod mock_token_basic_tests {
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(d.claim(alice()), 315);
+        assert_eq!(d.claim(alice()), 310);
     }
 
     #[test]
@@ -1884,14 +1876,105 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
 
-        // // round 1 stake
-        assert_eq!(d.claim(alice()), 15);
+        // round 1 stake
+        assert_eq!(d.claim(alice()), 14);
         // 50% of validity bond
-        assert_eq!(d.claim(bob()), 150);
+        assert_eq!(d.claim(bob()), 147);
         assert_eq!(d.claim(carol()), 0);
         // 50% of validity bond
-        assert_eq!(d.claim(dave()), 150);
-        
+        assert_eq!(d.claim(dave()), 147);        
+    }
+
+    #[test]
+    fn dr_fixed_fee() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut config = config();
+        config.validity_bond = U128(2);
+        let mut contract = Contract::new(whitelist, config);
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            stake_multiplier: None,
+            fixed_fee: Some(U128(15))
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        assert_eq!(d.claim(alice()), 45);
+    }
+
+    #[test]
+    fn dr_fixed_fee2() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut config = config();
+        config.validity_bond = U128(2);
+        let mut contract = Contract::new(whitelist, config);
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            stake_multiplier: None,
+            fixed_fee: Some(U128(71))
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+        assert_eq!(d.claim(alice()), 213);
+    }
+
+    #[test]
+    fn temp_test_stake_multiplier() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut config = config();
+        config.final_arbitrator_invoke_amount = U128(1000);
+        let mut contract = Contract::new(whitelist, config);
+        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+            sources: Vec::new(),
+            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
+            challenge_period: U64(1500),
+            settlement_time: U64(0),
+            target_contract: target(),
+            description: Some("a".to_string()),
+            tags: None,
+            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
+            fixed_fee: None
+        });
+
+        contract.dr_stake(bob(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(dave(), 100, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("a".to_string())
+        });
+        contract.dr_stake(carol(), 200, StakeDataRequestArgs{
+            id: U64(0),
+            outcome: data_request::Outcome::Answer("b".to_string())
+        });
+        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
+
+        let mut d = contract.data_requests.get(0).unwrap();
+
+        // round 1 stake
+        println!("{}", d.claim(alice()));
+        // 50% of validity bond
+        println!("{}", d.claim(bob()));
+        println!("{}", d.claim(carol()));
+        // 50% of validity bond
+        println!("{}", d.claim(dave()));
     }
 
 }
