@@ -10,8 +10,8 @@ use crate::types::{ Timestamp, Duration };
 use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
+pub const WEIGHTED_STAKE_DIVISOR: u128 = 1_000_000_000_000_000_000_000_000;
 const PERCENTAGE_DIVISOR: u16 = 10_000;
-const WEIGHTED_STAKE_DIVISOR: u128 = 1_000_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
@@ -189,8 +189,8 @@ pub struct DataRequestConfig {
     final_arbitrator_invoke_amount: Balance,
     final_arbitrator: AccountId,
     validity_bond: Balance,
-    fee: Balance,
-    stake_multiplier: Option<Balance>
+    pub fee: Balance,
+    pub stake_multiplier: Option<Balance>
 }
 
 trait DataRequestChange {

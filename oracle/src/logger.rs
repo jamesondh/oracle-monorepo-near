@@ -14,6 +14,7 @@ use crate::{
         DataRequest,
         ResolutionWindow,
         Outcome,
+        WEIGHTED_STAKE_DIVISOR
     },
     oracle_config::{
         OracleConfig
@@ -40,6 +41,8 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
+                "stake_multiplier": U128(request.request_config.stake_multiplier.unwrap_or(WEIGHTED_STAKE_DIVISOR)),
+                "fee": U128(request.request_config.fee),
                 "global_config_id": U64(request.global_config_id),
                 "tags": request.tags,
                 "date": U64(ns_to_ms(env::block_timestamp())),
