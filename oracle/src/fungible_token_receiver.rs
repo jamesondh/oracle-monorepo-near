@@ -46,6 +46,7 @@ mod mock_token_basic_tests {
     use std::convert::TryInto;
 
     use near_sdk::{ MockedBlockchain };
+    use near_sdk::json_types::ValidAccountId;
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
 

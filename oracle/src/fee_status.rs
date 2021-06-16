@@ -1,6 +1,5 @@
 use crate::*;
 use near_sdk::ext_contract;
-use near_sdk::PromiseOrValue;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 
 #[ext_contract(ext_self)]
