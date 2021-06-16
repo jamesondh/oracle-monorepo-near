@@ -68,10 +68,11 @@ pub struct TestUtils {
 
 impl TestUtils {
     pub fn init(
+        oracle_registrees: Option<Vec<whitelist::RegistryEntry>>
     ) -> Self {
         let master_account = TestAccount::new(None, None);
         let token_init_res = token_utils::TokenUtils::new(&master_account); // Init token
-        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account);  // Init oracle
+        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, oracle_registrees);  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
 

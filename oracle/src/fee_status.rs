@@ -1,7 +1,12 @@
 use crate::*;
+use near_sdk::ext_contract;
 use near_sdk::PromiseOrValue;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 
+#[ext_contract(ext_self)]
+trait TVLCalculator {
+    pub fn continue_tvs_calc(&self, sum: U128, next_account: Option<Self::Item>) -> Promise;
+}
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct FeeStatus {
     pub market_cap: u128,
@@ -19,20 +24,21 @@ impl FeeStatus {
     }
 }
 
+#[near_bindgen]
 impl Contract {
-    // TODO needs to be recursuve promise chain
     pub fn fetch_tvs(&self) -> U128 {
         let mut total_tvs = 0;
-        for (_i, requestor) in self.whitelist.0.iter() {
-            total_tvs += match self.requestor_get_tvl(requestor.contract_entry) {
-                PromiseOrValue::Value(val) => val.into(),
-                _ => 0
-            };
-        }
+
+        let account = self.whitelist.0.iter().next();
+        // for (_i, requestor) in self.whitelist.0.iter() {
+        //     total_tvs += match self.requestor_get_tvl(requestor.contract_entry) {
+        //         PromiseOrValue::Value(val) => val.into(),
+        //         _ => 0
+        //     };
+        // }
         total_tvs.into()
     }
 }
-
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]

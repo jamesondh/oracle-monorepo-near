@@ -7,14 +7,14 @@ use near_sdk::json_types::{ ValidAccountId, U64, U128 };
 
 near_sdk::setup_alloc!();
 
-mod types;
 pub mod data_request;
-mod requestor_handler;
-mod fungible_token_receiver;
 pub mod callback_args;
 pub mod whitelist;
 pub mod oracle_config;
-mod fee_status;
+mod types;
+mod requestor_handler;
+mod fungible_token_receiver;
+pub mod fee_status;
 mod storage_manager;
 mod helpers;
 mod logger;
@@ -24,12 +24,11 @@ mod target_contract_handler;
 /// Mocks
 mod fungible_token;
 
-pub use callback_args::*;
-
 use types::*;
-pub use data_request::{ DataRequest, Source };
 use storage_manager::AccountStorageBalance;
 use whitelist::RegistryEntry;
+pub use callback_args::*;
+pub use data_request::{ DataRequest, Source };
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]

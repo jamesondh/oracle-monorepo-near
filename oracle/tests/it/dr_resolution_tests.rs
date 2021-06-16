@@ -5,7 +5,7 @@ fn dr_resolution_flow_test() {
     let stake_amount = to_yocto("250"); 
     let stake_cost = 200;
     let dr_cost = 100;
-    let init_res = TestUtils::init();
+    let init_res = TestUtils::init(None);
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
     let _res = init_res.alice.dr_new();

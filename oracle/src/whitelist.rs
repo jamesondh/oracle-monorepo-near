@@ -10,8 +10,6 @@ use near_sdk::collections::UnorderedMap;
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
-    // pub tvs_method: String,
-    // pub rvs_method: String,
     pub code_base_url: Option<String>
 }
 

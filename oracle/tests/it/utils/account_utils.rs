@@ -29,6 +29,16 @@ impl TestAccount {
     }
 
     /*** Getters ***/
+    pub fn fetch_tvs(&self) -> u128 {
+        let res: U128 = self.account.view(
+            ORACLE_CONTRACT_ID.to_string(),
+            "fetch_tvs",
+            json!({}).to_string().as_bytes()
+        ).unwrap_json();
+
+        res.into()
+    }
+
     pub fn get_token_balance(&self, account_id: Option<String>) -> u128 {
         let account_id = match account_id {
             Some(account_id) => account_id,

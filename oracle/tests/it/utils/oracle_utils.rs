@@ -15,7 +15,7 @@ fn new_registry_entry(contract_id: String) -> RegistryEntry {
 }
 
 impl OracleUtils {
-    pub fn new(master_account: &TestAccount) -> Self {
+    pub fn new(master_account: &TestAccount, registrees: Option<Vec<RegistryEntry>>) -> Self {
         let config = OracleConfig {
             gov: "alice".to_string(),
             final_arbitrator: "alice".to_string(),
@@ -27,6 +27,14 @@ impl OracleUtils {
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
             resolution_fee_percentage: 10_000,
+        };
+
+        let registrees = match registrees {
+            Some(registrees) => Some(registrees),
+            None => Some(vec![
+                new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string()), 
+                new_registry_entry(TARGET_CONTRACT_ID.to_string())
+            ])
         };
 
         // deploy token
@@ -42,11 +50,7 @@ impl OracleUtils {
             deposit: to_yocto("1000"),
             // init method
             init_method: new(
-                Some(vec![
-                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string()), 
-                        new_registry_entry(TARGET_CONTRACT_ID.to_string())
-                    ]
-                ), 
+                registrees, 
                 config
             )
         );
