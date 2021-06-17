@@ -19,9 +19,7 @@ impl RequestInterfaceUtils {
             // init method
             init_method: new(
                 ORACLE_CONTRACT_ID.to_string(),
-                TOKEN_CONTRACT_ID.to_string(),
-                None,
-                None
+                TOKEN_CONTRACT_ID.to_string()
             )
         );
         

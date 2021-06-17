@@ -1938,8 +1938,3 @@ mod mock_token_basic_tests {
         assert_eq!(d.claim(alice()), 213);
     }
 }
-
-
-
-// 10000 == 100%
-// 

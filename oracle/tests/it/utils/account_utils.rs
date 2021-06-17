@@ -1,4 +1,3 @@
-use oracle::data_request::DataRequestDataType;
 use crate::utils::*;
 
 pub fn init_balance() -> u128 {
