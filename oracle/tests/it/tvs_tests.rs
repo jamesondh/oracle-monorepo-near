@@ -8,7 +8,12 @@ fn fetch_tvs_it_test() {
                 code_base_url: Some("test".to_string()),
                 interface_name: "requestor".to_string(),
                 contract_entry: REQUEST_INTERFACE_CONTRACT_ID.to_string(),
-            }
+            },
+            oracle::whitelist::RegistryEntry{
+                code_base_url: Some("test".to_string()),
+                interface_name: "requestor".to_string(),
+                contract_entry: REQUEST_INTERFACE_CONTRACT_ID.to_string(),
+            },
         ]
     );
     let init_res = TestUtils::init(registrees);

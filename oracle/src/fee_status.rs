@@ -1,5 +1,5 @@
 use crate::*;
-use near_sdk::{ext_contract, Promise, PromiseOrValue, Gas};
+use near_sdk::{ext_contract, Promise, PromiseOrValue, Gas, PromiseResult};
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 
 // TODO: figure out view call price
@@ -7,9 +7,7 @@ const GAS_BASE_TRANSFER: Gas = 5_000_000_000_000;
 
 #[ext_contract]
 pub trait ExtSelf {
-    fn continue_tvs_calc(&self, 
-        // sum: U128, next_account: std::option::Option<(std::string::String, whitelist::RegistryEntry)>
-    ) -> Promise;
+    fn proceed_tvs_calc(&self, sum: U128, values: Vec<RegistryEntry>, index: u16) -> Promise;
 }
 
 #[ext_contract]
@@ -35,29 +33,69 @@ impl FeeStatus {
 }
 
 #[near_bindgen]
+// TODO: fix gas pricing for these view calls
 impl Contract {
     #[private]
-    pub fn continue_tvs_calc(&self, 
-        // sum: U128, next_account: Option<(std::string::String, whitelist::RegistryEntry)>
-    ) -> U128 {
-        0.into()
+    pub fn proceed_tvs_calc(&self, sum: U128, values: Vec<RegistryEntry>, index: u16) -> PromiseOrValue<U128> {
+        let sum: u128 = sum.into();
+
+        env::log(format!("doing this {}", index).as_bytes());
+        let prev_tvs: u128 = if index > 0 {
+             match env::promise_result(0) {
+                PromiseResult::NotReady => panic!("something went wrong while fetching tvs"),
+                PromiseResult::Successful(value) => {
+                    if let Ok(tvs) = near_sdk::serde_json::from_slice::<U128>(&value) {
+                        tvs.0
+                    } else {
+                        0
+                    }
+                }
+                PromiseResult::Failed => 0,
+            }
+        } else {
+            0
+        };
+
+        let new_sum = sum + prev_tvs;
+
+        if index as usize >= values.len() {
+            return PromiseOrValue::Value(new_sum.into())
+        }
+
+        match values.get(index as usize) {
+            Some(val) => {
+                PromiseOrValue::Promise(
+                    ext_requestor::get_tvs(
+                        &val.contract_entry,
+                        0,
+                        GAS_BASE_TRANSFER
+                    )
+                    .then(
+                        ext_self::proceed_tvs_calc(
+                            U128(new_sum),
+                            values,
+                            index + 1,
+                            &env::current_account_id(),
+                            0,
+                            GAS_BASE_TRANSFER
+                        )
+                    )
+                )
+            }, 
+            None => return PromiseOrValue::Value(0.into())
+        }
     }
 
     pub fn fetch_tvs(&self) -> Promise {
-        let account = self.whitelist.0.iter().next();
-        ext_requestor::get_tvs(
-            &account.unwrap().1.contract_entry,
+        let values: Vec<RegistryEntry> = self.whitelist.0.values().collect();
+
+        ext_self::proceed_tvs_calc(
+            U128(0),
+            values,
+            0,
+            &env::current_account_id(),
             0,
             GAS_BASE_TRANSFER
-        )
-        .then(
-            ext_self::continue_tvs_calc(
-                // U128(0),
-                // self.whitelist.0.iter().next(),
-                &env::current_account_id(),
-                0,
-                GAS_BASE_TRANSFER
-            )
         )
     }
     
@@ -132,13 +170,5 @@ mod mock_token_basic_tests {
             output_data_receivers: vec![],
             epoch_height: 0,
         }
-    }
-
-    #[test]
-    fn fetch_tvs() {
-        testing_env!(get_context(carol()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let contract = Contract::new(whitelist, config());
-        let tvs = contract.fetch_tvs();
     }
 }
