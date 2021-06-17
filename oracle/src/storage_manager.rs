@@ -142,7 +142,7 @@ mod mock_token_basic_tests {
     use std::convert::TryInto;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-
+    use crate::data_request::CustomFeeStake;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -176,6 +176,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStake::None,
             code_base_url: None
         }
     }

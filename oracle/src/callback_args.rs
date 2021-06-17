@@ -14,9 +14,7 @@ pub struct NewDataRequestArgs {
     pub outcomes: Option<Vec<String>>,
     pub challenge_period: WrappedTimestamp,
     pub settlement_time: WrappedTimestamp,
-    pub target_contract: AccountId,
-    pub stake_multiplier: Option<WrappedBalance>,
-    pub fixed_fee: Option<WrappedBalance>
+    pub target_contract: AccountId
 }
 
 impl Contract {

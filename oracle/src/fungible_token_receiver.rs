@@ -48,6 +48,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
+    use crate::data_request::CustomFeeStake;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -81,6 +82,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStake::None,
             code_base_url: None
         }
     }
@@ -135,9 +137,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
 
         let msg = serde_json::json!({
@@ -162,9 +162,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
 
         let storage_start = 10u128.pow(24);

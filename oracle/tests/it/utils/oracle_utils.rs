@@ -1,6 +1,7 @@
 use crate::utils::*;
 use oracle::oracle_config::OracleConfig;
 use oracle::whitelist::RegistryEntry;
+use oracle::data_request::CustomFeeStake;
 
 pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
@@ -11,6 +12,7 @@ fn new_registry_entry(contract_id: String) -> RegistryEntry {
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),
+        custom_fee: CustomFeeStake::None
     }
 }
 

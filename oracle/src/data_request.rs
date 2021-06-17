@@ -10,7 +10,6 @@ use crate::types::{ Timestamp, Duration };
 use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
-pub const WEIGHTED_STAKE_DIVISOR: u128 = 1_000_000_000_000_000_000_000_000;
 const PERCENTAGE_DIVISOR: u16 = 10_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
@@ -183,6 +182,13 @@ pub struct DataRequest {
     pub tags: Option<Vec<String>>
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
+pub enum CustomFeeStake {
+    Multiplier(u16),
+    Fixed(Balance),
+    None
+}
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct DataRequestConfig {
     default_challenge_window_duration: Duration,
@@ -190,11 +196,11 @@ pub struct DataRequestConfig {
     final_arbitrator: AccountId,
     validity_bond: Balance,
     pub fee: Balance,
-    pub stake_multiplier: Option<Balance>
+    pub custom_fee: CustomFeeStake
 }
 
 trait DataRequestChange {
-    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, tvl_of_requestor: Balance, request_data: NewDataRequestArgs) -> Self;
+    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, tvl_of_requestor: Balance, custom_fee: CustomFeeStake, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
@@ -211,18 +217,18 @@ impl DataRequestChange for DataRequest {
         global_config_id: u64,
         config: &oracle_config::OracleConfig,
         tvl_of_requestor: Balance,
+        custom_fee: CustomFeeStake,
         request_data: NewDataRequestArgs
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
-        // set fee to fixed fee if found, otherwise set to percentage of requestor's TVL
-        let fee : Balance = match request_data.fixed_fee {
-            Some(_) => request_data.fixed_fee.unwrap().into(),
-            None => config.resolution_fee_percentage as Balance * tvl_of_requestor / PERCENTAGE_DIVISOR as Balance
-        };
-        // set stake_multiplier if found (get Option<u128> from Option<U128>)
-        let stake_multiplier = match request_data.stake_multiplier {
-            Some(_) => Option::Some(request_data.stake_multiplier.unwrap().into()),
-            None => None
+
+        // set fee to fixed fee if set, otherwise set to percentage of requestor's TVL
+        let fee: Balance = match custom_fee {
+            CustomFeeStake::Fixed(f) => f.into(),
+            CustomFeeStake::Multiplier(_) | CustomFeeStake::None =>
+                config.resolution_fee_percentage as Balance * 
+                tvl_of_requestor / 
+                PERCENTAGE_DIVISOR as Balance
         };
 
         Self {
@@ -238,8 +244,8 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
-                fee,
-                stake_multiplier,
+                custom_fee,
+                fee
             },
             initial_challenge_period: request_data.challenge_period.into(),
             settlement_time: request_data.settlement_time.into(),
@@ -458,9 +464,15 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        let weighted_validity_bond = match self.request_config.stake_multiplier {
-            Some(_) => self.request_config.validity_bond * self.request_config.stake_multiplier.unwrap() / WEIGHTED_STAKE_DIVISOR,
-            None => self.request_config.validity_bond
+
+        let weighted_validity_bond = match self.request_config.custom_fee {
+            CustomFeeStake::Multiplier(m) => helpers::calc_product(
+                self.request_config.validity_bond,
+                u128::from(m),
+                PERCENTAGE_DIVISOR as Balance
+            ),
+            CustomFeeStake::Fixed(_) | CustomFeeStake::None => 
+                self.request_config.validity_bond
         };
         if self.request_config.fee > weighted_validity_bond {
             self.request_config.fee
@@ -523,12 +535,15 @@ impl Contract {
         self.dr_validate(&payload);
         assert!(amount >=validity_bond, "Validity bond not reached");
 
+        let requestor_custom_fee: CustomFeeStake = self.whitelist_custom_fee(sender.to_string());
+
         let dr = DataRequest::new(
             sender,
             self.data_requests.len() as u64,
             self.configs.len() - 1, // TODO: should probably trim down once we know what attributes we need stored for `DataRequest`s
             &config,
             tvl_of_requestor,
+            requestor_custom_fee,
             payload
         );
 
@@ -691,6 +706,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStake::None,
             code_base_url: None
         }
     }
@@ -746,8 +762,7 @@ mod mock_token_basic_tests {
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            
         });
     }
 
@@ -765,9 +780,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -784,9 +797,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -812,9 +823,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: None,
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -842,9 +851,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -861,9 +868,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: None,
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -881,9 +886,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -901,9 +904,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -921,9 +922,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -940,9 +939,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
         assert_eq!(amount, 100);
     }
@@ -960,9 +957,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
         assert_eq!(amount, 0);
     }
@@ -975,9 +970,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
     }
 
@@ -1062,9 +1055,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1791,9 +1782,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(100),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: None
+            tags: None
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
@@ -1820,7 +1809,13 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let bob_requestor = RegistryEntry {
+            interface_name: bob(),
+            contract_entry: bob(),
+            custom_fee: CustomFeeStake::Multiplier(10500), // 105%
+            code_base_url: None,
+        };
+        let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(500);
         let mut contract = Contract::new(whitelist, config);
@@ -1831,9 +1826,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
-            fixed_fee: None
+            tags: None
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
@@ -1844,7 +1837,13 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier_scenario0() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let bob_requestor = RegistryEntry {
+            interface_name: bob(),
+            contract_entry: bob(),
+            custom_fee: CustomFeeStake::Multiplier(10500), // 105%
+            code_base_url: None,
+        };
+        let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
         let mut contract = Contract::new(whitelist, config);
@@ -1855,9 +1854,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
-            fixed_fee: None
+            tags: None
         });
 
         contract.dr_stake(bob(), 100, StakeDataRequestArgs{
@@ -1888,7 +1885,13 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let bob_requestor = RegistryEntry {
+            interface_name: bob(),
+            contract_entry: bob(),
+            custom_fee: CustomFeeStake::Fixed(15),
+            code_base_url: None,
+        };
+        let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
         let mut contract = Contract::new(whitelist, config);
@@ -1899,9 +1902,7 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: Some(U128(15))
+            tags: None
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
@@ -1912,7 +1913,13 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee2() {
         testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let bob_requestor = RegistryEntry {
+            interface_name: bob(),
+            contract_entry: bob(),
+            custom_fee: CustomFeeStake::Fixed(71),
+            code_base_url: None,
+        };
+        let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
         let mut contract = Contract::new(whitelist, config);
@@ -1923,58 +1930,16 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: None,
-            fixed_fee: Some(U128(71))
+            tags: None
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
 
         let mut d = contract.data_requests.get(0).unwrap();
         assert_eq!(d.claim(alice()), 213);
     }
-
-    #[test]
-    fn temp_test_stake_multiplier() {
-        testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut config = config();
-        config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
-        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
-            sources: Vec::new(),
-            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            challenge_period: U64(1500),
-            settlement_time: U64(0),
-            target_contract: target(),
-            description: Some("a".to_string()),
-            tags: None,
-            stake_multiplier: Some(U128(1_050_000_000_000_000_000_000_000)), // 105%
-            fixed_fee: None
-        });
-
-        contract.dr_stake(bob(), 100, StakeDataRequestArgs{
-            id: U64(0),
-            outcome: data_request::Outcome::Answer("a".to_string())
-        });
-        contract.dr_stake(dave(), 100, StakeDataRequestArgs{
-            id: U64(0),
-            outcome: data_request::Outcome::Answer("a".to_string())
-        });
-        contract.dr_stake(carol(), 200, StakeDataRequestArgs{
-            id: U64(0),
-            outcome: data_request::Outcome::Answer("b".to_string())
-        });
-        dr_finalize(&mut contract, data_request::Outcome::Answer("a".to_string()));
-
-        let mut d = contract.data_requests.get(0).unwrap();
-
-        // round 1 stake
-        println!("{}", d.claim(alice()));
-        // 50% of validity bond
-        println!("{}", d.claim(bob()));
-        println!("{}", d.claim(carol()));
-        // 50% of validity bond
-        println!("{}", d.claim(dave()));
-    }
-
 }
+
+
+
+// 10000 == 100%
+// 

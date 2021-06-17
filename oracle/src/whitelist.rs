@@ -4,6 +4,7 @@ use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
+use crate::data_request::CustomFeeStake;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -12,6 +13,7 @@ pub struct RegistryEntry {
     pub contract_entry: AccountId,
     // pub tvs_method: String,
     // pub rvs_method: String,
+    pub custom_fee: CustomFeeStake,
     pub code_base_url: Option<String>
 }
 
@@ -81,6 +83,9 @@ impl Contract {
     pub (crate) fn assert_whitelisted(&self, requestor: AccountId) {
         assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
     }
+    pub (crate) fn whitelist_custom_fee(&self, requestor: AccountId) -> CustomFeeStake {
+        self.whitelist_get(requestor).unwrap().custom_fee
+    }
     pub fn whitelist_get(&self, requestor: AccountId) -> Option<RegistryEntry> {
         self.whitelist.0.get(&requestor)
     }
@@ -118,6 +123,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStake::None,
             code_base_url: None
         }
     }
