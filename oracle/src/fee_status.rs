@@ -1,11 +1,22 @@
 use crate::*;
-use near_sdk::ext_contract;
+use near_sdk::{ext_contract, Promise, PromiseOrValue, Gas};
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 
-#[ext_contract(ext_self)]
-trait TVLCalculator {
-    pub fn continue_tvs_calc(&self, sum: U128, next_account: Option<Self::Item>) -> Promise;
+// TODO: figure out view call price
+const GAS_BASE_TRANSFER: Gas = 5_000_000_000_000;
+
+#[ext_contract]
+pub trait ExtSelf {
+    fn continue_tvs_calc(&self, 
+        // sum: U128, next_account: std::option::Option<(std::string::String, whitelist::RegistryEntry)>
+    ) -> Promise;
 }
+
+#[ext_contract]
+pub trait ExtRequestor {
+    fn get_tvs(&self) -> Promise;
+}
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct FeeStatus {
     pub market_cap: u128,
@@ -17,7 +28,7 @@ impl FeeStatus {
     pub fn new() -> Self {
         Self {
             market_cap: 0,
-            total_value_secured: 0,
+            total_value_secured: 0,                                                                               
             fee_percentage: 1
         }
     }
@@ -25,18 +36,31 @@ impl FeeStatus {
 
 #[near_bindgen]
 impl Contract {
-    pub fn fetch_tvs(&self) -> U128 {
-        let mut total_tvs = 0;
-
-        let account = self.whitelist.0.iter().next();
-        // for (_i, requestor) in self.whitelist.0.iter() {
-        //     total_tvs += match self.requestor_get_tvl(requestor.contract_entry) {
-        //         PromiseOrValue::Value(val) => val.into(),
-        //         _ => 0
-        //     };
-        // }
-        total_tvs.into()
+    #[private]
+    pub fn continue_tvs_calc(&self, 
+        // sum: U128, next_account: Option<(std::string::String, whitelist::RegistryEntry)>
+    ) -> U128 {
+        0.into()
     }
+
+    pub fn fetch_tvs(&self) -> Promise {
+        let account = self.whitelist.0.iter().next();
+        ext_requestor::get_tvs(
+            &account.unwrap().1.contract_entry,
+            0,
+            GAS_BASE_TRANSFER
+        )
+        .then(
+            ext_self::continue_tvs_calc(
+                // U128(0),
+                // self.whitelist.0.iter().next(),
+                &env::current_account_id(),
+                0,
+                GAS_BASE_TRANSFER
+            )
+        )
+    }
+    
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -116,6 +140,5 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let contract = Contract::new(whitelist, config());
         let tvs = contract.fetch_tvs();
-        println!("tvs: {:?}", tvs);
     }
 }
