@@ -672,6 +672,7 @@ impl Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
+    use crate::whitelist::CustomFeeStakeArgs;
     use super::*;
 
     fn alice() -> AccountId {
@@ -702,11 +703,11 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntry {
-        RegistryEntry {
+    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
+        RegistryEntryArgs {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            custom_fee: CustomFeeStake::None,
+            custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
     }
@@ -1809,10 +1810,10 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntry {
+        let bob_requestor = RegistryEntryArgs {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStake::Multiplier(10500), // 105%
+            custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
@@ -1837,10 +1838,10 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier_scenario0() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntry {
+        let bob_requestor = RegistryEntryArgs {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStake::Multiplier(10500), // 105%
+            custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
@@ -1885,10 +1886,10 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntry {
+        let bob_requestor = RegistryEntryArgs {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStake::Fixed(15),
+            custom_fee: CustomFeeStakeArgs::Fixed(U128(15)),
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
@@ -1913,10 +1914,10 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee2() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntry {
+        let bob_requestor = RegistryEntryArgs {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStake::Fixed(71),
+            custom_fee: CustomFeeStakeArgs::Fixed(U128(71)),
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
