@@ -6,6 +6,8 @@ use near_sdk::{
     Balance,
     Promise,
 };
+use crate::whitelist::{RegistryEntryArgs, RegistryEntry, CustomFeeStakeArgs};
+use crate::data_request::CustomFeeStake;
 
 const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 
@@ -47,4 +49,21 @@ pub fn refund_storage(initial_storage: StorageUsage, sender_id: AccountId) {
 
 pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
     ns_timestamp / 1_000_000
+}
+
+pub fn unwrap_registry_entry(requestor: &RegistryEntryArgs) -> RegistryEntry {
+    // transform CustomFeeStakeArgs to CustomFeeStake
+    // only 'Multiplier' decreases in precision from U64 to u16
+    let custom_fee: CustomFeeStake = match requestor.custom_fee {
+        CustomFeeStakeArgs::Multiplier(m) => CustomFeeStake::Multiplier(u64::from(m) as u16),
+        CustomFeeStakeArgs::Fixed(f) => CustomFeeStake::Fixed(u128::from(f)),
+        CustomFeeStakeArgs::None => CustomFeeStake::None
+    };
+    // transform RegistryEntryArgs to RegistryEntry
+    RegistryEntry {
+        interface_name: requestor.interface_name.clone(),
+        contract_entry: requestor.contract_entry.clone(),
+        custom_fee,
+        code_base_url: requestor.code_base_url.clone()
+    }
 }

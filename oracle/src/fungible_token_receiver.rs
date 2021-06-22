@@ -48,7 +48,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
-    use crate::data_request::CustomFeeStake;
+    use crate::whitelist::CustomFeeStakeArgs;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -78,11 +78,11 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntry {
-        RegistryEntry {
+    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
+        RegistryEntryArgs {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            custom_fee: CustomFeeStake::None,
+            custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
     }

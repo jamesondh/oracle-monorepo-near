@@ -2,17 +2,32 @@ use crate::*;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
+use near_sdk::json_types::U64;
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
 use crate::data_request::CustomFeeStake;
+use crate::helpers::unwrap_registry_entry;
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub enum CustomFeeStakeArgs {
+    Multiplier(U64),
+    Fixed(WrappedBalance),
+    None
+}
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+pub struct RegistryEntryArgs {
+    pub interface_name: String,
+    pub contract_entry: AccountId,
+    pub custom_fee: CustomFeeStakeArgs,
+    pub code_base_url: Option<String>
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
-    // pub tvs_method: String,
-    // pub rvs_method: String,
     pub custom_fee: CustomFeeStake,
     pub code_base_url: Option<String>
 }
@@ -21,12 +36,14 @@ pub struct RegistryEntry {
 pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);
 
 impl Whitelist {
-    pub fn new(initial_whitelist: Option<Vec<RegistryEntry>>) -> Self {
+    pub fn new(initial_whitelist: Option<Vec<RegistryEntryArgs>>) -> Self {
         let mut whitelist: LookupMap<AccountId, RegistryEntry> = LookupMap::new(b"wlr".to_vec());
 
         if initial_whitelist.is_some() {
             for requestor in initial_whitelist.unwrap() {
-                whitelist.insert(&requestor.contract_entry, &requestor);
+                let requestor_unwrapped = unwrap_registry_entry(&requestor);
+                // insert registry entry into whitelist
+                whitelist.insert(&requestor_unwrapped.contract_entry, &requestor_unwrapped);
             }
         }
 
@@ -39,11 +56,12 @@ impl Whitelist {
             _ => true
         }
     }
+
 }
 
 trait WhitelistHandler {
-    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry);
-    fn remove_from_whitelist(&mut self, requestor: RegistryEntry);
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntryArgs);
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntryArgs);
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
@@ -51,27 +69,29 @@ trait WhitelistHandler {
 impl WhitelistHandler for Contract {
     
     #[payable]
-    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry) {
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntryArgs) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
+        let new_requestor_unwrapped = unwrap_registry_entry(&new_requestor);
 
-        self.whitelist.0.insert(&new_requestor.contract_entry, &new_requestor);
+        self.whitelist.0.insert(&new_requestor_unwrapped.contract_entry, &new_requestor_unwrapped);
 
-        logger::log_whitelist(&new_requestor.contract_entry, true); // TODO: use RegistryEntry inside logger
+        logger::log_whitelist(&new_requestor, true);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
     #[payable]
-    fn remove_from_whitelist(&mut self, requestor: RegistryEntry) {
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntryArgs) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
+        let requestor_unwrapped = unwrap_registry_entry(&requestor);
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        logger::log_whitelist(&requestor.contract_entry, false);
+        logger::log_whitelist(&requestor, false);
 
-        self.whitelist.0.remove(&requestor.contract_entry);
+        self.whitelist.0.remove(&requestor_unwrapped.contract_entry);
     }
 
     fn whitelist_contains(&self, requestor: AccountId) -> bool {
@@ -119,11 +139,11 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntry {
-        RegistryEntry {
+    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
+        RegistryEntryArgs {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            custom_fee: CustomFeeStake::None,
+            custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
     }

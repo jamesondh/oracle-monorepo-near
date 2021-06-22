@@ -13,23 +13,18 @@ use crate::{
     data_request::{
         DataRequest,
         ResolutionWindow,
-        Outcome,
-        CustomFeeStake
+        Outcome
     },
     oracle_config::{
         OracleConfig
     },
+    whitelist::RegistryEntryArgs,
     helpers::{
         ns_to_ms,
     }
 };
 
 pub fn log_new_data_request(request: &DataRequest) {
-    let custom_fee: String = match request.request_config.custom_fee {
-        CustomFeeStake::Multiplier(m) => format!("Multiplier {}", m),
-        CustomFeeStake::Fixed(f) => format!("Fixed {}", f),
-        CustomFeeStake::None => "None".to_string()
-    };
     env::log(
         json!({
             "type": "data_requests",
@@ -47,7 +42,6 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
                 "fee": U128(request.request_config.fee),
-                "custom_fee": custom_fee,
                 "global_config_id": U64(request.global_config_id),
                 "tags": request.tags,
                 "date": U64(ns_to_ms(env::block_timestamp())),
@@ -216,15 +210,18 @@ pub fn log_claim(
     );
 }
 
-pub fn log_whitelist(account_id: &AccountId, active: bool) {
+pub fn log_whitelist(requestor: &RegistryEntryArgs, active: bool) {
     env::log(
         json!({
             "type": "whitelist",
             "action": "update",
-            "cap_id": format!("wl_{}", account_id),
+            "cap_id": format!("wl_{}", requestor.contract_entry),
             "params": {
-                "id": format!("wl_{}", account_id),
-                "account_id": account_id,
+                "id": format!("wl_{}", requestor.contract_entry),
+                "interface_name": requestor.interface_name,
+                "contract_entry": requestor.contract_entry,
+                "custom_fee": requestor.custom_fee,
+                "code_base_url": requestor.code_base_url,
                 "active": active,
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
