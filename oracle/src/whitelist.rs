@@ -24,7 +24,8 @@ pub struct RegistryEntryArgs {
     pub code_base_url: Option<String>
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,

@@ -31,9 +31,9 @@ fn dr_resolution_flow_test() {
 
 #[test]
 fn dr_fixed_fee_flow() {
-    let custom_fee = CustomFeeStakeArgs::Fixed(U128(999));
-    let stake_amount = to_yocto("250"); 
-    let stake_cost = 200;
+    let custom_fee_amount = 1000;
+    let custom_fee = CustomFeeStakeArgs::Fixed(U128(custom_fee_amount));
+    let stake_amount = to_yocto("250");
     let dr_cost = 100;
     let init_res = TestUtils::init(Some(custom_fee));
     let init_balance_alice = init_res.alice.get_token_balance(None);
@@ -48,7 +48,7 @@ fn dr_fixed_fee_flow() {
 
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
-    assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - dr_cost);
+    assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - custom_fee_amount*2);
     
     init_res.alice.finalize(0);
     init_res.alice.claim(0);
