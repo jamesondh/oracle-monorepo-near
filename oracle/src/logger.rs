@@ -14,6 +14,7 @@ use crate::{
         DataRequest,
         ResolutionWindow,
         Outcome,
+        CustomFeeStake
     },
     oracle_config::{
         OracleConfig
@@ -24,6 +25,11 @@ use crate::{
 };
 
 pub fn log_new_data_request(request: &DataRequest) {
+    let custom_fee: String = match request.request_config.custom_fee {
+        CustomFeeStake::Multiplier(m) => format!("Multiplier {}", m),
+        CustomFeeStake::Fixed(f) => format!("Fixed {}", f),
+        CustomFeeStake::None => "None".to_string()
+    };
     env::log(
         json!({
             "type": "data_requests",
@@ -41,6 +47,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
                 "fee": U128(request.request_config.fee),
+                "custom_fee": custom_fee,
                 "global_config_id": U64(request.global_config_id),
                 "tags": request.tags,
                 "date": U64(ns_to_ms(env::block_timestamp())),
