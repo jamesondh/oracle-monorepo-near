@@ -672,7 +672,7 @@ impl Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-    use crate::whitelist::CustomFeeStakeArgs;
+    use crate::whitelist::{CustomFeeStakeArgs, RegistryEntry};
     use super::*;
 
     fn alice() -> AccountId {
@@ -703,8 +703,8 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
-        RegistryEntryArgs {
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
             custom_fee: CustomFeeStakeArgs::None,
@@ -1810,7 +1810,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntryArgs {
+        let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
             custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
@@ -1838,7 +1838,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_stake_multiplier_scenario0() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntryArgs {
+        let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
             custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
@@ -1886,7 +1886,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntryArgs {
+        let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
             custom_fee: CustomFeeStakeArgs::Fixed(U128(15)),
@@ -1914,7 +1914,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee2() {
         testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntryArgs {
+        let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
             custom_fee: CustomFeeStakeArgs::Fixed(U128(71)),

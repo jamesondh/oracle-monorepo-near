@@ -4,6 +4,7 @@ use near_sdk::{ AccountId, Balance, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector, LookupMap };
 use near_sdk::json_types::{ ValidAccountId, U64, U128 };
+use crate::whitelist::RegistryEntry;
 
 near_sdk::setup_alloc!();
 
@@ -28,7 +29,6 @@ pub use callback_args::*;
 use types::*;
 pub use data_request::{ DataRequest, Source };
 use storage_manager::AccountStorageBalance;
-use whitelist::RegistryEntryArgs;
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
@@ -51,7 +51,7 @@ impl Default for Contract {
 impl Contract {
     #[init]
     pub fn new(
-        initial_whitelist: Option<Vec<RegistryEntryArgs>>,
+        initial_whitelist: Option<Vec<RegistryEntry>>,
         config: oracle_config::OracleConfig
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());

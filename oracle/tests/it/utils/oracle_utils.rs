@@ -1,13 +1,13 @@
 use crate::utils::*;
 use oracle::oracle_config::OracleConfig;
-use oracle::whitelist::{RegistryEntryArgs, CustomFeeStakeArgs};
+use oracle::whitelist::{RegistryEntry, CustomFeeStakeArgs};
 
 pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
 }
 
-fn new_registry_entry(contract_id: String, custom_fee: CustomFeeStakeArgs) -> RegistryEntryArgs {
-    RegistryEntryArgs {
+fn new_registry_entry(contract_id: String, custom_fee: CustomFeeStakeArgs) -> RegistryEntry {
+    RegistryEntry {
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),

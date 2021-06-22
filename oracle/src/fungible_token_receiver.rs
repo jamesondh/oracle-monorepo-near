@@ -78,8 +78,8 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
-        RegistryEntryArgs {
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
             custom_fee: CustomFeeStakeArgs::None,

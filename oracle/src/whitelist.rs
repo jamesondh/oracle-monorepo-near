@@ -6,7 +6,7 @@ use near_sdk::json_types::U64;
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
 use crate::data_request::CustomFeeStake;
-use crate::helpers::unwrap_registry_entry;
+use crate::helpers::unwrap_custom_fee_stake;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum CustomFeeStakeArgs {
@@ -17,19 +17,10 @@ pub enum CustomFeeStakeArgs {
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct RegistryEntryArgs {
-    pub interface_name: String,
-    pub contract_entry: AccountId,
-    pub custom_fee: CustomFeeStakeArgs,
-    pub code_base_url: Option<String>
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
-    pub custom_fee: CustomFeeStake,
+    pub custom_fee: CustomFeeStakeArgs,
     pub code_base_url: Option<String>
 }
 
@@ -37,14 +28,13 @@ pub struct RegistryEntry {
 pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);
 
 impl Whitelist {
-    pub fn new(initial_whitelist: Option<Vec<RegistryEntryArgs>>) -> Self {
+    pub fn new(initial_whitelist: Option<Vec<RegistryEntry>>) -> Self {
         let mut whitelist: LookupMap<AccountId, RegistryEntry> = LookupMap::new(b"wlr".to_vec());
 
         if initial_whitelist.is_some() {
             for requestor in initial_whitelist.unwrap() {
-                let requestor_unwrapped = unwrap_registry_entry(&requestor);
                 // insert registry entry into whitelist
-                whitelist.insert(&requestor_unwrapped.contract_entry, &requestor_unwrapped);
+                whitelist.insert(&requestor.contract_entry, &requestor);
             }
         }
 
@@ -61,8 +51,8 @@ impl Whitelist {
 }
 
 trait WhitelistHandler {
-    fn add_to_whitelist(&mut self, new_requestor: RegistryEntryArgs);
-    fn remove_from_whitelist(&mut self, requestor: RegistryEntryArgs);
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry);
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntry);
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
@@ -70,29 +60,27 @@ trait WhitelistHandler {
 impl WhitelistHandler for Contract {
     
     #[payable]
-    fn add_to_whitelist(&mut self, new_requestor: RegistryEntryArgs) {
+    fn add_to_whitelist(&mut self, new_requestor: RegistryEntry) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
-        let new_requestor_unwrapped = unwrap_registry_entry(&new_requestor);
 
-        self.whitelist.0.insert(&new_requestor_unwrapped.contract_entry, &new_requestor_unwrapped);
+        self.whitelist.0.insert(&new_requestor.contract_entry, &new_requestor);
 
         logger::log_whitelist(&new_requestor, true);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
     #[payable]
-    fn remove_from_whitelist(&mut self, requestor: RegistryEntryArgs) {
+    fn remove_from_whitelist(&mut self, requestor: RegistryEntry) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
-        let requestor_unwrapped = unwrap_registry_entry(&requestor);
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
         logger::log_whitelist(&requestor, false);
 
-        self.whitelist.0.remove(&requestor_unwrapped.contract_entry);
+        self.whitelist.0.remove(&requestor.contract_entry);
     }
 
     fn whitelist_contains(&self, requestor: AccountId) -> bool {
@@ -105,7 +93,7 @@ impl Contract {
         assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
     }
     pub (crate) fn whitelist_custom_fee(&self, requestor: AccountId) -> CustomFeeStake {
-        self.whitelist_get(requestor).unwrap().custom_fee
+        unwrap_custom_fee_stake(&self.whitelist_get(requestor).unwrap().custom_fee)
     }
     pub fn whitelist_get(&self, requestor: AccountId) -> Option<RegistryEntry> {
         self.whitelist.0.get(&requestor)
@@ -140,8 +128,8 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn registry_entry(account: AccountId) -> RegistryEntryArgs {
-        RegistryEntryArgs {
+    fn registry_entry(account: AccountId) -> RegistryEntry {
+        RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
             custom_fee: CustomFeeStakeArgs::None,

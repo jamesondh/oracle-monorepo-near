@@ -15,10 +15,10 @@ use crate::{
         ResolutionWindow,
         Outcome
     },
+    whitelist::RegistryEntry,
     oracle_config::{
         OracleConfig
     },
-    whitelist::RegistryEntryArgs,
     helpers::{
         ns_to_ms,
     }
@@ -210,7 +210,7 @@ pub fn log_claim(
     );
 }
 
-pub fn log_whitelist(requestor: &RegistryEntryArgs, active: bool) {
+pub fn log_whitelist(requestor: &RegistryEntry, active: bool) {
     env::log(
         json!({
             "type": "whitelist",
@@ -277,7 +277,7 @@ pub fn log_stake_transaction(
     log_transaction(
         TransactionType::Stake, 
         account_id, 
-        window.dr_id, 
+        window.dr_id,
         Some(window.round), 
         amount_in,
         amount_out, 
