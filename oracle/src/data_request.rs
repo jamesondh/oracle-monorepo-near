@@ -10,7 +10,7 @@ use crate::types::{ Timestamp, Duration };
 use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
-const PERCENTAGE_DIVISOR: u16 = 10_000;
+pub const PERCENTAGE_DIVISOR: u16 = 10_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
