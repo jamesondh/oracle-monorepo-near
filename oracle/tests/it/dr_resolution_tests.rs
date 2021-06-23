@@ -1,6 +1,6 @@
 use crate::utils::*;
 use oracle::whitelist::CustomFeeStakeArgs;
-use near_sdk::json_types::{U64, U128};
+use near_sdk::json_types::U128;
 use oracle::data_request::PERCENTAGE_DIVISOR;
 
 #[test]
@@ -62,7 +62,7 @@ fn dr_fixed_fee_flow() {
 fn dr_multiplier_flow() {
     let stake_cost = 200;
     let multiplier_amount = 10500; // 105%
-    let custom_fee = CustomFeeStakeArgs::Multiplier(U64(multiplier_amount));
+    let custom_fee = CustomFeeStakeArgs::Multiplier(multiplier_amount);
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
     let init_res = TestUtils::init(Some(custom_fee));
@@ -78,7 +78,7 @@ fn dr_multiplier_flow() {
 
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
-    let weighted_stake_cost = u128::from(stake_cost * multiplier_amount / PERCENTAGE_DIVISOR as u64);
+    let weighted_stake_cost = u128::from(stake_cost * u64::from(multiplier_amount) / PERCENTAGE_DIVISOR as u64);
     assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - weighted_stake_cost);
     
     init_res.alice.finalize(0);

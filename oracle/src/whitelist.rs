@@ -2,7 +2,6 @@ use crate::*;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
-use near_sdk::json_types::U64;
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
 use crate::data_request::CustomFeeStake;
@@ -10,7 +9,7 @@ use crate::helpers::unwrap_custom_fee_stake;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum CustomFeeStakeArgs {
-    Multiplier(U64),
+    Multiplier(u16),
     Fixed(WrappedBalance),
     None
 }

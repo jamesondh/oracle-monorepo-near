@@ -54,7 +54,7 @@ pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
 pub fn unwrap_custom_fee_stake(custom_fee: &CustomFeeStakeArgs) -> CustomFeeStake {
     // only 'Multiplier' decreases in precision from U64 to u16
     let new_custom_fee: CustomFeeStake = match custom_fee {
-        CustomFeeStakeArgs::Multiplier(m) => CustomFeeStake::Multiplier(u64::from(m.0) as u16),
+        CustomFeeStakeArgs::Multiplier(m) => CustomFeeStake::Multiplier(*m),
         CustomFeeStakeArgs::Fixed(f) => CustomFeeStake::Fixed(u128::from(f.0)),
         CustomFeeStakeArgs::None => CustomFeeStake::None
     };

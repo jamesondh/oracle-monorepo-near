@@ -1813,7 +1813,7 @@ mod mock_token_basic_tests {
         let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
+            custom_fee: CustomFeeStakeArgs::Multiplier(10500), // 105%
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
@@ -1841,7 +1841,7 @@ mod mock_token_basic_tests {
         let bob_requestor = RegistryEntry {
             interface_name: bob(),
             contract_entry: bob(),
-            custom_fee: CustomFeeStakeArgs::Multiplier(U64(10500)), // 105%
+            custom_fee: CustomFeeStakeArgs::Multiplier(10500), // 105%
             code_base_url: None,
         };
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
