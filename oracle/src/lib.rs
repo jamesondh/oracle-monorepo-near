@@ -4,7 +4,6 @@ use near_sdk::{ AccountId, Balance, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector, LookupMap };
 use near_sdk::json_types::{ ValidAccountId, U64, U128 };
-use crate::whitelist::RegistryEntry;
 
 near_sdk::setup_alloc!();
 
@@ -29,6 +28,7 @@ pub use callback_args::*;
 use types::*;
 pub use data_request::{ DataRequest, Source };
 use storage_manager::AccountStorageBalance;
+use whitelist::RegistryEntry;
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
