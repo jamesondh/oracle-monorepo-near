@@ -13,7 +13,8 @@ use crate::{
     data_request::{
         DataRequest,
         ResolutionWindow,
-        Outcome
+        Outcome,
+        AnswerType,
     },
     whitelist::RegistryEntry,
     oracle_config::{
@@ -46,6 +47,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "tags": request.tags,
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
+                "data_type": request.data_type,
             }
         })
         .to_string()
@@ -132,7 +134,10 @@ fn outcome_to_id(outcome: &Outcome) -> String {
     // We append ans_ infront of an answer to avoid malicous fake invalids
     // that would overwrite a real invalid outcome
     match outcome {
-        Outcome::Answer(a) => format!("ans_{}", a),
+        Outcome::Answer(answer) =>  match answer {
+            AnswerType::String(str_ans) => format!("ans_str_{}", str_ans),
+            AnswerType::Number(num_ans) => format!("ans_num_{}_{}_{}", num_ans.value.0, num_ans.multiplier.0, num_ans.negative),
+        },
         Outcome::Invalid => "invalid".to_string()
     }
 }

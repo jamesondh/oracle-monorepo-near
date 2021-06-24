@@ -1,4 +1,5 @@
 use crate::*;
+use crate::data_request::DataRequestDataType;
 use near_sdk::serde::{ Serialize, Deserialize };
 
 const MAX_SOURCES: u8 = 8;
@@ -13,7 +14,8 @@ pub struct NewDataRequestArgs {
     pub outcomes: Option<Vec<String>>,
     pub challenge_period: WrappedTimestamp,
     pub settlement_time: WrappedTimestamp,
-    pub target_contract: AccountId
+    pub target_contract: AccountId,
+    pub data_type: DataRequestDataType,
 }
 
 impl Contract {

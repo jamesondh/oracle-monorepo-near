@@ -3,6 +3,7 @@ use crate::*;
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::serde_json;
 use near_sdk::PromiseOrValue;
+use crate::data_request::AnswerType;
 
 #[derive(Serialize, Deserialize)]
 pub enum Payload {
@@ -124,7 +125,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "alice.near has 0 deposited, 3520000000000000000000 is required for this transaction")]
+    #[should_panic(expected = "alice.near has 0 deposited, 3540000000000000000000 is required for this transaction")]
     fn transfer_storage_no_funds() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -137,13 +138,14 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None
+            tags: None,
+            data_type: data_request::DataRequestDataType::String,
         });
 
         let msg = serde_json::json!({
             "StakeDataRequest": {
                 "id": "0",
-                "outcome": data_request::Outcome::Answer("a".to_string())
+                "outcome": data_request::Outcome::Answer(AnswerType::String("a".to_string()))
             }
         });
         contract.ft_on_transfer(alice(), U128(100), msg.to_string());
@@ -162,7 +164,8 @@ mod mock_token_basic_tests {
             settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
-            tags: None
+            tags: None,
+            data_type: data_request::DataRequestDataType::String,
         });
 
         let storage_start = 10u128.pow(24);
@@ -176,7 +179,7 @@ mod mock_token_basic_tests {
         let msg = serde_json::json!({
             "StakeDataRequest": {
                 "id": "0",
-                "outcome": data_request::Outcome::Answer("a".to_string())
+                "outcome": data_request::Outcome::Answer(AnswerType::String("a".to_string()))
             }
         });
         contract.ft_on_transfer(alice(), U128(100), msg.to_string());
