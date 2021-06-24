@@ -34,6 +34,7 @@ use deposit::*;
 use request_interface;
 use target_contract;
 use token;
+use oracle::whitelist::CustomFeeStakeArgs;
 
 type OracleContract = oracle::ContractContract;
 type RequestInterfaceContract = request_interface::RequestInterfaceContractContract;
@@ -68,10 +69,11 @@ pub struct TestUtils {
 
 impl TestUtils {
     pub fn init(
+        custom_fee: Option<CustomFeeStakeArgs>
     ) -> Self {
         let master_account = TestAccount::new(None, None);
         let token_init_res = token_utils::TokenUtils::new(&master_account); // Init token
-        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account);  // Init oracle
+        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, custom_fee.unwrap_or(CustomFeeStakeArgs::None));  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
 

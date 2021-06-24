@@ -4,14 +4,22 @@ use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
+use crate::data_request::CustomFeeStake;
+use crate::helpers::unwrap_custom_fee_stake;
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub enum CustomFeeStakeArgs {
+    Multiplier(u16),
+    Fixed(WrappedBalance),
+    None
+}
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RegistryEntry {
     pub interface_name: String,
     pub contract_entry: AccountId,
-    // pub tvs_method: String,
-    // pub rvs_method: String,
+    pub custom_fee: CustomFeeStakeArgs,
     pub code_base_url: Option<String>
 }
 
@@ -24,6 +32,7 @@ impl Whitelist {
 
         if initial_whitelist.is_some() {
             for requestor in initial_whitelist.unwrap() {
+                // insert registry entry into whitelist
                 whitelist.insert(&requestor.contract_entry, &requestor);
             }
         }
@@ -37,6 +46,7 @@ impl Whitelist {
             _ => true
         }
     }
+
 }
 
 trait WhitelistHandler {
@@ -56,7 +66,7 @@ impl WhitelistHandler for Contract {
 
         self.whitelist.0.insert(&new_requestor.contract_entry, &new_requestor);
 
-        logger::log_whitelist(&new_requestor.contract_entry, true); // TODO: use RegistryEntry inside logger
+        logger::log_whitelist(&new_requestor, true);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 
@@ -67,7 +77,7 @@ impl WhitelistHandler for Contract {
         let initial_storage = env::storage_usage();
 
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
-        logger::log_whitelist(&requestor.contract_entry, false);
+        logger::log_whitelist(&requestor, false);
 
         self.whitelist.0.remove(&requestor.contract_entry);
     }
@@ -80,6 +90,9 @@ impl WhitelistHandler for Contract {
 impl Contract {
     pub (crate) fn assert_whitelisted(&self, requestor: AccountId) {
         assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
+    }
+    pub (crate) fn whitelist_custom_fee(&self, requestor: AccountId) -> CustomFeeStake {
+        unwrap_custom_fee_stake(&self.whitelist_get(requestor).unwrap().custom_fee)
     }
     pub fn whitelist_get(&self, requestor: AccountId) -> Option<RegistryEntry> {
         self.whitelist.0.get(&requestor)
@@ -118,6 +131,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
     }

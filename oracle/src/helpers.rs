@@ -6,6 +6,8 @@ use near_sdk::{
     Balance,
     Promise,
 };
+use crate::whitelist::CustomFeeStakeArgs;
+use crate::data_request::CustomFeeStake;
 
 const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 
@@ -47,4 +49,13 @@ pub fn refund_storage(initial_storage: StorageUsage, sender_id: AccountId) {
 
 pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
     ns_timestamp / 1_000_000
+}
+
+pub fn unwrap_custom_fee_stake(custom_fee: &CustomFeeStakeArgs) -> CustomFeeStake {
+    let new_custom_fee: CustomFeeStake = match custom_fee {
+        CustomFeeStakeArgs::Multiplier(m) => CustomFeeStake::Multiplier(*m),
+        CustomFeeStakeArgs::Fixed(f) => CustomFeeStake::Fixed(u128::from(f.0)),
+        CustomFeeStakeArgs::None => CustomFeeStake::None
+    };
+    new_custom_fee
 }

@@ -16,6 +16,7 @@ use crate::{
         Outcome,
         AnswerType,
     },
+    whitelist::RegistryEntry,
     oracle_config::{
         OracleConfig
     },
@@ -41,6 +42,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
+                "fee": U128(request.request_config.fee),
                 "global_config_id": U64(request.global_config_id),
                 "tags": request.tags,
                 "date": U64(ns_to_ms(env::block_timestamp())),
@@ -213,15 +215,18 @@ pub fn log_claim(
     );
 }
 
-pub fn log_whitelist(account_id: &AccountId, active: bool) {
+pub fn log_whitelist(requestor: &RegistryEntry, active: bool) {
     env::log(
         json!({
             "type": "whitelist",
             "action": "update",
-            "cap_id": format!("wl_{}", account_id),
+            "cap_id": format!("wl_{}", requestor.contract_entry),
             "params": {
-                "id": format!("wl_{}", account_id),
-                "account_id": account_id,
+                "id": format!("wl_{}", requestor.contract_entry),
+                "interface_name": requestor.interface_name,
+                "contract_entry": requestor.contract_entry,
+                "custom_fee": requestor.custom_fee,
+                "code_base_url": requestor.code_base_url,
                 "active": active,
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
@@ -277,7 +282,7 @@ pub fn log_stake_transaction(
     log_transaction(
         TransactionType::Stake, 
         account_id, 
-        window.dr_id, 
+        window.dr_id,
         Some(window.round), 
         amount_in,
         amount_out, 

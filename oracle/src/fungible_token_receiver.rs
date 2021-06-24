@@ -3,7 +3,6 @@ use crate::*;
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::serde_json;
 use near_sdk::PromiseOrValue;
-use crate::data_request::AnswerType;
 
 #[derive(Serialize, Deserialize)]
 pub enum Payload {
@@ -49,6 +48,8 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
+    use crate::whitelist::CustomFeeStakeArgs;
+    use crate::data_request::AnswerType;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -82,6 +83,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
+            custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
     }

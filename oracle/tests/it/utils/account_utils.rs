@@ -1,8 +1,8 @@
-use oracle::data_request::DataRequestDataType;
 use crate::utils::*;
+use oracle::data_request::DataRequestDataType;
 
 pub fn init_balance() -> u128 {
-    to_yocto("1000")
+    to_yocto("100000")
 }
 
 pub struct TestAccount {
