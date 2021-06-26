@@ -35,10 +35,12 @@ fn dr_resolution_flow_test() {
 #[test]
 fn dr_fixed_fee_flow() {
     let custom_fee_amount = 125;
-    let custom_fee = CustomFeeStakeArgs::Fixed(U128(custom_fee_amount));
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
-    let init_res = TestUtils::init(Some(custom_fee));
+    let init_res = TestUtils::init(Some(TestUtilsArgs {
+        custom_fee: CustomFeeStakeArgs::Fixed(U128(custom_fee_amount)),
+        oracle_config: None
+    }));
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
     let _res = init_res.alice.dr_new();
@@ -66,10 +68,13 @@ fn dr_fixed_fee_flow() {
 fn dr_multiplier_flow() {
     let stake_cost = 200;
     let multiplier_amount = 10500; // 105%
-    let custom_fee = CustomFeeStakeArgs::Multiplier(multiplier_amount);
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
-    let init_res = TestUtils::init(Some(custom_fee));
+    let init_res = TestUtils::init(Some(TestUtilsArgs {
+        custom_fee: CustomFeeStakeArgs::Multiplier(multiplier_amount),
+        oracle_config: None
+    }));
+    
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
     let _res = init_res.alice.dr_new();
