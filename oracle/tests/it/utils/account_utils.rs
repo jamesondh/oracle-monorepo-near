@@ -126,7 +126,7 @@ impl TestAccount {
                 "request_id": U64(dr_id)
             }).to_string().as_bytes(),
             DEFAULT_GAS,
-            1000000000000000000000
+            1600000000000000000000
         );
 
         res.assert_success();
