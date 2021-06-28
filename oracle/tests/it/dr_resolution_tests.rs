@@ -7,7 +7,7 @@ use oracle::data_request::PERCENTAGE_DIVISOR;
 fn dr_resolution_flow_test() {
     let stake_amount = to_yocto("250"); 
     let stake_cost = 200;
-    let dr_cost = 100;
+    let validity_bond = 100;
     let init_res = TestUtils::init(None);
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
@@ -23,7 +23,7 @@ fn dr_resolution_flow_test() {
 
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
-    assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - dr_cost);
+    assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - validity_bond);
     
     init_res.alice.finalize(0);
     init_res.alice.claim(0);
@@ -34,12 +34,13 @@ fn dr_resolution_flow_test() {
 
 #[test]
 fn dr_fixed_fee_flow() {
-    let custom_fee_amount = 125;
-    let stake_amount = to_yocto("250");
-    let dr_cost = 100;
+    let custom_fee_amount = to_yocto("2");
+    let stake_amount = to_yocto("4");
+    let validity_bond = 100;
     let init_res = TestUtils::init(Some(TestSetupArgs {
         custom_fee: CustomFeeStakeArgs::Fixed(U128(custom_fee_amount)),
-        validity_bond: None
+        validity_bond,
+        final_arbitrator_invoke_amount: to_yocto("2500")
     }));
     let init_balance_alice = init_res.alice.get_token_balance(None);
 
@@ -55,10 +56,10 @@ fn dr_fixed_fee_flow() {
 
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
-    assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - custom_fee_amount*2);
+    assert_eq!(post_stake_balance_alice, init_balance_alice - validity_bond - custom_fee_amount*2);
     
     init_res.alice.finalize(0);
-    // init_res.alice.claim(0);
+    //init_res.alice.claim(0);
     
     // let post_claim_balance_alice = init_res.alice.get_token_balance(None);
     // assert_eq!(post_claim_balance_alice, init_balance_alice);
@@ -69,10 +70,11 @@ fn dr_multiplier_flow() {
     let stake_cost = 200;
     let multiplier_amount = 10500; // 105%
     let stake_amount = to_yocto("250");
-    let dr_cost = 100;
+    let validity_bond = 100;
     let init_res = TestUtils::init(Some(TestSetupArgs {
         custom_fee: CustomFeeStakeArgs::Multiplier(multiplier_amount),
-        validity_bond: None
+        validity_bond,
+        final_arbitrator_invoke_amount: 2500
     }));
     
     let init_balance_alice = init_res.alice.get_token_balance(None);
@@ -90,7 +92,7 @@ fn dr_multiplier_flow() {
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
     let weighted_stake_cost = u128::from(stake_cost * u64::from(multiplier_amount) / PERCENTAGE_DIVISOR as u64);
-    assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - weighted_stake_cost);
+    assert_eq!(post_stake_balance_alice, init_balance_alice - validity_bond - weighted_stake_cost);
     
     init_res.alice.finalize(0);
     init_res.alice.claim(0);

@@ -1,7 +1,5 @@
 use crate::utils::*;
 use oracle::whitelist::CustomFeeStakeArgs;
-use near_sdk::json_types::U128;
-use oracle::data_request::PERCENTAGE_DIVISOR;
 
 // Scenario: Alice (final arbitrator) creates a data request; Bob stakes on a
 // correct outcome, and Carol stakes on an incorrect outcome. Bob and Carol
@@ -11,19 +9,19 @@ use oracle::data_request::PERCENTAGE_DIVISOR;
 fn dr_scenario_1() {
 
     // configure test options and create data request
-    let validity_bond: u128 = 1;
     let init_res = TestUtils::init(Some(TestSetupArgs {
         custom_fee: CustomFeeStakeArgs::None,
-        validity_bond: Some(validity_bond)
+        validity_bond: 1,
+        final_arbitrator_invoke_amount: 2500
     }));
     //let init_balance_alice = init_res.alice.get_token_balance(None);
-    let new_dr_res = init_res.alice.dr_new();
+    let _new_dr_res = init_res.alice.dr_new();
     // println!("{:?}", new_dr_res);    
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
 
     for i in 2..12 {
-        println!("Round {}", i);
+        println!("Round {}", i-1);
         let stake_amount = 2u128.pow(i) * 10u128.pow(24);
         println!("Bond size: {}", stake_amount);
         // even numbers => Bob stakes on correct outcome

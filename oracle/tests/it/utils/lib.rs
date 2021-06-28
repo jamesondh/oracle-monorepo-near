@@ -71,7 +71,8 @@ pub struct TestUtils {
 
 pub struct TestSetupArgs {
     pub custom_fee: CustomFeeStakeArgs,
-    pub validity_bond: Option<u128>
+    pub validity_bond: u128,
+    pub final_arbitrator_invoke_amount: u128
 }
 
 impl TestUtils {
@@ -81,13 +82,14 @@ impl TestUtils {
         let args = test_setup_args.unwrap_or(
             TestSetupArgs {
                 custom_fee: CustomFeeStakeArgs::None,
-                validity_bond: Some(VALIDITY_BOND)
+                validity_bond: VALIDITY_BOND,
+                final_arbitrator_invoke_amount: 2500
             }
         );
 
         let master_account = TestAccount::new(None, None);
         let token_init_res = token_utils::TokenUtils::new(&master_account); // Init token
-        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.custom_fee, args.validity_bond.unwrap_or(VALIDITY_BOND));  // Init oracle
+        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.custom_fee, args.validity_bond, args.final_arbitrator_invoke_amount);  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
 
