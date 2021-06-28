@@ -35,7 +35,6 @@ use request_interface;
 use target_contract;
 use token;
 use oracle::whitelist::CustomFeeStakeArgs;
-use oracle::oracle_config::OracleConfig;
 
 type OracleContract = oracle::ContractContract;
 type RequestInterfaceContract = request_interface::RequestInterfaceContractContract;
@@ -70,39 +69,25 @@ pub struct TestUtils {
     pub peter: account_utils::TestAccount
 }
 
-pub struct TestUtilsArgs {
+pub struct TestSetupArgs {
     pub custom_fee: CustomFeeStakeArgs,
-    pub oracle_config: Option<OracleConfig>
+    pub validity_bond: Option<u128>
 }
 
 impl TestUtils {
     pub fn init(
-        test_utils_args: Option<TestUtilsArgs>
+        test_setup_args: Option<TestSetupArgs>
     ) -> Self {
-
-        let default_oracle_config = OracleConfig {
-            gov: "alice".to_string(),
-            final_arbitrator: "alice".to_string(),
-            bond_token: TOKEN_CONTRACT_ID.to_string(),
-            stake_token: TOKEN_CONTRACT_ID.to_string(),
-            validity_bond: U128(VALIDITY_BOND),
-            max_outcomes: 8,
-            default_challenge_window_duration: U64(1000),
-            min_initial_challenge_window_duration: U64(1000),
-            final_arbitrator_invoke_amount: U128(2500),
-            resolution_fee_percentage: 10_000,
-        };
-
-        let args = test_utils_args.unwrap_or(
-            TestUtilsArgs {
+        let args = test_setup_args.unwrap_or(
+            TestSetupArgs {
                 custom_fee: CustomFeeStakeArgs::None,
-                oracle_config: Some(default_oracle_config.clone())
+                validity_bond: Some(VALIDITY_BOND)
             }
         );
 
         let master_account = TestAccount::new(None, None);
         let token_init_res = token_utils::TokenUtils::new(&master_account); // Init token
-        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.custom_fee, args.oracle_config.unwrap_or(default_oracle_config));  // Init oracle
+        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.custom_fee, args.validity_bond.unwrap_or(VALIDITY_BOND));  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
 
