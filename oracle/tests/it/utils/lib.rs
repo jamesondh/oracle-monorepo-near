@@ -35,6 +35,13 @@ use request_interface;
 use target_contract;
 use token;
 use oracle::whitelist::CustomFeeStakeArgs;
+use oracle::data_request::PERCENTAGE_DIVISOR;
+use uint::construct_uint;
+
+construct_uint! {
+    /// 256-bit unsigned integer.
+    pub struct u256(4);
+}
 
 type OracleContract = oracle::ContractContract;
 type RequestInterfaceContract = request_interface::RequestInterfaceContractContract;
@@ -47,6 +54,18 @@ pub const REQUEST_INTERFACE_CONTRACT_ID: &str = "requestor";
 pub const TARGET_CONTRACT_ID: &str = "target";
 pub const SAFE_STORAGE_AMOUNT: u128 = 1250000000000000000000;
 pub const VALIDITY_BOND: u128 = 100;
+
+pub fn calc_product(a: u128, b: u128, divisor: u128) -> u128 {
+    let a_u256 = u256::from(a);
+    let b_u256 = u256::from(b);
+    let divisor_u256 = u256::from(divisor);
+
+    (a_u256 * b_u256 / divisor_u256).as_u128()
+}
+
+pub fn calc_bond_size(validity_bond: u128, round: u32, multiplier: Option<u16>) -> u128 {
+    calc_product(validity_bond * 2u128.pow(round+1), multiplier.unwrap_or(10000).into(), PERCENTAGE_DIVISOR.into())
+}
 
 // Load in contract bytes
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {

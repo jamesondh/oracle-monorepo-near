@@ -1,10 +1,6 @@
 use crate::utils::*;
 use oracle::whitelist::CustomFeeStakeArgs;
 
-pub fn calc_bond_size(validity_bond: u128, round: u32) -> u128 {
-    validity_bond * 2u128.pow(round+1)
-}
-
 // Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
 // until the final arbitrator is invoked and Alice must finalize
 #[test]
@@ -26,7 +22,7 @@ fn dr_scenario_1() {
     // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
     
     for i in 0..13 {
-        let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
         // even numbers => Bob stakes on correct outcome
         // odd numbers => Carol stakes on incorrect outcome
         match i % 2 == 0 {
@@ -48,6 +44,7 @@ fn dr_scenario_1() {
     }
     
     // get balances before finalization and claim and amount spent on staking
+    // TODO: account for final_arbitrator_invoke_amount and assert calculation
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
     let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
     let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
@@ -106,7 +103,7 @@ fn dr_scenario_2() {
     // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..7 {
-        let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
         // even numbers => Bob, Carol, Jasper stake on correct outcome
         // odd numbers => Peter stakes on incorrect outcome
         match i % 2 == 0 {
@@ -213,7 +210,7 @@ fn dr_scenario_3() {
     // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..8 {
-        let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
         let third_of_bond = bond_size / 3;
         // even numbers => Peter stakes on incorrect outcome
         // odd numbers => Bob, Carol, Jasper stake on correct outcome
@@ -305,13 +302,13 @@ fn dr_scenario_3() {
     let post_total_difference_vitalik = init_balance_vitalik - post_balance_vitalik;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
 
-    println!("Alice final balance:  {}", post_balance_alice);
-    println!("Bob final balance:    {}", post_balance_bob);
-    println!("Carol final balance:  {}", post_balance_carol);
-    println!("Jasper final balance: {}", post_balance_jasper);
-    println!("Illia final balance: {}", post_balance_illia);
+    println!("Alice final balance:   {}", post_balance_alice);
+    println!("Bob final balance:     {}", post_balance_bob);
+    println!("Carol final balance:   {}", post_balance_carol);
+    println!("Jasper final balance:  {}", post_balance_jasper);
+    println!("Illia final balance:   {}", post_balance_illia);
     println!("Vitalik final balance: {}", post_balance_vitalik);
-    println!("Peter final balance:  {}", post_balance_peter);
+    println!("Peter final balance:   {}", post_balance_peter);
 
     println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
     println!("Carol gained {} from claim for a total profit of {}", post_stake_difference_carol, post_total_difference_carol);
@@ -320,5 +317,83 @@ fn dr_scenario_3() {
     println!("Illia gained {} from claim for a total loss of {}", post_stake_difference_illia, post_total_difference_illia);
     println!("Vitalik gained {} from claim for a total loss of {}", post_stake_difference_vitalik, post_total_difference_vitalik);
     println!("Alice lost {} altogether", post_total_difference_alice);
+    
+}
+
+// Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
+// (similar to scenario 1) with a bond multiplier of 105%
+#[test]
+fn dr_scenario_4() {
+    // configure test options and create data request
+    let validity_bond = 1;
+    let multiplier = 10500; // 105%
+    let init_res = TestUtils::init(Some(TestSetupArgs {
+        custom_fee: CustomFeeStakeArgs::Multiplier(multiplier),
+        validity_bond,
+        final_arbitrator_invoke_amount: 2500
+    }));
+    let init_balance_alice = init_res.alice.get_token_balance(None);
+    let init_balance_bob = init_res.bob.get_token_balance(None);
+    let init_balance_carol = init_res.carol.get_token_balance(None);
+    let _new_dr_res = init_res.alice.dr_new();
+    let dr_exist = init_res.alice.dr_exists(0);
+    assert!(dr_exist, "something went wrong during dr creation");
+    
+    // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
+    
+    for i in 0..7 {
+        let bond_size = calc_bond_size(validity_bond, i, Some(multiplier)); // stake 2, 4, 16, 32, ...
+        // even numbers => Bob stakes on correct outcome
+        // odd numbers => Carol stakes on incorrect outcome
+        match i % 2 == 0 {
+            true => {
+                println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
+                // let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
+                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
+                // let post_stake_balance_bob = init_res.bob.get_token_balance(None);
+                // make sure no refund (bond size is exactly met)
+                // assert_eq!(post_stake_balance_bob, pre_stake_balance_bob - bond_size);
+            },
+            false => {
+                println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
+                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
+            }
+        };
+    }
+    
+    // get balances before finalization and claim and amount spent on staking
+    // TODO: account for final_arbitrator_invoke_amount and assert calculation
+    let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
+    let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
+    let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
+    let pre_claim_difference_carol = init_balance_carol - pre_claim_balance_carol;
+    println!("Bob pre-claim balance:    {}", pre_claim_balance_bob);
+    println!("Carol pre-claim balance:  {}", pre_claim_balance_carol);
+    println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
+    println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
+    
+    init_res.alice.finalize(0);
+    init_res.bob.claim(0);
+    init_res.carol.claim(0);
+    
+    // get balances and differences from after staking/before claiming and before staking
+    let post_balance_alice = init_res.alice.get_token_balance(None);
+    let post_balance_bob = init_res.bob.get_token_balance(None);
+    let post_balance_carol = init_res.carol.get_token_balance(None);
+    let post_stake_difference_bob = post_balance_bob - pre_claim_balance_bob;
+    let post_stake_difference_carol = post_balance_carol - pre_claim_balance_carol;
+    let post_total_difference_bob = post_balance_bob - init_balance_bob;
+    let post_total_difference_carol = init_balance_carol - post_balance_carol;
+    let post_total_difference_alice = init_balance_alice - post_balance_alice;
+
+    println!("Alice final balance:  {}", post_balance_alice);
+    println!("Bob final balance:    {}", post_balance_bob);
+    println!("Carol final balance:  {}", post_balance_carol);
+
+    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
+    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Alice lost {} altogether from validity bond", post_total_difference_alice);
     
 }
