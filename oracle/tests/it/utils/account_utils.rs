@@ -133,6 +133,26 @@ impl TestAccount {
         res
     }
 
+    pub fn dr_final_arbitrator_finalize(
+        &self,
+        dr_id: u64,
+        outcome: data_request::Outcome
+    ) -> ExecutionResult {
+        let res = self.account.call(
+            ORACLE_CONTRACT_ID.to_string(), 
+            "dr_final_arbitrator_finalize", 
+            json!({
+                "request_id": U64(dr_id),
+                "outcome": outcome
+            }).to_string().as_bytes(),
+            DEFAULT_GAS,
+            1600000000000000000000
+        );
+
+        res.assert_success();
+        res
+    }
+
     pub fn claim(
         &self,
         dr_id: u64
