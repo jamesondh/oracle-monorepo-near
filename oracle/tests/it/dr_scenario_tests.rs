@@ -1,6 +1,16 @@
 use crate::utils::*;
 use oracle::whitelist::CustomFeeStakeArgs;
 
+// helper function to get bond size of a resolution window given the validity
+// bond and round
+pub fn calc_bond_size(validity_bond: u128, round: u32) -> u128 {
+    match round {
+        0 => validity_bond * 2,
+        1 => validity_bond * 4,
+        _ => 2u128.pow(round+1)
+    }
+}
+
 // Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
 // until the final arbitrator is invoked and Alice must finalize
 #[test]
@@ -22,15 +32,19 @@ fn dr_scenario_1() {
     println!("Bob balance before staking:   {}", init_balance_bob);
     println!("Carol balance before staking: {}", init_balance_carol);
     
-    for i in 0..14 {
-        let bond_size = 2u128.pow(i+2) * 10u128.pow(24); // stake 2, 4, 16, 32, ...
+    for i in 0..13 {
+        let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
         // even numbers => Bob stakes on correct outcome
         // odd numbers => Carol stakes on incorrect outcome
-        match (i+2) % 2 == 0 {
+        match i % 2 == 0 {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
+                // let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
+                // let post_stake_balance_bob = init_res.bob.get_token_balance(None);
+                // make sure no refund (bond size is exactly met)
+                // assert_eq!(post_stake_balance_bob, pre_stake_balance_bob - bond_size);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
@@ -94,14 +108,25 @@ fn dr_scenario_2() {
     println!("Carol balance before staking:  {}", init_balance_carol);
     println!("Jasper balance before staking: {}", init_balance_jasper);
     
-    for i in 0..7 {
-        let bond_size = 2u128.pow(i+2) * 10u128.pow(24); // stake 2, 4, 16, 32, ...
+    // round 0 - bob alone stakes correctly
+    println!("Round 0, bond size: {}, staking correctly with Bob", validity_bond*2);
+    let _res = init_res.bob.stake(0, data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string())), validity_bond*2);
+    // round 1..7 - escalation game
+    for i in 1..7 {
+        let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
         // even numbers => Bob, Carol, Jasper stake on correct outcome
         // odd numbers => Peter stakes on incorrect outcome
         match (i+2) % 2 == 0 {
             true => {
-                println!("Round {}, bond size: {}, staking correctly with Bob, Carol, Jasper", i, bond_size);
                 let quarter_of_bond = bond_size / 4;
+                println!(
+                    "Round {}, bond size: {}, staking correctly with Bob({}), Carol({}), Jasper({})",
+                    i,
+                    bond_size,
+                    quarter_of_bond,
+                    quarter_of_bond,
+                    (quarter_of_bond*2)
+                );
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake.clone(), quarter_of_bond);
                 let _res = init_res.carol.stake(0, outcome_to_stake.clone(), quarter_of_bond);
