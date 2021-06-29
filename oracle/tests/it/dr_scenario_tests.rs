@@ -23,8 +23,7 @@ fn dr_scenario_1() {
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
     
-    println!("Bob balance before staking:   {}", init_balance_bob);
-    println!("Carol balance before staking: {}", init_balance_carol);
+    // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
     
     for i in 0..13 {
         let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
@@ -48,9 +47,15 @@ fn dr_scenario_1() {
         };
     }
     
-    // get balances before finalization and claim
+    // get balances before finalization and claim and amount spent on staking
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
     let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
+    let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
+    let pre_claim_difference_carol = init_balance_carol - pre_claim_balance_carol;
+    println!("Bob pre-claim balance:    {}", pre_claim_balance_bob);
+    println!("Carol pre-claim balance:  {}", pre_claim_balance_carol);
+    println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
+    println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
     
     let correct_outcome = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
     init_res.alice.dr_final_arbitrator_finalize(0, correct_outcome);
@@ -67,13 +72,13 @@ fn dr_scenario_1() {
     let post_total_difference_carol = init_balance_carol - post_balance_carol;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
 
-    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
-    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
-    println!("Alice lost {} altogether", post_total_difference_alice);
-
     println!("Alice final balance:  {}", post_balance_alice);
     println!("Bob final balance:    {}", post_balance_bob);
     println!("Carol final balance:  {}", post_balance_carol);
+
+    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
+    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Alice lost {} altogether from validity bond", post_total_difference_alice);
     
 }
 
@@ -98,10 +103,7 @@ fn dr_scenario_2() {
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
     
-    println!("Bob balance before staking:    {}", init_balance_bob);
-    println!("Carol balance before staking:  {}", init_balance_carol);
-    println!("Jasper balance before staking: {}", init_balance_jasper);
-    println!("Peter balance before staking: {}", init_balance_peter);
+    // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..7 {
         let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
@@ -126,16 +128,28 @@ fn dr_scenario_2() {
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Peter", i, bond_size);
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
-                let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
+                let _res = init_res.peter.stake(0, outcome_to_stake, bond_size);
             }
         };
     }
     
-    // get balances before finalization and claim
+    // get balances before finalization and claim and amount spent on staking 
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
     let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
     let pre_claim_balance_jasper = init_res.jasper.get_token_balance(None);
     let pre_claim_balance_peter = init_res.peter.get_token_balance(None);
+    let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
+    let pre_claim_difference_carol = init_balance_carol - pre_claim_balance_carol;
+    let pre_claim_difference_jasper = init_balance_jasper - pre_claim_balance_jasper;
+    let pre_claim_difference_peter = init_balance_peter - pre_claim_balance_peter;
+    println!("Bob pre-claim balance:     {}", pre_claim_balance_bob);
+    println!("Carol pre-claim balance:   {}", pre_claim_balance_carol);
+    println!("Jasper pre-claim balance:  {}", pre_claim_balance_jasper);
+    println!("Peter pre-claim balance:   {}", pre_claim_balance_peter);
+    println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
+    println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
+    println!("Jasper has spent {} altogether on staking", pre_claim_difference_jasper);
+    println!("Peter has spent {} altogether on staking", pre_claim_difference_peter);
     
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
@@ -154,28 +168,28 @@ fn dr_scenario_2() {
     let post_stake_difference_jasper = post_balance_jasper - pre_claim_balance_jasper;
     let post_stake_difference_peter = pre_claim_balance_peter - post_balance_peter;
     let post_total_difference_bob = post_balance_bob - init_balance_bob;
-    let post_total_difference_carol = init_balance_carol - post_balance_carol;
+    let post_total_difference_carol = post_balance_carol - init_balance_carol;
     let post_total_difference_jasper = post_balance_jasper - init_balance_jasper;
     let post_total_difference_peter = init_balance_peter - post_balance_peter;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
-
-    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
-    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
-    println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
-    println!("Peter gained {} from claim for a total profit of {}", post_stake_difference_peter, post_total_difference_peter);
-    println!("Alice lost {} altogether", post_total_difference_alice);
 
     println!("Alice final balance:  {}", post_balance_alice);
     println!("Bob final balance:    {}", post_balance_bob);
     println!("Carol final balance:  {}", post_balance_carol);
     println!("Jasper final balance: {}", post_balance_jasper);
     println!("Peter final balance:  {}", post_balance_peter);
+
+    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
+    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
+    println!("Peter gained {} from claim for a total profit of {}", post_stake_difference_peter, post_total_difference_peter);
+    println!("Alice lost {} altogether", post_total_difference_alice);
     
 }
 
 // Scenario: Peter, Illia, and Vitalik work together to fill each resolution
 // window with the incorrect outcome while Bob, Carol, and Jasper escalate with
-// the correct staked outcome, all with equal amounts staked
+// the correct staked outcome, all with proportional amounts staked
 #[test]
 fn dr_scenario_3() {
     // configure test options and create data request
@@ -196,12 +210,7 @@ fn dr_scenario_3() {
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
     
-    println!("Bob balance before staking:    {}", init_balance_bob);
-    println!("Carol balance before staking:  {}", init_balance_carol);
-    println!("Jasper balance before staking: {}", init_balance_jasper);
-    println!("Peter balance before staking: {}", init_balance_peter);
-    println!("Illia balance before staking: {}", init_balance_illia);
-    println!("Vitalik balance before staking: {}", init_balance_vitalik);
+    // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..8 {
         let bond_size = calc_bond_size(validity_bond, i); // stake 2, 4, 16, 32, ...
@@ -240,13 +249,31 @@ fn dr_scenario_3() {
         };
     }
     
-    // get balances before finalization and claim
+    // get balances before finalization and claim and amount spent on staking
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
     let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
     let pre_claim_balance_jasper = init_res.jasper.get_token_balance(None);
     let pre_claim_balance_peter = init_res.peter.get_token_balance(None);
     let pre_claim_balance_illia = init_res.illia.get_token_balance(None);
     let pre_claim_balance_vitalik = init_res.vitalik.get_token_balance(None);
+    let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
+    let pre_claim_difference_carol = init_balance_carol - pre_claim_balance_carol;
+    let pre_claim_difference_jasper = init_balance_jasper - pre_claim_balance_jasper;
+    let pre_claim_difference_peter = init_balance_peter - pre_claim_balance_peter;
+    let pre_claim_difference_illia = init_balance_illia - pre_claim_balance_illia;
+    let pre_claim_difference_vitalik = init_balance_vitalik - pre_claim_balance_vitalik;
+    println!("Bob pre-claim balance:     {}", pre_claim_balance_bob);
+    println!("Carol pre-claim balance:   {}", pre_claim_balance_carol);
+    println!("Jasper pre-claim balance:  {}", pre_claim_balance_jasper);
+    println!("Peter pre-claim balance:   {}", pre_claim_balance_peter);
+    println!("Illia pre-claim balance:   {}", pre_claim_balance_illia);
+    println!("Vitalik pre-claim balance: {}", pre_claim_balance_vitalik);
+    println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
+    println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
+    println!("Jasper has spent {} altogether on staking", pre_claim_difference_jasper);
+    println!("Peter has spent {} altogether on staking", pre_claim_difference_peter);
+    println!("Illia has spent {} altogether on staking", pre_claim_difference_illia);
+    println!("Vitalik has spent {} altogether on staking", pre_claim_difference_vitalik);
     
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
@@ -278,14 +305,6 @@ fn dr_scenario_3() {
     let post_total_difference_vitalik = init_balance_vitalik - post_balance_vitalik;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
 
-    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
-    println!("Carol gained {} from claim for a total profit of {}", post_stake_difference_carol, post_total_difference_carol);
-    println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
-    println!("Peter gained {} from claim for a total loss of {}", post_stake_difference_peter, post_total_difference_peter);
-    println!("Illia gained {} from claim for a total loss of {}", post_stake_difference_illia, post_total_difference_illia);
-    println!("Vitalik gained {} from claim for a total loss of {}", post_stake_difference_vitalik, post_total_difference_vitalik);
-    println!("Alice lost {} altogether", post_total_difference_alice);
-
     println!("Alice final balance:  {}", post_balance_alice);
     println!("Bob final balance:    {}", post_balance_bob);
     println!("Carol final balance:  {}", post_balance_carol);
@@ -293,5 +312,13 @@ fn dr_scenario_3() {
     println!("Illia final balance: {}", post_balance_illia);
     println!("Vitalik final balance: {}", post_balance_vitalik);
     println!("Peter final balance:  {}", post_balance_peter);
+
+    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
+    println!("Carol gained {} from claim for a total profit of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
+    println!("Peter gained {} from claim for a total loss of {}", post_stake_difference_peter, post_total_difference_peter);
+    println!("Illia gained {} from claim for a total loss of {}", post_stake_difference_illia, post_total_difference_illia);
+    println!("Vitalik gained {} from claim for a total loss of {}", post_stake_difference_vitalik, post_total_difference_vitalik);
+    println!("Alice lost {} altogether", post_total_difference_alice);
     
 }
