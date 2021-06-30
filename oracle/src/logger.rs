@@ -186,6 +186,7 @@ pub fn log_user_stake(data_request_id: u64, round: u16, account_id: &AccountId, 
     );
 }
 
+//TODO: add bond / fee token earned
 pub fn log_claim(
     account_id: &AccountId, 
     data_request_id: u64, 
