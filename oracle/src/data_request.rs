@@ -668,11 +668,24 @@ impl Contract {
         // TODO: get fee paid from dr
 
         // transfer owed stake tokens
-        fungible_token_transfer(config.stake_token, account_id.to_string(), stake_payout.stake_token_payout);
-        // distribute fee + bond
-        fungible_token_transfer(config.bond_token, account_id, stake_payout.bond_token_payout)
+        let prev_prom = if stake_payout.stake_token_payout > 0 {
+            Some(fungible_token_transfer(config.stake_token, account_id.to_string(), stake_payout.stake_token_payout))
+        } else {
+            None
+        };
         
-
+        if stake_payout.bond_token_payout > 0 {
+            // distribute fee + bond
+            match prev_prom {
+                Some(p) => p.then(fungible_token_transfer(config.bond_token, account_id, stake_payout.bond_token_payout)),
+                None => fungible_token_transfer(config.bond_token, account_id, stake_payout.bond_token_payout)
+            }
+        } else {
+            match prev_prom {
+                Some(p) => p,
+                None => panic!("can't claim 0")
+            }
+        }
     }
 
     #[payable]
