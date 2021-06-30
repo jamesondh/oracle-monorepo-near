@@ -3,7 +3,7 @@
 use near_sdk::{ AccountId, Balance, env, near_bindgen };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::{ Vector, LookupMap };
-use near_sdk::json_types::{ ValidAccountId, U64, U128 };
+use near_sdk::json_types::{ U64, U128 };
 
 near_sdk::setup_alloc!();
 
