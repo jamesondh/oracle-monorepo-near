@@ -48,6 +48,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
                 "data_type": request.data_type,
+                "creator": request.creator,
             }
         })
         .to_string()
@@ -170,9 +171,9 @@ pub fn log_user_stake(data_request_id: u64, round: u16, account_id: &AccountId, 
         json!({
             "type": "user_stakes",
             "action": "update",
-            "cap_id": format!("ots_{}_{}_{}", data_request_id, round, outcome_id),
+            "cap_id": format!("us_{}_{}_{}_{}", data_request_id, round, outcome_id, account_id),
             "params": {
-                "id": format!("ots_{}_{}_{}", data_request_id, round, outcome_id),
+                "id": format!("us_{}_{}_{}_{}", data_request_id, round, outcome_id, account_id),
                 "data_request_id": U64(data_request_id),
                 "round": round,
                 "outcome": outcome,
@@ -193,6 +194,21 @@ pub fn log_claim(
     user_correct_stake: u128, 
     payout: u128
 ) {
+    env::log(
+        json!({
+            "type": "data_requests",
+            "action": "update",
+            "cap_id": format!("dr_{}", data_request_id),
+            "params": {
+                "id": U64(data_request_id),
+                "total_correct_bonded_staked": U128(total_correct_bonded_staked),
+                "total_incorrect_staked": U128(total_incorrect_staked),
+            }
+        })
+        .to_string()
+        .as_bytes()
+    );
+
     env::log(
         json!({
             "type": "claims",
