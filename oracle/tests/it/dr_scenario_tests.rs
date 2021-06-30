@@ -21,30 +21,35 @@ fn dr_scenario_1() {
     
     // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
     
-    for i in 0..13 {
+    for i in 0..12 {
         let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
         // even numbers => Bob stakes on correct outcome
         // odd numbers => Carol stakes on incorrect outcome
         match i % 2 == 0 {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
-                // let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
+                let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
-                // let post_stake_balance_bob = init_res.bob.get_token_balance(None);
+                let post_stake_balance_bob = init_res.bob.get_token_balance(None);
                 // make sure no refund (bond size is exactly met)
-                // assert_eq!(post_stake_balance_bob, pre_stake_balance_bob - bond_size);
+                assert_eq!(post_stake_balance_bob, pre_stake_balance_bob - bond_size);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
+                let pre_stake_balance_carol = init_res.carol.get_token_balance(None);
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
+                let post_stake_balance_carol = init_res.carol.get_token_balance(None);
+                // make sure no refund (bond size is exactly met)
+                assert_eq!(post_stake_balance_carol, pre_stake_balance_carol - bond_size);
             }
         };
     }
+
+    // since final arbitrator is invoked, any stakes after this point will be fully refunded
     
     // get balances before finalization and claim and amount spent on staking
-    // TODO: account for final_arbitrator_invoke_amount and assert calculation
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
     let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
     let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
@@ -103,7 +108,7 @@ fn dr_scenario_2() {
     // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..7 {
-        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 4, 16, 32, ...
         // even numbers => Bob, Carol, Jasper stake on correct outcome
         // odd numbers => Peter stakes on incorrect outcome
         match i % 2 == 0 {
@@ -177,7 +182,7 @@ fn dr_scenario_2() {
     println!("Peter final balance:  {}", post_balance_peter);
 
     println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
-    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Carol gained {} from claim for a total profit of {}", post_stake_difference_carol, post_total_difference_carol);
     println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
     println!("Peter gained {} from claim for a total profit of {}", post_stake_difference_peter, post_total_difference_peter);
     println!("Alice lost {} altogether", post_total_difference_alice);
@@ -210,9 +215,9 @@ fn dr_scenario_3() {
     // println!("Bob balance before staking:    {}", init_balance_bob); // same for carol, ...
     
     for i in 0..8 {
-        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 3, 6, 27, ...
         let third_of_bond = bond_size / 3;
-        // even numbers => Peter stakes on incorrect outcome
+        // even numbers => Peter, Illia, Vitalik stake on incorrect outcome
         // odd numbers => Bob, Carol, Jasper stake on correct outcome
         match i % 2 == 0 {
             true => {
@@ -320,8 +325,8 @@ fn dr_scenario_3() {
     
 }
 
-// Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
-// (similar to scenario 1) with a bond multiplier of 105%
+// Scenario: Bob stakes correctly and Carol takes turns escalating with
+// incorrect outcome (similar to scenario 1) with a bond multiplier of 105%
 #[test]
 fn dr_scenario_4() {
     // configure test options and create data request
@@ -341,19 +346,16 @@ fn dr_scenario_4() {
     
     // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
     
+    // TODO: check for refunds
     for i in 0..7 {
-        let bond_size = calc_bond_size(validity_bond, i, Some(multiplier)); // stake 2, 4, 16, 32, ...
+        let bond_size = calc_bond_size(validity_bond, i, Some(multiplier)); // stake 2, 4, 16, 33, ...
         // even numbers => Bob stakes on correct outcome
         // odd numbers => Carol stakes on incorrect outcome
         match i % 2 == 0 {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
-                // let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
                 let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
-                // let post_stake_balance_bob = init_res.bob.get_token_balance(None);
-                // make sure no refund (bond size is exactly met)
-                // assert_eq!(post_stake_balance_bob, pre_stake_balance_bob - bond_size);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
