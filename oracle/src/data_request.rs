@@ -547,16 +547,10 @@ impl DataRequestView for DataRequest {
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
-        let outcome = self.finalized_outcome.as_ref().unwrap();
-        match outcome {
-            Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
-                    self.request_config.fee
-                } else {
-                    self.request_config.validity_bond
-                }
-            },
-            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
+        if self.request_config.fee > self.request_config.validity_bond {
+            self.request_config.fee
+        } else {
+            self.request_config.validity_bond
         }
     }
 }
