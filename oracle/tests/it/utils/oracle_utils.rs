@@ -31,7 +31,6 @@ impl OracleUtils {
             max_outcomes: 8,
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
-            // final_arbitrator_invoke_amount: U128(2500),
             final_arbitrator_invoke_amount: U128(final_arbitrator_invoke_amount),
             resolution_fee_percentage: 10_000,
         };

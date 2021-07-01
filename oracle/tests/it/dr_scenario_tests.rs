@@ -16,10 +16,12 @@ fn dr_scenario_1() {
     let init_balance_alice = init_res.alice.get_token_balance(None);
     let init_balance_bob = init_res.bob.get_token_balance(None);
     let init_balance_carol = init_res.carol.get_token_balance(None);
+    println!("Request interface before data request creation: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     let _new_dr_res = init_res.alice.dr_new();
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
     
+    println!("Request interface before staking: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
     
     for i in 0..12 {
@@ -46,8 +48,9 @@ fn dr_scenario_1() {
                 assert_eq!(post_stake_balance_carol, pre_stake_balance_carol - bond_size);
             }
         };
+        // println!("Request interface balance after stake: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     }
-
+    
     // since final arbitrator is invoked, any stakes after this point will be fully refunded
     
     // get balances before finalization and claim and amount spent on staking
@@ -60,10 +63,11 @@ fn dr_scenario_1() {
     println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
     println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
     
+    println!("Request interface balance before claim: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     let correct_outcome = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
     init_res.alice.dr_final_arbitrator_finalize(0, correct_outcome);
     init_res.bob.claim(0);
-    init_res.carol.claim(0);
+    // init_res.carol.claim(0);
     
     // get balances and differences from after staking/before claiming and before staking
     let post_balance_alice = init_res.alice.get_token_balance(None);
@@ -74,11 +78,12 @@ fn dr_scenario_1() {
     let post_total_difference_bob = post_balance_bob - init_balance_bob;
     let post_total_difference_carol = init_balance_carol - post_balance_carol;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
-
-    println!("Alice final balance:  {}", post_balance_alice);
-    println!("Bob final balance:    {}", post_balance_bob);
-    println!("Carol final balance:  {}", post_balance_carol);
-
+    
+    println!("Alice final balance:             {}", post_balance_alice);
+    println!("Bob final balance:               {}", post_balance_bob);
+    println!("Carol final balance:             {}", post_balance_carol);
+    println!("Request interface final balance: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
+    
     println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
     println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
     println!("Alice lost {} altogether from validity bond", post_total_difference_alice);
@@ -158,7 +163,7 @@ fn dr_scenario_2() {
     init_res.bob.claim(0);
     init_res.carol.claim(0);
     init_res.jasper.claim(0);
-    init_res.peter.claim(0);
+    // init_res.peter.claim(0);
     
     // get balances and differences from after staking/before claiming and before staking
     let post_balance_alice = init_res.alice.get_token_balance(None);
@@ -424,6 +429,8 @@ fn dr_scenario_5() {
 
     // send some funds to oracle so that is it able to pay out the fixed fee
     init_res.alice.ft_transfer(ORACLE_CONTRACT_ID, 9999);
+
+    println!("Request interface before staking: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     
     // TODO: check for refunds
     for i in 0..7 {
@@ -443,6 +450,8 @@ fn dr_scenario_5() {
             }
         };
     }
+
+    println!("Request interface after staking: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     
     // get balances before finalization and claim and amount spent on staking
     let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
@@ -468,12 +477,13 @@ fn dr_scenario_5() {
     let post_total_difference_carol = init_balance_carol - post_balance_carol;
     let post_total_difference_alice = init_balance_alice - post_balance_alice;
 
-    println!("Alice final balance:  {}", post_balance_alice);
-    println!("Bob final balance:    {}", post_balance_bob);
-    println!("Carol final balance:  {}", post_balance_carol);
+    println!("Alice final balance:             {}", post_balance_alice);
+    println!("Bob final balance:               {}", post_balance_bob);
+    println!("Carol final balance:             {}", post_balance_carol);
+    println!("Request interface final balance: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
 
     println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
     println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
-    println!("Alice lost {} altogether from validity bond", post_total_difference_alice);
+    println!("Alice lost {} altogether", post_total_difference_alice);
     
 }
