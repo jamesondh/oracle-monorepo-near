@@ -334,7 +334,7 @@ fn dr_scenario_3() {
 // Scenario: Bob stakes correctly and Carol takes turns escalating with
 // incorrect outcome (similar to scenario 1) with a bond multiplier of 105%
 #[test]
-fn dr_scenario_4() {
+fn dr_scenario_multiplier() {
     // configure test options and create data request
     let validity_bond = 1;
     let multiplier = 10500; // 105%
@@ -409,7 +409,7 @@ fn dr_scenario_4() {
 // Scenario: Bob stakes correctly and Carol takes turns escalating with
 // incorrect outcome (similar to scenario 1) with a fixed fee
 #[test]
-fn dr_scenario_5() {
+fn dr_scenario_fixed_fee() {
     // configure test options and create data request
     let validity_bond = 2;
     let fee = 9999;
