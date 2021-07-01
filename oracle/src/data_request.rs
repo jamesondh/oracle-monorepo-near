@@ -1942,7 +1942,7 @@ mod mock_token_basic_tests {
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 45);
+        assert_eq!(sum_claim_res(d.claim(alice())), 19);
     }
 
     #[test]
@@ -1974,6 +1974,6 @@ mod mock_token_basic_tests {
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 213);
+        assert_eq!(sum_claim_res(d.claim(alice())), 75);
     }
 }
