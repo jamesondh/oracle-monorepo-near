@@ -44,7 +44,7 @@ impl FungibleTokenReceiver for Contract {
 mod mock_token_basic_tests {
     use super::*;
     use std::convert::TryInto;
-
+    use near_sdk::json_types::ValidAccountId;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
@@ -140,6 +140,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
 
         let msg = serde_json::json!({
@@ -166,6 +167,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
 
         let storage_start = 10u128.pow(24);

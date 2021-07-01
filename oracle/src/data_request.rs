@@ -12,6 +12,11 @@ use crate::fungible_token::{ fungible_token_transfer };
 
 pub const PERCENTAGE_DIVISOR: u16 = 10_000;
 
+pub struct ClaimRes {
+    pub bond_token_payout: u128,
+    pub stake_token_payout: u128
+}
+
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct AnswerNumberType {
     pub value: U128,
@@ -184,6 +189,7 @@ pub struct DataRequest {
     pub sources: Vec<Source>,
     pub outcomes: Option<Vec<String>>,
     pub requestor: AccountId, // Request Interface contract
+    pub creator: AccountId, // The account that created the request (account to return validity bond to)
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
@@ -220,7 +226,7 @@ trait DataRequestChange {
     fn finalize(&mut self);
     fn invoke_final_arbitrator(&mut self, bond_size: Balance) -> bool;
     fn finalize_final_arbitrator(&mut self, outcome: Outcome);
-    fn claim(&mut self, account_id: String) -> Balance;
+    fn claim(&mut self, account_id: String) -> ClaimRes;
     fn return_validity_bond(&self, token: AccountId) -> PromiseOrValue<bool>;
 }
 
@@ -268,6 +274,7 @@ impl DataRequestChange for DataRequest {
             description: request_data.description,
             tags: request_data.tags,
             data_type: request_data.data_type,
+            creator: request_data.creator,
         }
     }
 
@@ -313,12 +320,10 @@ impl DataRequestChange for DataRequest {
     }
 
     // @returns amount of tokens that didn't get staked
-    fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance {
+    fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance {        
         let mut window = self.resolution_windows
             .get(round as u64)
-            .unwrap_or(
-                ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period, env::block_timestamp())
-            );
+            .expect("ERR_NO_RESOLUTION_WINDOW");
 
         window.unstake(sender, outcome, amount)
     }
@@ -338,10 +343,10 @@ impl DataRequestChange for DataRequest {
         self.finalized_outcome = Some(outcome);
     }
 
-    fn claim(&mut self, account_id: String) -> Balance {
+    fn claim(&mut self, account_id: String) -> ClaimRes {
         // Metrics for calculating payout
         let mut total_correct_staked = 0;
-        let mut total_incorrect_staked = self.calc_resolution_fee_payout();
+        let mut total_incorrect_staked = 0;
         let mut user_correct_stake = 0;
 
         // For any round after the resolution round handle generically
@@ -362,13 +367,24 @@ impl DataRequestChange for DataRequest {
             self.resolution_windows.replace(round as u64, &window);
         };
 
-        let profit = match total_correct_staked {
+        let stake_profit = match total_correct_staked {
             0 => 0,
             _ => helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
         };
 
-        logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, profit);
-        user_correct_stake + profit
+        let bond_token_payout = self.calc_resolution_fee_payout();
+
+        let fee_bond_profit = match total_correct_staked {
+            0 => 0,
+            _ => helpers::calc_product(user_correct_stake, bond_token_payout, total_correct_staked)
+        };
+
+        logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, stake_profit);
+
+        ClaimRes {
+            bond_token_payout: fee_bond_profit,
+            stake_token_payout: user_correct_stake + stake_profit
+        }
     }
 
     // @notice Return what's left of validity_bond to requestor
@@ -376,7 +392,7 @@ impl DataRequestChange for DataRequest {
         let bond_to_return = self.calc_validity_bond_to_return();
 
         if bond_to_return > 0 {
-            return PromiseOrValue::Promise(fungible_token_transfer(token, self.requestor.clone(), bond_to_return))
+            return PromiseOrValue::Promise(fungible_token_transfer(token, self.creator.clone(), bond_to_return))
         }
 
         PromiseOrValue::Value(false)
@@ -454,7 +470,8 @@ impl DataRequestView for DataRequest {
 
     fn assert_can_finalize(&self) {
         assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
-        let last_window = self.resolution_windows.iter().last().expect("No resolution windows found, DataRequest not processed");
+        assert!(self.resolution_windows.iter().count() >= 2, "No bonded outcome found");
+        let last_window = self.resolution_windows.iter().last().unwrap();
         self.assert_not_finalized();
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
     }
@@ -547,16 +564,10 @@ impl DataRequestView for DataRequest {
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
-        let outcome = self.finalized_outcome.as_ref().unwrap();
-        match outcome {
-            Outcome::Answer(_) => {
-                if self.request_config.fee > self.request_config.validity_bond {
-                    self.request_config.fee
-                } else {
-                    self.request_config.validity_bond
-                }
-            },
-            Outcome::Invalid => self.request_config.fee + self.request_config.validity_bond
+        if self.request_config.fee > self.request_config.validity_bond {
+            self.request_config.fee
+        } else {
+            self.request_config.validity_bond
         }
     }
 }
@@ -656,10 +667,24 @@ impl Contract {
         // TODO: get fee paid from dr
 
         // transfer owed stake tokens
-        fungible_token_transfer(config.stake_token, account_id, stake_payout)
-
-        // transfer fee amount
-
+        let prev_prom = if stake_payout.stake_token_payout > 0 {
+            Some(fungible_token_transfer(config.stake_token, account_id.to_string(), stake_payout.stake_token_payout))
+        } else {
+            None
+        };
+        
+        if stake_payout.bond_token_payout > 0 {
+            // distribute fee + bond
+            match prev_prom {
+                Some(p) => p.then(fungible_token_transfer(config.bond_token, account_id, stake_payout.bond_token_payout)),
+                None => fungible_token_transfer(config.bond_token, account_id, stake_payout.bond_token_payout)
+            }
+        } else {
+            match prev_prom {
+                Some(p) => p,
+                None => panic!("can't claim 0")
+            }
+        }
     }
 
     #[payable]
@@ -745,6 +770,10 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
+    fn sum_claim_res(claim_res: ClaimRes) -> u128 {
+        claim_res.bond_token_payout + claim_res.stake_token_payout
+    }
+
     fn registry_entry(account: AccountId) -> RegistryEntry {
         RegistryEntry {
             interface_name: account.clone(),
@@ -806,6 +835,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -825,6 +855,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -843,6 +874,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -870,6 +902,7 @@ mod mock_token_basic_tests {
             description: None,
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -899,6 +932,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -917,6 +951,7 @@ mod mock_token_basic_tests {
             description: None,
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -936,6 +971,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -955,6 +991,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -974,6 +1011,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -992,6 +1030,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
         assert_eq!(amount, 100);
     }
@@ -1011,6 +1050,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
         assert_eq!(amount, 0);
     }
@@ -1025,6 +1065,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
     }
 
@@ -1111,6 +1152,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1219,7 +1261,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "No resolution windows found, DataRequest not processed")]
+    #[should_panic(expected = "No bonded outcome found")]
     fn dr_finalize_no_resolutions() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1421,7 +1463,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 300);
+        assert_eq!(sum_claim_res(d.claim(alice())), 300);
     }
 
     #[test]
@@ -1434,8 +1476,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 300);
-        assert_eq!(d.claim(alice()), 0);
+        assert_eq!(sum_claim_res(d.claim(alice())), 300);
+        assert_eq!(sum_claim_res(d.claim(alice())), 0);
     }
 
     #[test]
@@ -1450,7 +1492,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // fees (100% of TVL)
-        assert_eq!(d.claim(alice()), 15);
+        assert_eq!(sum_claim_res(d.claim(alice())), 15);
     }
 
     #[test]
@@ -1468,8 +1510,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 150);
-        assert_eq!(d.claim(bob()), 150);
+        assert_eq!(sum_claim_res(d.claim(alice())), 150);
+        assert_eq!(sum_claim_res(d.claim(bob())), 150);
     }
 
     #[test]
@@ -1489,8 +1531,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond + round 0 stake
-        assert_eq!(d.claim(alice()), 700);
-        assert_eq!(d.claim(bob()), 0);
+        assert_eq!(sum_claim_res(d.claim(alice())), 700);
+        assert_eq!(sum_claim_res(d.claim(bob())), 0);
     }
 
     #[test]
@@ -1514,9 +1556,9 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond + round 0 stake
-        assert_eq!(d.claim(alice()), 525);
-        assert_eq!(d.claim(bob()), 0);
-        assert_eq!(d.claim(carol()), 175);
+        assert_eq!(sum_claim_res(d.claim(alice())), 525);
+        assert_eq!(sum_claim_res(d.claim(bob())), 0);
+        assert_eq!(sum_claim_res(d.claim(carol())), 175);
     }
 
     #[test]
@@ -1540,10 +1582,10 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // round 1 stake
-        assert_eq!(d.claim(alice()), 1200);
+        assert_eq!(sum_claim_res(d.claim(alice())), 1200);
         // validity bond
-        assert_eq!(d.claim(bob()), 300);
-        assert_eq!(d.claim(carol()), 0);
+        assert_eq!(sum_claim_res(d.claim(bob())), 300);
+        assert_eq!(sum_claim_res(d.claim(carol())), 0);
     }
 
     #[test]
@@ -1571,12 +1613,12 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // round 1 stake
-        assert_eq!(d.claim(alice()), 1200);
+        assert_eq!(sum_claim_res(d.claim(alice())), 1200);
         // 50% of validity bond
-        assert_eq!(d.claim(bob()), 150);
-        assert_eq!(d.claim(carol()), 0);
+        assert_eq!(sum_claim_res(d.claim(bob())), 150);
+        assert_eq!(sum_claim_res(d.claim(carol())), 0);
         // 50% of validity bond
-        assert_eq!(d.claim(dave()), 150);
+        assert_eq!(sum_claim_res(d.claim(dave())), 150);
     }
 
     #[test]
@@ -1604,12 +1646,12 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // 5/8 of round 1 stake
-        assert_eq!(d.claim(alice()), 750);
+        assert_eq!(sum_claim_res(d.claim(alice())), 750);
         // validity bond
-        assert_eq!(d.claim(bob()), 300);
-        assert_eq!(d.claim(carol()), 0);
+        assert_eq!(sum_claim_res(d.claim(bob())), 300);
+        assert_eq!(sum_claim_res(d.claim(carol())), 0);
         // 3/8 of round 1 stake
-        assert_eq!(d.claim(dave()), 450);
+        assert_eq!(sum_claim_res(d.claim(dave())), 450);
     }
 
     #[test]
@@ -1635,8 +1677,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // TODO should be 500, validity bond (100) + last round (400)
-        // assert_eq!(d.claim(alice()), 100);
-        assert_eq!(d.claim(bob()), 0);
+        // assert_eq!(sum_claim_res(d.claim(alice())), 100);
+        assert_eq!(sum_claim_res(d.claim(bob())), 0);
     }
 
     #[test]
@@ -1668,10 +1710,10 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(d.claim(alice()), 300);
-        assert_eq!(d.claim(bob()), 0);
+        assert_eq!(sum_claim_res(d.claim(alice())), 300);
+        assert_eq!(sum_claim_res(d.claim(bob())), 0);
         // round 1 funds
-        assert_eq!(d.claim(carol()), 1200);
+        assert_eq!(sum_claim_res(d.claim(carol())), 1200);
     }
 
     #[test]
@@ -1702,10 +1744,10 @@ mod mock_token_basic_tests {
         contract.dr_final_arbitrator_finalize(U64(0), data_request::Outcome::Answer(AnswerType::String("b".to_string())));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(d.claim(alice()), 0);
+        assert_eq!(sum_claim_res(d.claim(alice())), 0);
         // validity bond (100), round0 (200), round2 (800)
-        assert_eq!(d.claim(bob()), 1500);
-        assert_eq!(d.claim(carol()), 0);
+        assert_eq!(sum_claim_res(d.claim(bob())), 1500);
+        assert_eq!(sum_claim_res(d.claim(carol())), 0);
     }
 
     #[test]
@@ -1839,6 +1881,7 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
@@ -1884,13 +1927,14 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer(
             data_request::AnswerType::String("a".to_string())
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(d.claim(alice()), 45);
+        assert_eq!(sum_claim_res(d.claim(alice())), 45);
     }
 
     #[test]
@@ -1915,12 +1959,13 @@ mod mock_token_basic_tests {
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
+            creator: bob(),
         });
         dr_finalize(&mut contract, data_request::Outcome::Answer(
             data_request::AnswerType::String("a".to_string())
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(d.claim(alice()), 213);
+        assert_eq!(sum_claim_res(d.claim(alice())), 213);
     }
 }

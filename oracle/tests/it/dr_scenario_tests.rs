@@ -281,9 +281,9 @@ fn dr_scenario_3() {
     init_res.bob.claim(0);
     init_res.carol.claim(0);
     init_res.jasper.claim(0);
-    init_res.peter.claim(0);
-    init_res.illia.claim(0);
-    init_res.vitalik.claim(0);
+    // init_res.peter.claim(0);
+    // init_res.illia.claim(0);
+    // init_res.vitalik.claim(0);
     
     // get balances and differences from after staking/before claiming and before staking
     let post_balance_alice = init_res.alice.get_token_balance(None);
