@@ -522,21 +522,29 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-
-        let weighted_validity_bond = match self.request_config.custom_fee {
-            CustomFeeStake::Multiplier(m) => helpers::calc_product(
-                self.request_config.validity_bond,
-                u128::from(m),
-                PERCENTAGE_DIVISOR as Balance
-            ),
-            CustomFeeStake::Fixed(_) | CustomFeeStake::None => 
-                self.request_config.validity_bond
+        let resolution_bond = match self.request_config.custom_fee {
+            CustomFeeStake::None => {
+                if self.request_config.fee > self.request_config.validity_bond {
+                    self.request_config.fee
+                } else {
+                    self.request_config.validity_bond
+                }
+            },
+            CustomFeeStake::Multiplier(m) => {
+                let weighted_validity_bond = helpers::calc_product(
+                    self.request_config.validity_bond,
+                    u128::from(m),
+                    PERCENTAGE_DIVISOR as Balance
+                );
+                if self.request_config.fee > weighted_validity_bond {
+                    self.request_config.fee
+                } else {
+                    weighted_validity_bond
+                }
+            },
+            CustomFeeStake::Fixed(_) => self.request_config.validity_bond
         };
-        if self.request_config.fee > weighted_validity_bond {
-            self.request_config.fee
-        } else {
-            weighted_validity_bond
-        }
+        resolution_bond
     }
 
      /**
