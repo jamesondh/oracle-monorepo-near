@@ -196,4 +196,25 @@ impl TestAccount {
         res
     }
 
+    pub fn ft_transfer(
+        &self,
+        receiver: &str,
+        amount: u128
+    ) -> ExecutionResult {        
+        let res = self.account.call(
+            TOKEN_CONTRACT_ID.to_string(), 
+            "ft_transfer", 
+            json!({
+                "receiver_id": receiver,
+                "amount": U128(amount),
+                "memo": "".to_string()
+            }).to_string().as_bytes(),
+            DEFAULT_GAS,
+            1
+        );
+
+        assert!(res.is_ok(), "ft_transfer failed with res: {:?}", res);
+        res
+    }
+
 }

@@ -1,5 +1,6 @@
 use crate::utils::*;
 use oracle::whitelist::CustomFeeStakeArgs;
+use near_sdk::json_types::U128;
 
 // Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
 // until the final arbitrator is invoked and Alice must finalize
@@ -378,7 +379,84 @@ fn dr_scenario_4() {
     
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
-    init_res.carol.claim(0);
+    // init_res.carol.claim(0);
+    
+    // get balances and differences from after staking/before claiming and before staking
+    let post_balance_alice = init_res.alice.get_token_balance(None);
+    let post_balance_bob = init_res.bob.get_token_balance(None);
+    let post_balance_carol = init_res.carol.get_token_balance(None);
+    let post_stake_difference_bob = post_balance_bob - pre_claim_balance_bob;
+    let post_stake_difference_carol = post_balance_carol - pre_claim_balance_carol;
+    let post_total_difference_bob = post_balance_bob - init_balance_bob;
+    let post_total_difference_carol = init_balance_carol - post_balance_carol;
+    let post_total_difference_alice = init_balance_alice - post_balance_alice;
+
+    println!("Alice final balance:  {}", post_balance_alice);
+    println!("Bob final balance:    {}", post_balance_bob);
+    println!("Carol final balance:  {}", post_balance_carol);
+
+    println!("Bob gained {} from claim for a total profit of {}", post_stake_difference_bob, post_total_difference_bob);
+    println!("Carol gained {} from claim for a total loss of {}", post_stake_difference_carol, post_total_difference_carol);
+    println!("Alice lost {} altogether from validity bond", post_total_difference_alice);
+    
+}
+
+// Scenario: Bob stakes correctly and Carol takes turns escalating with
+// incorrect outcome (similar to scenario 1) with a fixed fee
+#[test]
+fn dr_scenario_5() {
+    // configure test options and create data request
+    let validity_bond = 2;
+    let fee = 9999;
+    let init_res = TestUtils::init(Some(TestSetupArgs {
+        custom_fee: CustomFeeStakeArgs::Fixed(U128(fee)),
+        validity_bond,
+        final_arbitrator_invoke_amount: 2500
+    }));
+    let init_balance_alice = init_res.alice.get_token_balance(None);
+    let init_balance_bob = init_res.bob.get_token_balance(None);
+    let init_balance_carol = init_res.carol.get_token_balance(None);
+    let _new_dr_res = init_res.alice.dr_new();
+    let dr_exist = init_res.alice.dr_exists(0);
+    assert!(dr_exist, "something went wrong during dr creation");
+    
+    // println!("Bob balance before staking:   {}", init_balance_bob); // same for carol
+
+    // send some funds to oracle so that is it able to pay out the fixed fee
+    init_res.alice.ft_transfer(ORACLE_CONTRACT_ID, 9999);
+    
+    // TODO: check for refunds
+    for i in 0..7 {
+        let bond_size = calc_bond_size(validity_bond, i, None); // stake 2, 4, 16, 33, ...
+        // even numbers => Bob stakes on correct outcome
+        // odd numbers => Carol stakes on incorrect outcome
+        match i % 2 == 0 {
+            true => {
+                println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
+                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
+            },
+            false => {
+                println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
+                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
+            }
+        };
+    }
+    
+    // get balances before finalization and claim and amount spent on staking
+    let pre_claim_balance_bob = init_res.bob.get_token_balance(None);
+    let pre_claim_balance_carol = init_res.carol.get_token_balance(None);
+    let pre_claim_difference_bob = init_balance_bob - pre_claim_balance_bob;
+    let pre_claim_difference_carol = init_balance_carol - pre_claim_balance_carol;
+    println!("Bob pre-claim balance:    {}", pre_claim_balance_bob);
+    println!("Carol pre-claim balance:  {}", pre_claim_balance_carol);
+    println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
+    println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
+    
+    init_res.alice.finalize(0);
+    init_res.bob.claim(0);
+    // init_res.carol.claim(0);
     
     // get balances and differences from after staking/before claiming and before staking
     let post_balance_alice = init_res.alice.get_token_balance(None);
