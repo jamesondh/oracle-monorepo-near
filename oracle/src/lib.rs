@@ -19,6 +19,7 @@ mod helpers;
 mod logger;
 mod upgrade;
 mod target_contract_handler;
+mod gov;
 
 /// Mocks
 mod fungible_token;
@@ -37,8 +38,8 @@ pub struct Contract {
     pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
-    // Storage map
-    pub accounts: LookupMap<AccountId, AccountStorageBalance>
+    pub accounts: LookupMap<AccountId, AccountStorageBalance>, // storage map
+    pub flux_market_cap: WrappedBalance,
 }
 
 impl Default for Contract {
@@ -64,18 +65,7 @@ impl Contract {
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
+            flux_market_cap: 0.into(),
         }
-    }
-}
-
-impl Contract {
-    fn assert_gov(&self) {
-        let config = self.configs.iter().last().unwrap();
-        assert_eq!(
-            config.gov,
-            env::predecessor_account_id(),
-            "This method is only callable by the governance contract {}",
-            config.gov
-        );
     }
 }
