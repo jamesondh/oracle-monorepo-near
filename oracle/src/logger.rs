@@ -254,6 +254,24 @@ pub fn log_whitelist(requestor: &RegistryEntry, active: bool) {
     );
 }
 
+pub fn log_update_market_cap(market_cap: U128) {
+    env::log(
+        json!({
+            "type": "market_cap",
+            "action": "update",
+            "cap_id": format!("mc_{}", env::block_index()),
+            "params": {
+                "id": format!("mc_{}", env::block_index()),
+                "market_cap": market_cap,
+                "date": U64(ns_to_ms(env::block_timestamp())),
+                "block_height": U64(env::block_index()),
+            }
+        })
+        .to_string()
+        .as_bytes()
+    );
+}
+
 #[derive(serde::Serialize)]
 pub enum TransactionType {
     Stake,

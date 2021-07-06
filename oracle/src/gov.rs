@@ -7,7 +7,7 @@ impl Contract {
         self.assert_gov();
         // TODO: assert call from council
         self.flux_market_cap = market_cap;
-        // TODO: log market cap change
+        logger::log_update_market_cap(market_cap);
     }
 }
 
