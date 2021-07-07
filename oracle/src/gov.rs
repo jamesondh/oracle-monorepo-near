@@ -5,7 +5,6 @@ impl Contract {
     // @notice sets FLUX market cap (in terms of bond token) for fee calculation; callable only by council
     pub fn set_market_cap(&mut self, market_cap: WrappedBalance) {
         self.assert_gov();
-        // TODO: assert call from council
         self.flux_market_cap = market_cap;
         logger::log_update_market_cap(market_cap);
     }

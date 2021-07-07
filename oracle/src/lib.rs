@@ -65,7 +65,7 @@ impl Contract {
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
-            flux_market_cap: 0.into(),
+            flux_market_cap: u128::MAX.into(),
         }
     }
 }
