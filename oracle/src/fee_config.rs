@@ -1,24 +1,41 @@
 use crate::*;
 
-#[near_bindgen]
-impl Contract {
-    // @notice sets FLUX market cap (in terms of bond token) for fee calculation; callable only by council
-    pub fn set_market_cap(&mut self, market_cap: WrappedBalance) {
-        self.assert_gov();
-        self.flux_market_cap = market_cap;
-        logger::log_update_market_cap(market_cap);
-    }
+const MIN_RESOLUTION_FEE_PERCENTAGE: u16 = 1; // 0.001%
+const MAX_RESOLUTION_FEE_PERCENTAGE: u16 = 1000; // 1%
+
+pub struct FeeConfig {
+    // total market cap of FLUX/stake_token denominated in bond_token
+    pub flux_market_cap: WrappedBalance,
+    // total value staked (TVS) of all request interfaces; denominated in stake_token/FLUX
+    pub total_value_staked: WrappedBalance,
+    // global percentage of TVS to pay out to resolutors; denominated in 1e5 so 1 = 0.001%, 100000 = 100%
+    pub resolution_fee_percentage: u16,
 }
 
+#[near_bindgen]
 impl Contract {
-    pub fn assert_gov(&self) {
-        let config = self.configs.iter().last().unwrap();
-        assert_eq!(
-            config.gov,
-            env::predecessor_account_id(),
-            "This method is only callable by the governance contract {}",
-            config.gov
-        );
+    // @notice sets FLUX market cap and TVS for fee calculation; callable only by council
+    pub fn update_fee_config(
+        &mut self,
+        new_market_cap: WrappedBalance,
+        new_tvs: WrappedBalance,
+    ) {
+        self.assert_gov();
+        
+        // TODO: calculate resolution fee percentage, aiming for TVS = 1/5 FLUX market cap
+        let new_fee_percentage = MAX_RESOLUTION_FEE_PERCENTAGE;
+        assert!(new_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Exceeds max resolution fee percentage");
+
+        let new_fee_config = FeeConfig {
+            flux_market_cap: new_market_cap,
+            total_value_staked: new_tvs,
+            resolution_fee_percentage: new_fee_percentage,
+        };
+
+        self.fee_config = new_fee_config;
+
+        // TODO: log
+        // logger::log_update_market_cap(new_market_cap);
     }
 }
 

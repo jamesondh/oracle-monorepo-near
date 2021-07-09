@@ -17,7 +17,7 @@ pub struct OracleConfig {
     pub default_challenge_window_duration: WrappedTimestamp,
     pub min_initial_challenge_window_duration: WrappedTimestamp,
     pub final_arbitrator_invoke_amount: U128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
-    pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
+    // pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
 }
 
 #[near_bindgen]

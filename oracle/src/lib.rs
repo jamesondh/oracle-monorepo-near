@@ -19,7 +19,7 @@ mod helpers;
 mod logger;
 mod upgrade;
 mod target_contract_handler;
-mod gov;
+mod fee_config;
 
 /// Mocks
 mod fungible_token;
@@ -39,7 +39,7 @@ pub struct Contract {
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
     pub accounts: LookupMap<AccountId, AccountStorageBalance>, // storage map
-    pub flux_market_cap: WrappedBalance,
+    pub fee_config: fee_config::FeeConfig,
 }
 
 impl Default for Contract {
@@ -53,11 +53,14 @@ impl Contract {
     #[init]
     pub fn new(
         initial_whitelist: Option<Vec<RegistryEntry>>,
-        config: oracle_config::OracleConfig
+        config: oracle_config::OracleConfig,
+        fee_config: fee_config::FeeConfig,
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());
         configs.push(&config);
         logger::log_oracle_config(&config, 0);
+
+        // TODO: log fee config
 
         Self {
             whitelist: whitelist::Whitelist::new(initial_whitelist),
@@ -65,7 +68,19 @@ impl Contract {
             data_requests: Vector::new(b"dr".to_vec()),
             validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
-            flux_market_cap: u128::MAX.into(),
+            fee_config,
         }
+    }
+}
+
+impl Contract {
+    pub fn assert_gov(&self) {
+        let config = self.configs.iter().last().unwrap();
+        assert_eq!(
+            config.gov,
+            env::predecessor_account_id(),
+            "This method is only callable by the governance contract {}",
+            config.gov
+        );
     }
 }
