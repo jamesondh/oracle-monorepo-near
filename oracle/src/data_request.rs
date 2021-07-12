@@ -513,6 +513,7 @@ impl DataRequestView for DataRequest {
     }
 
     fn get_final_outcome(&self) -> Option<Outcome> {
+        assert!(self.resolution_windows.iter().count() >= 2, "No bonded outcome found");
         let last_bonded_window_i = self.resolution_windows.len() - 2; // Last window after end_time never has a bonded outcome
         let last_bonded_window = self.resolution_windows.get(last_bonded_window_i).unwrap();
         last_bonded_window.bonded_outcome
@@ -524,21 +525,29 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-
-        let weighted_validity_bond = match self.request_config.custom_fee {
-            CustomFeeStake::Multiplier(m) => helpers::calc_product(
-                self.request_config.validity_bond,
-                u128::from(m),
-                PERCENTAGE_DIVISOR as Balance
-            ),
-            CustomFeeStake::Fixed(_) | CustomFeeStake::None => 
-                self.request_config.validity_bond
+        let resolution_bond = match self.request_config.custom_fee {
+            CustomFeeStake::None => {
+                if self.request_config.fee > self.request_config.validity_bond {
+                    self.request_config.fee
+                } else {
+                    self.request_config.validity_bond
+                }
+            },
+            CustomFeeStake::Multiplier(m) => {
+                let weighted_validity_bond = helpers::calc_product(
+                    self.request_config.validity_bond,
+                    u128::from(m),
+                    PERCENTAGE_DIVISOR as Balance
+                );
+                if self.request_config.fee > weighted_validity_bond {
+                    self.request_config.fee
+                } else {
+                    weighted_validity_bond
+                }
+            },
+            CustomFeeStake::Fixed(_) => self.request_config.validity_bond
         };
-        if self.request_config.fee > weighted_validity_bond {
-            self.request_config.fee
-        } else {
-            weighted_validity_bond
-        }
+        resolution_bond
     }
 
      /**
@@ -1267,7 +1276,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    // #[should_panic(expected = "Can only be finalized by final arbitrator")]
+    #[should_panic(expected = "Can only be finalized by final arbitrator")]
     fn dr_finalize_final_arb() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1281,7 +1290,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer(AnswerType::String("a".to_string()))
         });
 
-        finalize(&mut contract, 0);
+        contract.dr_finalize(U64(0));
     }
 
     #[test]
@@ -1308,7 +1317,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer(AnswerType::String("a".to_string()))
         });
 
-        finalize(&mut contract, 0);
+        contract.dr_finalize(U64(0));
     }
 
     #[test]
@@ -1958,7 +1967,7 @@ mod mock_token_basic_tests {
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 45);
+        assert_eq!(sum_claim_res(d.claim(alice())), 19);
     }
 
     #[test]
@@ -1990,6 +1999,6 @@ mod mock_token_basic_tests {
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 213);
+        assert_eq!(sum_claim_res(d.claim(alice())), 75);
     }
 }

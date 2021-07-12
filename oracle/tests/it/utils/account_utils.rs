@@ -128,7 +128,27 @@ impl TestAccount {
                 "request_id": U64(dr_id)
             }).to_string().as_bytes(),
             DEFAULT_GAS,
-            100000000000000000000
+            1600000000000000000000
+        );
+
+        res.assert_success();
+        res
+    }
+
+    pub fn dr_final_arbitrator_finalize(
+        &self,
+        dr_id: u64,
+        outcome: data_request::Outcome
+    ) -> ExecutionResult {
+        let res = self.account.call(
+            ORACLE_CONTRACT_ID.to_string(), 
+            "dr_final_arbitrator_finalize", 
+            json!({
+                "request_id": U64(dr_id),
+                "outcome": outcome
+            }).to_string().as_bytes(),
+            DEFAULT_GAS,
+            1600000000000000000000
         );
 
         res.assert_success();
@@ -184,16 +204,16 @@ impl TestAccount {
     ) -> ExecutionResult {        
         let res = self.account.call(
             TOKEN_CONTRACT_ID.to_string(), 
-            "ft_transfer",
+            "ft_transfer", 
             json!({
                 "receiver_id": receiver,
-                "amount": U128(amount)
+                "amount": U128(amount),
             }).to_string().as_bytes(),
             DEFAULT_GAS,
             1
         );
 
-        assert!(res.is_ok(), "ft_transfer_call failed with res: {:?}", res);
+        assert!(res.is_ok(), "ft_transfer failed with res: {:?}", res);
         res
     }
 

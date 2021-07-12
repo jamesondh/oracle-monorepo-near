@@ -18,21 +18,23 @@ fn new_registry_entry(contract_id: String, custom_fee: CustomFeeStakeArgs) -> Re
 impl OracleUtils {
     pub fn new(
         master_account: &TestAccount,
-        custom_fee: CustomFeeStakeArgs
-    ) -> Self {
+        custom_fee: CustomFeeStakeArgs,
+        validity_bond: u128,
+        final_arbitrator_invoke_amount: u128
+    ) -> Self {        
         let config = OracleConfig {
             gov: "alice".to_string(),
             final_arbitrator: "alice".to_string(),
             bond_token: TOKEN_CONTRACT_ID.to_string(),
             stake_token: TOKEN_CONTRACT_ID.to_string(),
-            validity_bond: U128(VALIDITY_BOND),
+            validity_bond: U128(validity_bond),
             max_outcomes: 8,
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
-            final_arbitrator_invoke_amount: U128(2500),
+            final_arbitrator_invoke_amount: U128(final_arbitrator_invoke_amount),
             resolution_fee_percentage: 10_000,
         };
-
+        
         // deploy token
         let contract = deploy!(
             // Contract Proxy
