@@ -3,8 +3,6 @@ use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::{ AccountId };
 
-const MAX_RESOLUTION_FEE_PERCENTAGE: u16 = 100; // 1%
-
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct OracleConfig {
@@ -29,7 +27,6 @@ impl Contract {
     #[payable]
     pub fn set_config(&mut self, new_config: OracleConfig) {
         self.assert_gov();
-        assert!(new_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Fee cannot be higher than 33%");
                 
         let initial_storage = env::storage_usage();
 
@@ -53,6 +50,7 @@ impl Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
+    use fee_config::FeeConfig;
     use super::*;
     
     fn alice() -> AccountId {
@@ -82,7 +80,14 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
-            resolution_fee_percentage: 0,
+        }
+    }
+
+    fn fee_config() -> FeeConfig {
+        FeeConfig {
+            flux_market_cap: U128(50000),
+            total_value_staked: U128(10000),
+            resolution_fee_percentage: 5000, // 5%
         }
     }
 
@@ -110,7 +115,7 @@ mod mock_token_basic_tests {
     #[test]
     fn set_config_from_gov() {
         testing_env!(get_context(gov()));
-        let mut contract = Contract::new(None, config(gov()));
+        let mut contract = Contract::new(None, config(gov()), fee_config());
         contract.set_config(config(alice()));
         assert_eq!(contract.get_config().gov, alice());
     }
@@ -119,7 +124,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
     fn fail_set_config_from_user() {
         testing_env!(get_context(alice()));
-        let mut contract = Contract::new(None, config(gov()));
+        let mut contract = Contract::new(None, config(gov()), fee_config());
         contract.set_config(config(alice()));
     }
 }

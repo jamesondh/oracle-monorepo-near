@@ -19,7 +19,7 @@ mod helpers;
 mod logger;
 mod upgrade;
 mod target_contract_handler;
-mod fee_config;
+pub mod fee_config;
 
 /// Mocks
 mod fungible_token;
@@ -59,8 +59,7 @@ impl Contract {
         let mut configs = Vector::new(b"c".to_vec());
         configs.push(&config);
         logger::log_oracle_config(&config, 0);
-
-        // TODO: log fee config
+        logger::log_fee_config(&fee_config);
 
         Self {
             whitelist: whitelist::Whitelist::new(initial_whitelist),

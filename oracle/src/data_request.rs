@@ -246,7 +246,8 @@ impl DataRequestChange for DataRequest {
         let fee: Balance = match custom_fee {
             CustomFeeStake::Fixed(f) => f.into(),
             CustomFeeStake::Multiplier(_) | CustomFeeStake::None =>
-                config.resolution_fee_percentage as Balance * 
+                // config.resolution_fee_percentage as Balance * 
+                100 * 
                 tvl_of_requestor / 
                 PERCENTAGE_DIVISOR as Balance
         };
@@ -748,6 +749,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::whitelist::{CustomFeeStakeArgs, RegistryEntry};
+    use fee_config::FeeConfig;
     use super::*;
 
     fn alice() -> AccountId {
@@ -802,7 +804,14 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
-            resolution_fee_percentage: 10_000,
+        }
+    }
+
+    fn fee_config() -> FeeConfig {
+        FeeConfig {
+            flux_market_cap: U128(50000),
+            total_value_staked: U128(10000),
+            resolution_fee_percentage: 5000, // 5%
         }
     }
 
@@ -832,7 +841,7 @@ mod mock_token_basic_tests {
     fn dr_new_single_outcome() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -853,7 +862,7 @@ mod mock_token_basic_tests {
     fn dr_new_non_whitelisted() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         contract.dr_new(alice(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
@@ -872,7 +881,7 @@ mod mock_token_basic_tests {
     fn dr_new_non_bond_token() {
         testing_env!(get_context(alice()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: None,
@@ -891,7 +900,7 @@ mod mock_token_basic_tests {
     fn dr_new_arg_source_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         let x1 = data_request::Source {end_point: "1".to_string(), source_path: "1".to_string()};
         let x2 = data_request::Source {end_point: "2".to_string(), source_path: "2".to_string()};
         let x3 = data_request::Source {end_point: "3".to_string(), source_path: "3".to_string()};
@@ -919,7 +928,7 @@ mod mock_token_basic_tests {
     fn dr_new_arg_outcome_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -949,7 +958,7 @@ mod mock_token_basic_tests {
     fn dr_description_required_no_sources() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: vec![],
             outcomes: None,
@@ -968,7 +977,7 @@ mod mock_token_basic_tests {
     fn dr_new_arg_challenge_period_below_min() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -988,7 +997,7 @@ mod mock_token_basic_tests {
     fn dr_new_arg_challenge_period_exceed() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1008,7 +1017,7 @@ mod mock_token_basic_tests {
     fn dr_new_not_enough_amount() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 90, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1027,7 +1036,7 @@ mod mock_token_basic_tests {
     fn dr_new_success_exceed_amount() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         let amount : Balance = contract.dr_new(bob(), 200, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1047,7 +1056,7 @@ mod mock_token_basic_tests {
     fn dr_new_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         let amount : Balance = contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1082,7 +1091,7 @@ mod mock_token_basic_tests {
     fn dr_stake_non_stake_token() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         testing_env!(get_context(alice()));
@@ -1097,7 +1106,7 @@ mod mock_token_basic_tests {
     fn dr_stake_not_existing() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         contract.dr_stake(alice(),100,  StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer(AnswerType::String("42".to_string()))
@@ -1109,7 +1118,7 @@ mod mock_token_basic_tests {
     fn dr_stake_incompatible_answer() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(),100,  StakeDataRequestArgs{
@@ -1123,7 +1132,7 @@ mod mock_token_basic_tests {
     fn dr_stake_finalized_market() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1149,7 +1158,7 @@ mod mock_token_basic_tests {
     fn dr_stake_finalized_settlement_time() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -1173,7 +1182,7 @@ mod mock_token_basic_tests {
     fn dr_stake_success_partial() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         let _b = contract.dr_stake(alice(), 5, StakeDataRequestArgs{
@@ -1196,7 +1205,7 @@ mod mock_token_basic_tests {
     fn dr_stake_success_full_at_t0() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         let _b = contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1223,7 +1232,7 @@ mod mock_token_basic_tests {
     fn dr_stake_success_overstake_at_t600() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         let mut ct : VMContext = get_context(token());
@@ -1257,7 +1266,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut c: oracle_config::OracleConfig = config();
         c.final_arbitrator_invoke_amount = U128(150);
-        let mut contract = Contract::new(whitelist, c);
+        let mut contract = Contract::new(whitelist, c, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1273,7 +1282,7 @@ mod mock_token_basic_tests {
     fn dr_finalize_no_resolutions() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_finalize(U64(0));
@@ -1284,7 +1293,7 @@ mod mock_token_basic_tests {
     fn dr_finalize_active_challenge() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1299,7 +1308,7 @@ mod mock_token_basic_tests {
     fn dr_finalize_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1323,7 +1332,7 @@ mod mock_token_basic_tests {
     fn dr_stake_same_outcome() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 300, StakeDataRequestArgs{
@@ -1356,7 +1365,7 @@ mod mock_token_basic_tests {
     fn dr_unstake_invalid_id() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_unstake(U64(0), 0, data_request::Outcome::Answer(AnswerType::String("a".to_string())), U128(0));
     }
@@ -1366,7 +1375,7 @@ mod mock_token_basic_tests {
     fn dr_unstake_bonded_outcome() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1378,7 +1387,7 @@ mod mock_token_basic_tests {
     fn dr_unstake_bonded_outcome_c() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1390,7 +1399,7 @@ mod mock_token_basic_tests {
     fn dr_unstake_too_much() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 10, StakeDataRequestArgs{
@@ -1406,7 +1415,7 @@ mod mock_token_basic_tests {
     fn dr_unstake_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         let outcome = data_request::Outcome::Answer(AnswerType::String("b".to_string()));
@@ -1445,7 +1454,7 @@ mod mock_token_basic_tests {
     fn dr_claim_invalid_id() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         contract.dr_claim(alice(), U64(0));
     }
@@ -1454,7 +1463,7 @@ mod mock_token_basic_tests {
     fn dr_claim_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1465,7 +1474,7 @@ mod mock_token_basic_tests {
     fn d_claim_single() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1478,7 +1487,7 @@ mod mock_token_basic_tests {
     fn d_claim_same_twice() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1494,7 +1503,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
         dr_finalize(&mut contract, data_request::Outcome::Answer(AnswerType::String("a".to_string())));
 
@@ -1507,7 +1516,7 @@ mod mock_token_basic_tests {
     fn d_claim_double() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 100, StakeDataRequestArgs{
@@ -1528,7 +1537,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 200, StakeDataRequestArgs{
@@ -1549,7 +1558,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 200, StakeDataRequestArgs{
@@ -1575,7 +1584,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 200, StakeDataRequestArgs{
@@ -1602,7 +1611,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 100, StakeDataRequestArgs{
@@ -1635,7 +1644,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(1000);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(bob(), 200, StakeDataRequestArgs{
@@ -1666,7 +1675,7 @@ mod mock_token_basic_tests {
     fn d_claim_final_arb() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1695,7 +1704,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1730,7 +1739,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut config = config();
         config.final_arbitrator_invoke_amount = U128(600);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1764,7 +1773,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         dr_new(&mut contract);
 
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
@@ -1787,7 +1796,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1807,7 +1816,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1827,7 +1836,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1852,7 +1861,7 @@ mod mock_token_basic_tests {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let config = config();
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         // needed for final arb function
         dr_new(&mut contract);
 
@@ -1879,7 +1888,7 @@ mod mock_token_basic_tests {
     fn dr_stake_before_settlement_time() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
@@ -1903,7 +1912,7 @@ mod mock_token_basic_tests {
     fn dr_tvl_increases() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
         dr_new(&mut contract);
 
         let outcome = data_request::Outcome::Answer(AnswerType::String("b".to_string()));
@@ -1925,7 +1934,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
@@ -1957,7 +1966,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
         config.validity_bond = U128(2);
-        let mut contract = Contract::new(whitelist, config);
+        let mut contract = Contract::new(whitelist, config, fee_config());
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),

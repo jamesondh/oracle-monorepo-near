@@ -1,6 +1,7 @@
 use crate::utils::*;
 use oracle::oracle_config::OracleConfig;
 use oracle::whitelist::{RegistryEntry, CustomFeeStakeArgs};
+use oracle::fee_config::FeeConfig;
 
 pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
@@ -32,7 +33,13 @@ impl OracleUtils {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(final_arbitrator_invoke_amount),
-            resolution_fee_percentage: 10_000,
+            // resolution_fee_percentage: 10_000,
+        };
+
+        let fee_config = FeeConfig {
+            flux_market_cap: U128(50000),
+            total_value_staked: U128(10000),
+            resolution_fee_percentage: 5000, // 5%
         };
         
         // deploy token
@@ -53,7 +60,8 @@ impl OracleUtils {
                         new_registry_entry(TARGET_CONTRACT_ID.to_string(), CustomFeeStakeArgs::None)
                     ]
                 ), 
-                config
+                config,
+                fee_config
             )
         );
 

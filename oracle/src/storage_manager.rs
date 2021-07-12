@@ -143,6 +143,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::whitelist::CustomFeeStakeArgs;
+    use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -192,7 +193,14 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
-            resolution_fee_percentage: 0,
+        }
+    }
+
+    fn fee_config() -> FeeConfig {
+        FeeConfig {
+            flux_market_cap: U128(50000),
+            total_value_staked: U128(10000),
+            resolution_fee_percentage: 5000, // 5%
         }
     }
 
@@ -221,7 +229,7 @@ mod mock_token_basic_tests {
     fn storage_manager_deposit() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         let account = contract.get_storage_account(&alice());
         assert_eq!(account.available, 0);
@@ -251,7 +259,7 @@ mod mock_token_basic_tests {
     fn storage_manager_withdraw() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         let account = contract.get_storage_account(&alice());
         assert_eq!(account.available, 0);
@@ -279,7 +287,7 @@ mod mock_token_basic_tests {
     fn storage_manager_withdraw_too_much() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
+        let mut contract = Contract::new(whitelist, config(), fee_config());
 
         let account = contract.get_storage_account(&alice());
         assert_eq!(account.available, 0);

@@ -20,6 +20,7 @@ use crate::{
     oracle_config::{
         OracleConfig
     },
+    fee_config::FeeConfig,
     helpers::{
         ns_to_ms,
     }
@@ -96,8 +97,7 @@ pub fn log_oracle_config(config: &OracleConfig, id: u64) {
                 "default_challenge_window_duration": config.default_challenge_window_duration,
                 "min_initial_challenge_window_duration": config.min_initial_challenge_window_duration,
                 "final_arbitrator_invoke_amount": config.final_arbitrator_invoke_amount,
-                "resolution_fee_percentage": config.resolution_fee_percentage,
-                
+
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
             }
@@ -254,15 +254,17 @@ pub fn log_whitelist(requestor: &RegistryEntry, active: bool) {
     );
 }
 
-pub fn log_update_market_cap(market_cap: U128) {
+pub fn log_fee_config(fee_config: &FeeConfig) {
     env::log(
         json!({
-            "type": "market_cap",
+            "type": "fee_config",
             "action": "update",
-            "cap_id": format!("mc_{}", env::block_index()),
+            "cap_id": format!("fc_{}", env::block_index()),
             "params": {
-                "id": format!("mc_{}", env::block_index()),
-                "market_cap": market_cap,
+                "id": format!("fc_{}", env::block_index()),
+                "flux_market_cap": fee_config.flux_market_cap,
+                "total_value_staked": fee_config.total_value_staked,
+                "resolution_fee_percentage": fee_config.resolution_fee_percentage,
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
             }

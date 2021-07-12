@@ -1,15 +1,16 @@
 use crate::*;
+use near_sdk::serde::{ Deserialize, Serialize };
 
-const MIN_RESOLUTION_FEE_PERCENTAGE: u16 = 1; // 0.001%
-const MAX_RESOLUTION_FEE_PERCENTAGE: u16 = 1000; // 1%
+const MAX_RESOLUTION_FEE_PERCENTAGE: u32 = 5000; // 5% in 1e5
 
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 pub struct FeeConfig {
     // total market cap of FLUX/stake_token denominated in bond_token
-    pub flux_market_cap: WrappedBalance,
-    // total value staked (TVS) of all request interfaces; denominated in stake_token/FLUX
-    pub total_value_staked: WrappedBalance,
+    pub flux_market_cap: U128,
+    // total value staked (TVS) of all request interfaces; denominated in bond_token
+    pub total_value_staked: U128,
     // global percentage of TVS to pay out to resolutors; denominated in 1e5 so 1 = 0.001%, 100000 = 100%
-    pub resolution_fee_percentage: u16,
+    pub resolution_fee_percentage: u32,
 }
 
 #[near_bindgen]
@@ -17,25 +18,22 @@ impl Contract {
     // @notice sets FLUX market cap and TVS for fee calculation; callable only by council
     pub fn update_fee_config(
         &mut self,
-        new_market_cap: WrappedBalance,
-        new_tvs: WrappedBalance,
+        new_fee_config: FeeConfig,
     ) {
         self.assert_gov();
-        
-        // TODO: calculate resolution fee percentage, aiming for TVS = 1/5 FLUX market cap
-        let new_fee_percentage = MAX_RESOLUTION_FEE_PERCENTAGE;
-        assert!(new_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE, "Exceeds max resolution fee percentage");
 
-        let new_fee_config = FeeConfig {
-            flux_market_cap: new_market_cap,
-            total_value_staked: new_tvs,
-            resolution_fee_percentage: new_fee_percentage,
-        };
+        assert!(
+            u128::from(new_fee_config.total_value_staked) < u128::from(new_fee_config.flux_market_cap),
+            "TVS must be lower than market cap"
+        );
+        assert!(
+            new_fee_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE,
+            "Exceeds max resolution fee percentage"
+        );
 
-        self.fee_config = new_fee_config;
+        self.fee_config = new_fee_config.clone();
 
-        // TODO: log
-        // logger::log_update_market_cap(new_market_cap);
+        logger::log_fee_config(&new_fee_config);
     }
 }
 
@@ -74,7 +72,14 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
-            resolution_fee_percentage: 0,
+        }
+    }
+
+    fn fee_config() -> FeeConfig {
+        FeeConfig {
+            flux_market_cap: U128(50000),
+            total_value_staked: U128(10000),
+            resolution_fee_percentage: 5000, // 5%
         }
     }
 
@@ -100,18 +105,28 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    fn g_set_market_cap() {
+    fn g_update_fee() {
         testing_env!(get_context(gov()));
-        let mut contract = Contract::new(None, config(gov()));
-        contract.set_market_cap(U128(500));
+        let mut contract = Contract::new(None, config(gov()), fee_config());
+        let new_fee_config = FeeConfig {
+            flux_market_cap: U128(1234),
+            total_value_staked: U128(123),
+            resolution_fee_percentage: 999, // .999%
+        };
+        contract.update_fee_config(new_fee_config);
     }
     
     #[test]
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
-    fn g_set_market_cap_invalid() {
+    fn g_update_fee_invalid() {
         testing_env!(get_context(gov()));
-        let mut contract = Contract::new(None, config(gov()));
+        let mut contract = Contract::new(None, config(gov()), fee_config());
         testing_env!(get_context(bob()));
-        contract.set_market_cap(U128(500));
+        let new_fee_config = FeeConfig {
+            flux_market_cap: U128(1234),
+            total_value_staked: U128(123),
+            resolution_fee_percentage: 999, // .999%
+        };
+        contract.update_fee_config(new_fee_config);
     }
 }
