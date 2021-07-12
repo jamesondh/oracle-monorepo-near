@@ -159,6 +159,7 @@ fn dr_scenario_2() {
     println!("Jasper has spent {} altogether on staking", pre_claim_difference_jasper);
     println!("Peter has spent {} altogether on staking", pre_claim_difference_peter);
     
+    init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
     init_res.carol.claim(0);
@@ -283,6 +284,7 @@ fn dr_scenario_3() {
     println!("Illia has spent {} altogether on staking", pre_claim_difference_illia);
     println!("Vitalik has spent {} altogether on staking", pre_claim_difference_vitalik);
     
+    init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
     init_res.carol.claim(0);
@@ -382,6 +384,7 @@ fn dr_scenario_multiplier() {
     println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
     println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
     
+    init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
     // init_res.carol.claim(0);
@@ -463,6 +466,7 @@ fn dr_scenario_fixed_fee() {
     println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
     println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
     
+    init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.bob.claim(0);
     // init_res.carol.claim(0);

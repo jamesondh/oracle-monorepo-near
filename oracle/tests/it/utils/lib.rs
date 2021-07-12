@@ -87,7 +87,8 @@ pub struct TestUtils {
     pub jasper: account_utils::TestAccount,
     pub peter: account_utils::TestAccount,
     pub illia: account_utils::TestAccount,
-    pub vitalik: account_utils::TestAccount
+    pub vitalik: account_utils::TestAccount,
+    pub treasurer: account_utils::TestAccount,
 }
 
 pub struct TestSetupArgs {
@@ -122,6 +123,7 @@ impl TestUtils {
             peter: TestAccount::new(Some(&master_account.account), Some("peter")),
             illia: TestAccount::new(Some(&master_account.account), Some("illia")),
             vitalik: TestAccount::new(Some(&master_account.account), Some("vitalik")),
+            treasurer: TestAccount::new(Some(&master_account.account), Some("treasurer")),
             master_account: master_account,
             request_interface_contract: request_interface_init_res.contract,
             target_contract: target_contract_init_res.contract,

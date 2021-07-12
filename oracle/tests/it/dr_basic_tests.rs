@@ -30,7 +30,8 @@ fn dr_resolution_flow_test() {
     let _post_stake_balance_oracle = init_res.alice.get_token_balance(Some(ORACLE_CONTRACT_ID.to_string()));
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
     assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - validity_bond);
-    
+
+    init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.alice.claim(0);
     
