@@ -7,7 +7,8 @@ use near_sdk::PromiseOrValue;
 #[derive(Serialize, Deserialize)]
 pub enum Payload {
     NewDataRequest(NewDataRequestArgs),
-    StakeDataRequest(StakeDataRequestArgs)
+    StakeDataRequest(StakeDataRequestArgs),
+    FinalizeDataRequest(FinalizeDataRequestArgs)
 }
 
 pub trait FungibleTokenReceiver {
@@ -31,6 +32,7 @@ impl FungibleTokenReceiver for Contract {
         let unspent = match payload {
             Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload).into(),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
+            Payload::FinalizeDataRequest(payload) => self.dr_proceed_finalization(amount.into(), sender_id.clone(), payload.request_id.into()),
         };
 
         self.use_storage(&sender_id, initial_storage_usage, account.available);

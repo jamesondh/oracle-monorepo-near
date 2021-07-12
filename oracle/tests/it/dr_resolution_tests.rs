@@ -25,6 +25,7 @@ fn dr_resolution_flow_test() {
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
     assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - dr_cost);
     
+    init_res.bob.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     init_res.alice.claim(0);
     
@@ -34,7 +35,7 @@ fn dr_resolution_flow_test() {
 
 #[test]
 fn dr_fixed_fee_flow() {
-    let custom_fee_amount = 125;
+    let custom_fee_amount = 100;
     let custom_fee = CustomFeeStakeArgs::Fixed(U128(custom_fee_amount));
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
@@ -55,8 +56,10 @@ fn dr_fixed_fee_flow() {
     let post_stake_balance_alice = init_res.alice.get_token_balance(None);
     assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - custom_fee_amount*2);
     
+    init_res.bob.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
+
     init_res.alice.finalize(0);
-    // init_res.alice.claim(0);
+    init_res.alice.claim(0);
     
     // let post_claim_balance_alice = init_res.alice.get_token_balance(None);
     // assert_eq!(post_claim_balance_alice, init_balance_alice);
@@ -87,6 +90,8 @@ fn dr_multiplier_flow() {
     let weighted_stake_cost = u128::from(stake_cost * u64::from(multiplier_amount) / PERCENTAGE_DIVISOR as u64);
     assert_eq!(post_stake_balance_alice, init_balance_alice - dr_cost - weighted_stake_cost);
     
+    init_res.bob.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
+
     init_res.alice.finalize(0);
     init_res.alice.claim(0);
     

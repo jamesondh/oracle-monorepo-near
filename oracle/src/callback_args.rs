@@ -52,3 +52,8 @@ pub struct ChallengeDataRequestArgs {
     pub id: U64,
     pub answer: data_request::Outcome,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct FinalizeDataRequestArgs {
+    pub request_id: U64,
+}

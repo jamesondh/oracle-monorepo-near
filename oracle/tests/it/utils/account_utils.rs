@@ -17,8 +17,9 @@ impl TestAccount {
         match master_account {
             Some(master_account) => {
                 let account = master_account.create_user(account_id.expect("expected account id").to_string(), init_balance());
-                storage_deposit(TOKEN_CONTRACT_ID, &master_account, SAFE_STORAGE_AMOUNT, Some(account.account_id()));
-                storage_deposit(ORACLE_CONTRACT_ID, &master_account, 46800000000000000000000, Some(account.account_id()));
+                storage_deposit(TOKEN_CONTRACT_ID, &master_account, SAFE_STORAGE_AMOUNT, Some(account.account_id())); 
+                storage_deposit(ORACLE_CONTRACT_ID, &master_account, 46800000000000000000000, Some(account.account_id())); 
+                storage_deposit(ORACLE_CONTRACT_ID, &master_account, 46800000000000000000000, Some(TARGET_CONTRACT_ID.to_string())); 
                 near_deposit(&account, init_balance() / 2);
                 Self {
                     account
@@ -127,7 +128,7 @@ impl TestAccount {
                 "request_id": U64(dr_id)
             }).to_string().as_bytes(),
             DEFAULT_GAS,
-            1000000000000000000000
+            100000000000000000000
         );
 
         res.assert_success();
@@ -167,6 +168,26 @@ impl TestAccount {
                 "amount": U128(amount),
                 "msg": msg,
                 "memo": "".to_string()
+            }).to_string().as_bytes(),
+            DEFAULT_GAS,
+            1
+        );
+
+        assert!(res.is_ok(), "ft_transfer_call failed with res: {:?}", res);
+        res
+    }
+
+    pub fn ft_transfer(
+        &self,
+        receiver: &str,
+        amount: u128
+    ) -> ExecutionResult {        
+        let res = self.account.call(
+            TOKEN_CONTRACT_ID.to_string(), 
+            "ft_transfer",
+            json!({
+                "receiver_id": receiver,
+                "amount": U128(amount)
             }).to_string().as_bytes(),
             DEFAULT_GAS,
             1

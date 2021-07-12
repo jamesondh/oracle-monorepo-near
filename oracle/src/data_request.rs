@@ -200,6 +200,7 @@ pub struct DataRequest {
     pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
     pub data_type: DataRequestDataType,
+    pub paid_fee: u128
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
@@ -275,6 +276,7 @@ impl DataRequestChange for DataRequest {
             tags: request_data.tags,
             data_type: request_data.data_type,
             creator: request_data.creator,
+            paid_fee: 0
         }
     }
 
@@ -688,21 +690,36 @@ impl Contract {
     }
 
     #[payable]
-    pub fn dr_finalize(&mut self, request_id: U64) -> PromiseOrValue<bool> {
+    pub fn dr_finalize(&mut self, request_id: U64) -> PromiseOrValue<U128> {
+        let dr = self.dr_get_expect(request_id.into());
+        dr.assert_can_finalize();
+        dr.target_contract.init_finalization(request_id.into())
+    }
+
+    // TODO: handle storage
+    #[payable]
+    pub fn dr_proceed_finalization(&mut self, paid_fee: u128, sender: AccountId, request_id: u64) -> PromiseOrValue<U128> {
         let initial_storage = env::storage_usage();
-        let mut dr = self.dr_get_expect(request_id);
+
+        let mut dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
 
-        dr.assert_can_finalize();
+        assert_eq!(sender, dr.target_contract.0, "this function can only be called by the target_contract");
+        dr.assert_can_finalize(); // prevent race conditions
+
         dr.finalize();
-        self.data_requests.replace(request_id.into(), &dr);
 
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone());
-        
+        dr.paid_fee = paid_fee;
+        dr.return_validity_bond(config.bond_token);
+
+        self.data_requests.replace(request_id, &dr);
+
         logger::log_update_data_request(&dr);
-        helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
-        dr.return_validity_bond(config.bond_token)
+        let account = self.accounts.get(&sender).expect("err no storage deposit for account");
+        self.use_storage(&sender, initial_storage, account.available);
+
+        PromiseOrValue::Value(0.into())
     }
 
     #[payable]
@@ -740,6 +757,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::whitelist::{CustomFeeStakeArgs, RegistryEntry};
+    use crate::data_request::AnswerType;
     use super::*;
 
     fn alice() -> AccountId {
@@ -781,6 +799,13 @@ mod mock_token_basic_tests {
             custom_fee: CustomFeeStakeArgs::None,
             code_base_url: None
         }
+    }
+
+    fn finalize(contract: &mut Contract, dr_id: u64) -> &mut Contract {
+        let mut dr = contract.dr_get_expect(U64(dr_id));
+        dr.finalize();
+        contract.data_requests.replace(0, &dr);
+        contract
     }
 
     fn config() -> oracle_config::OracleConfig {
@@ -1127,8 +1152,7 @@ mod mock_token_basic_tests {
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
-        contract.dr_finalize(U64(0));
-
+        let contract = finalize(&mut contract, 0);
         contract.dr_stake(alice(), 200, StakeDataRequestArgs{
             id: U64(0),
             outcome: data_request::Outcome::Answer(AnswerType::String("b".to_string()))
@@ -1243,7 +1267,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Can only be finalized by final arbitrator")]
+    // #[should_panic(expected = "Can only be finalized by final arbitrator")]
     fn dr_finalize_final_arb() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1257,7 +1281,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer(AnswerType::String("a".to_string()))
         });
 
-        contract.dr_finalize(U64(0));
+        finalize(&mut contract, 0);
     }
 
     #[test]
@@ -1268,7 +1292,7 @@ mod mock_token_basic_tests {
         let mut contract = Contract::new(whitelist, config());
         dr_new(&mut contract);
 
-        contract.dr_finalize(U64(0));
+        finalize(&mut contract, 0);
     }
 
     #[test]
@@ -1284,7 +1308,7 @@ mod mock_token_basic_tests {
             outcome: data_request::Outcome::Answer(AnswerType::String("a".to_string()))
         });
 
-        contract.dr_finalize(U64(0));
+        finalize(&mut contract, 0);
     }
 
     #[test]
@@ -1303,7 +1327,7 @@ mod mock_token_basic_tests {
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
-        contract.dr_finalize(U64(0));
+        let contract = finalize(&mut contract, 0);
 
         let request : DataRequest = contract.data_requests.get(0).unwrap();
         assert_eq!(request.resolution_windows.len(), 2);
@@ -1340,7 +1364,7 @@ mod mock_token_basic_tests {
         ct.block_timestamp = 1501;
         testing_env!(ct);
 
-        contract.dr_finalize(U64(0));
+        finalize(contract, 0);
     }
 
     #[test]
