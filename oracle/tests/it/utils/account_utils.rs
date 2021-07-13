@@ -1,5 +1,6 @@
 use crate::utils::*;
 use oracle::data_request::DataRequestDataType;
+use target_contract::Outcome;
 
 pub fn init_balance() -> u128 {
     to_yocto("100000")
@@ -57,6 +58,16 @@ impl TestAccount {
         ).unwrap_json()
     }
 
+    pub fn get_outcome(&self, id: u64) -> Option<Outcome> {
+        self.account.view(
+            TARGET_CONTRACT_ID.to_string(),
+            "get_outcome",
+            json!({
+                "request_id": U64(id)
+            }).to_string().as_bytes()
+        ).unwrap_json()
+    }
+    
     /*** Setters ***/
     pub fn dr_new(
         &self,

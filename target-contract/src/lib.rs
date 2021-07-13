@@ -85,6 +85,13 @@ impl TargetContract {
         let fee = 100; // TODO: calc fee
         ext_token_contract::ft_transfer_call(self.oracle.to_string(), fee.into(), None, payload, &self.fee_token, 1, GAS_BASE_SET_OUTCOME)
     }
+
+    pub fn get_outcome(
+        self,
+        request_id: U64
+    ) -> Option<Outcome> {
+        self.data_requests.get(&request_id)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

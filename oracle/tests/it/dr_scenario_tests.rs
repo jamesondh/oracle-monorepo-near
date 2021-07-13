@@ -63,9 +63,16 @@ fn dr_scenario_1() {
     println!("Bob has spent {} altogether on staking", pre_claim_difference_bob);
     println!("Carol has spent {} altogether on staking", pre_claim_difference_carol);
     
+    // finalize
     println!("Request interface balance before claim: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
+    let pre_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome before finalize: {:?}", pre_outcome);
     let correct_outcome = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
     init_res.alice.dr_final_arbitrator_finalize(0, correct_outcome);
+    let post_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome after finalize: {:?}", post_outcome);
+
+    // claim
     init_res.bob.claim(0);
     // init_res.carol.claim(0);
     
@@ -159,8 +166,15 @@ fn dr_scenario_2() {
     println!("Jasper has spent {} altogether on staking", pre_claim_difference_jasper);
     println!("Peter has spent {} altogether on staking", pre_claim_difference_peter);
     
+    // finalize
+    let pre_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome before finalize: {:?}", pre_outcome);
     init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
+    let post_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome after finalize: {:?}", post_outcome);
+
+    // claim
     init_res.bob.claim(0);
     init_res.carol.claim(0);
     init_res.jasper.claim(0);
@@ -193,6 +207,7 @@ fn dr_scenario_2() {
     println!("Jasper gained {} from claim for a total profit of {}", post_stake_difference_jasper, post_total_difference_jasper);
     println!("Peter gained {} from claim for a total profit of {}", post_stake_difference_peter, post_total_difference_peter);
     println!("Alice lost {} altogether", post_total_difference_alice);
+
     
 }
 
