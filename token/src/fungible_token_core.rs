@@ -130,7 +130,8 @@ impl FungibleTokenCore for TokenContract {
             receiver_id.as_ref(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
-        ).then(ext_self::ft_resolve_transfer(
+        )
+        .then(ext_self::ft_resolve_transfer(
             sender_id,
             receiver_id.into(),
             amount.into(),

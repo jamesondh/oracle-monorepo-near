@@ -1,10 +1,12 @@
-use near_sdk::{env, near_bindgen, AccountId};
-use near_sdk::json_types::U64;
+use near_sdk::{env, near_bindgen, AccountId, ext_contract, Promise, Gas};
+use near_sdk::json_types::{U64, U128};
 use near_sdk::collections::LookupMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::serde_json::json;
 use near_sdk::serde::{ Deserialize, Serialize };
 
 near_sdk::setup_alloc!();
+const GAS_BASE_SET_OUTCOME: Gas = 200_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
@@ -16,6 +18,7 @@ pub enum Outcome {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct TargetContract {
     pub oracle: AccountId,
+    pub fee_token: AccountId,
     pub data_requests: LookupMap<U64, Outcome>
 }
 
@@ -32,14 +35,21 @@ impl TargetContract {
     }
 }
 
+#[ext_contract]
+trait ExtTokenContract {
+    fn ft_transfer_call(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>, msg: String) -> Promise;
+}
+
 #[near_bindgen]
 impl TargetContract {
     #[init]
     pub fn new(
-        oracle: AccountId
+        oracle: AccountId,
+        fee_token: AccountId
     ) -> Self {
         Self {
             oracle,
+            fee_token,
             data_requests: LookupMap::new(b"d".to_vec())
         }
     }
@@ -58,6 +68,23 @@ impl TargetContract {
             &outcome
         );
     }
+
+    #[payable]
+    pub fn init_finalization(
+        &mut self,
+        request_id: U64
+    ) -> Promise {
+        self.assert_oracle();
+        assert_eq!(env::attached_deposit(), 1);
+        // assert!(self.data_requests.contains_key(&request_id), "dr with id {:?} does not exist", request_id);
+        let payload = json!({
+            "FinalizeDataRequest": {
+                "request_id": request_id
+            }
+        }).to_string();
+        let fee = 100; // TODO: calc fee
+        ext_token_contract::ft_transfer_call(self.oracle.to_string(), fee.into(), None, payload, &self.fee_token, 1, GAS_BASE_SET_OUTCOME)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -73,6 +100,10 @@ mod tests {
 
     fn oracle() -> AccountId {
         "oracle.near".to_string()
+    }
+    
+    fn fee_token() -> AccountId {
+        "fee_token.near".to_string()
     }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
@@ -95,13 +126,14 @@ mod tests {
             epoch_height: 0,
         }
     }
-
+    
     #[test]
     fn tc_outcome_initialized() {
         let context = get_context(alice());
         testing_env!(context);
         let contract = TargetContract::new(
-            oracle()
+            oracle(),
+            fee_token()
         );
         assert_eq!(contract.data_requests.get(&U64(0)), None);
     }
@@ -112,7 +144,8 @@ mod tests {
         let context = get_context(alice());
         testing_env!(context);
         let mut contract = TargetContract::new(
-            oracle()
+            oracle(),
+            fee_token()
         );
         contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
     }
@@ -122,7 +155,8 @@ mod tests {
         let context = get_context(oracle());
         testing_env!(context);
         let mut contract = TargetContract::new(
-            oracle()
+            oracle(),
+            fee_token()
         );
         assert_eq!(contract.data_requests.get(&U64(0)), None);
         contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
