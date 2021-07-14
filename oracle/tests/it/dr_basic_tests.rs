@@ -32,7 +32,12 @@ fn dr_resolution_flow_test() {
     assert_eq!(post_stake_balance_alice, init_balance_alice - stake_cost - validity_bond);
 
     init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
+
+    let pre_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome on target before finalize: {:?}", pre_outcome);
     init_res.alice.finalize(0);
+    let post_outcome = init_res.alice.get_outcome(0);
+    println!("Outcome on target after finalize: {:?}", post_outcome);
     init_res.alice.claim(0);
     
     let post_claim_balance_alice = init_res.alice.get_token_balance(None);

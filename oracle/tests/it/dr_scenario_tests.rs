@@ -168,11 +168,11 @@ fn dr_scenario_2() {
     
     // finalize
     let pre_outcome = init_res.alice.get_outcome(0);
-    println!("Outcome before finalize: {:?}", pre_outcome);
+    println!("Outcome on target before finalize: {:?}", pre_outcome);
     init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
     init_res.alice.finalize(0);
     let post_outcome = init_res.alice.get_outcome(0);
-    println!("Outcome after finalize: {:?}", post_outcome);
+    println!("Outcome on target after finalize: {:?}", post_outcome);
 
     // claim
     init_res.bob.claim(0);

@@ -19,7 +19,8 @@ impl TargetContractUtils {
             // init method
             init_method: new(
                 ORACLE_CONTRACT_ID.to_string(),
-                TOKEN_CONTRACT_ID.to_string()
+                TOKEN_CONTRACT_ID.to_string(),
+                REQUEST_INTERFACE_CONTRACT_ID.to_string()
             )
         );
 

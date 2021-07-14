@@ -721,8 +721,8 @@ impl Contract {
         dr.paid_fee = paid_fee;
         dr.return_validity_bond(config.bond_token);
 
+        dr.target_contract.set_outcome(U64(request_id), dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone());
         self.data_requests.replace(request_id, &dr);
-        // dr.target_contract.set_outcome(U64(request_id), dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone());
 
         logger::log_update_data_request(&dr);
 
