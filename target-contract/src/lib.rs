@@ -9,8 +9,21 @@ near_sdk::setup_alloc!();
 const GAS_BASE_SET_OUTCOME: Gas = 200_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
+pub struct AnswerNumberType {
+    pub value: U128,
+    pub multiplier: U128,
+    pub negative: bool,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
+pub enum AnswerType {
+    Number(AnswerNumberType),
+    String(String)
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum Outcome {
-    Answer(String),
+    Answer(AnswerType),
     Invalid
 }
 
