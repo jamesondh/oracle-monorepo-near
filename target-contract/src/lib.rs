@@ -27,13 +27,13 @@ pub enum Outcome {
     Invalid
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq, Clone)]
 pub enum DataRequestStatus {
     Pending,
     Finalized(Outcome)
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq, Clone)]
 pub struct DataRequest {
     status: DataRequestStatus,
     tags: Option<Vec<String>>
@@ -162,6 +162,10 @@ mod tests {
         "fee_token.near".to_string()
     }
 
+    fn requestor() -> AccountId {
+        "requestor.near".to_string()
+    }
+
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
             current_account_id: alice(),
@@ -182,40 +186,56 @@ mod tests {
             epoch_height: 0,
         }
     }
+
+    fn set_outcome(contract: &mut TargetContract) {
+        contract.set_outcome(
+            U64(0),
+            requestor(),
+            Outcome::Answer(AnswerType::String("outcome".to_string())),
+            None
+        );
+    }
     
-    // #[test]
-    // fn tc_outcome_initialized() {
-    //     let context = get_context(alice());
-    //     testing_env!(context);
-    //     let contract = TargetContract::new(
-    //         oracle(),
-    //         fee_token()
-    //     );
-    //     assert_eq!(contract.data_requests.get(&U64(0)), None);
-    // }
+    #[test]
+    fn tc_outcome_initialized() {
+        let context = get_context(alice());
+        testing_env!(context);
+        let contract = TargetContract::new(
+            oracle(),
+            fee_token(),
+            requestor()
+        );
+        assert_eq!(contract.data_requests.get(&U64(0)), None);
+    }
 
-    // #[test]
-    // #[should_panic(expected = "ERR_INVALID_ORACLE_ADDRESS")]
-    // fn tc_set_outcome_not_oracle() {
-    //     let context = get_context(alice());
-    //     testing_env!(context);
-    //     let mut contract = TargetContract::new(
-    //         oracle(),
-    //         fee_token()
-    //     );
-    //     contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
-    // }
-
-    // #[test]
-    // fn tc_set_outcome_success() {
-    //     let context = get_context(oracle());
-    //     testing_env!(context);
-    //     let mut contract = TargetContract::new(
-    //         oracle(),
-    //         fee_token()
-    //     );
-    //     assert_eq!(contract.data_requests.get(&U64(0)), None);
-    //     contract.set_outcome(U64(0), Outcome::Answer("outcome".to_string()));
-    //     assert_eq!(contract.data_requests.get(&U64(0)), Some(Outcome::Answer("outcome".to_string())));
-    // }
+    #[test]
+    #[should_panic(expected = "ERR_INVALID_ORACLE_ADDRESS")]
+    fn tc_set_outcome_not_oracle() {
+        let context = get_context(alice());
+        testing_env!(context);
+        let mut contract = TargetContract::new(
+            oracle(),
+            fee_token(),
+            requestor()
+        );
+        set_outcome(&mut contract);
+    }
+    
+    #[test]
+    fn tc_set_outcome_success() {
+        let context = get_context(oracle());
+        testing_env!(context);
+        let mut contract = TargetContract::new(
+            oracle(),
+            fee_token(),
+            requestor()
+        );
+        assert_eq!(contract.data_requests.get(&U64(0)), None);
+        set_outcome(&mut contract);
+        let expected_dr = DataRequest {
+            status: DataRequestStatus::Finalized(Outcome::Answer(AnswerType::String("outcome".to_string()))),
+            tags: None
+        };
+        assert_eq!(contract.data_requests.get(&U64(0)), Some(expected_dr));
+    }
 }
