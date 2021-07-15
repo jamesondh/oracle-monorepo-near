@@ -137,14 +137,6 @@ mod mock_token_basic_tests {
         }
     }
 
-    fn fee_config() -> FeeConfig {
-        FeeConfig {
-            flux_market_cap: U128(50000),
-            total_value_staked: U128(10000),
-            resolution_fee_percentage: 5000, // 5%
-        }
-    }
-
     fn config() -> oracle_config::OracleConfig {
         oracle_config::OracleConfig {
             gov: gov(),
@@ -156,6 +148,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 5000, // 5%
+            }
         }
     }
 
@@ -184,7 +181,7 @@ mod mock_token_basic_tests {
     fn setting_initial_whitelist() {
         testing_env!(get_context(carol()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let contract = Contract::new(whitelist, config(), fee_config());
+        let contract = Contract::new(whitelist, config());
         let alice_is_whitelisted = contract.whitelist_contains(alice());
         let bob_is_whitelisted = contract.whitelist_contains(bob());
         let carol_is_whitelisted = contract.whitelist_contains(carol());
@@ -197,7 +194,7 @@ mod mock_token_basic_tests {
     fn whitelist_add_remove() {
         testing_env!(get_context(gov()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config(), fee_config());
+        let mut contract = Contract::new(whitelist, config());
 
         assert!(!contract.whitelist_contains(alice()));
         contract.add_to_whitelist(registry_entry(alice()));
@@ -211,7 +208,7 @@ mod mock_token_basic_tests {
     fn only_gov_can_add() {
         testing_env!(get_context(alice()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config(), fee_config());
+        let mut contract = Contract::new(whitelist, config());
         contract.add_to_whitelist(registry_entry(alice()));
     }
 
@@ -220,7 +217,7 @@ mod mock_token_basic_tests {
     fn only_gov_can_remove() {
         testing_env!(get_context(alice()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config(), fee_config());
+        let mut contract = Contract::new(whitelist, config());
         contract.remove_from_whitelist(registry_entry(alice()));
     }
 }

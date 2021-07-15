@@ -100,14 +100,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
-        }
-    }
-
-    fn fee_config() -> FeeConfig {
-        FeeConfig {
-            flux_market_cap: U128(50000),
-            total_value_staked: U128(10000),
-            resolution_fee_percentage: 5000, // 5%
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 5000, // 5%
+            }
         }
     }
 
@@ -137,7 +134,7 @@ mod mock_token_basic_tests {
     fn transfer_storage_no_funds() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config(), fee_config());
+        let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),
@@ -164,7 +161,7 @@ mod mock_token_basic_tests {
     fn transfer_storage_funds() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config(), fee_config());
+        let mut contract = Contract::new(whitelist, config());
 
         contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
             sources: Vec::new(),

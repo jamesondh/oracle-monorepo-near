@@ -105,6 +105,8 @@ pub fn log_oracle_config(config: &OracleConfig, id: u64) {
         .to_string()
         .as_bytes()
     );
+    // also log fee config as it is contained in the oracle config
+    log_fee_config(&config.fee);
 }
 
 pub fn log_resolution_window(window: &ResolutionWindow) {

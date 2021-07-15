@@ -2,6 +2,7 @@ use crate::*;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::{ AccountId };
+use fee_config::FeeConfig;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
@@ -15,7 +16,7 @@ pub struct OracleConfig {
     pub default_challenge_window_duration: WrappedTimestamp,
     pub min_initial_challenge_window_duration: WrappedTimestamp,
     pub final_arbitrator_invoke_amount: U128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
-    // pub resolution_fee_percentage: u16, // Percentage of requesters `tvl` behind the request that's to be paid out to resolutors, denominated in 1e4 so 1 = 0.01% - 10000 = 100%
+    pub fee: FeeConfig,
 }
 
 #[near_bindgen]
@@ -80,14 +81,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
-        }
-    }
-
-    fn fee_config() -> FeeConfig {
-        FeeConfig {
-            flux_market_cap: U128(50000),
-            total_value_staked: U128(10000),
-            resolution_fee_percentage: 5000, // 5%
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 5000, // 5%
+            }
         }
     }
 
@@ -103,7 +101,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 15600000000000000000000,
+            attached_deposit: 19000000000000000000000,
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
@@ -115,7 +113,7 @@ mod mock_token_basic_tests {
     #[test]
     fn set_config_from_gov() {
         testing_env!(get_context(gov()));
-        let mut contract = Contract::new(None, config(gov()), fee_config());
+        let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
         assert_eq!(contract.get_config().gov, alice());
     }
@@ -124,7 +122,7 @@ mod mock_token_basic_tests {
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
     fn fail_set_config_from_user() {
         testing_env!(get_context(alice()));
-        let mut contract = Contract::new(None, config(gov()), fee_config());
+        let mut contract = Contract::new(None, config(gov()));
         contract.set_config(config(alice()));
     }
 }
