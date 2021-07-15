@@ -700,9 +700,10 @@ impl Contract {
 
     #[payable]
     pub fn dr_finalize(&mut self, request_id: U64) -> PromiseOrValue<U128> {
-        let dr = self.dr_get_expect(request_id.into());
+        let mut dr = self.dr_get_expect(request_id.into());
         dr.assert_can_finalize();
-        dr.target_contract.init_finalization(request_id.into())
+        dr.finalize();
+        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone(), false)
     }
 
     // TODO: handle storage
@@ -721,7 +722,6 @@ impl Contract {
         dr.paid_fee = paid_fee;
         dr.return_validity_bond(config.bond_token);
 
-        dr.target_contract.set_outcome(U64(request_id), dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone());
         self.data_requests.replace(request_id, &dr);
 
         logger::log_update_data_request(&dr);
@@ -744,7 +744,7 @@ impl Contract {
         dr.finalize_final_arbitrator(outcome.clone());
 
         let config = self.configs.get(dr.global_config_id).unwrap();
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), outcome, dr.tags.clone());
+        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), outcome, dr.tags.clone(), true);
         self.data_requests.replace(request_id.into(), &dr);
 
         logger::log_update_data_request(&dr);
