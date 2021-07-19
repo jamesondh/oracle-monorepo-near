@@ -200,7 +200,7 @@ pub struct DataRequest {
     pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
     pub data_type: DataRequestDataType,
-    pub paid_fee: u128
+    pub paid_fee: Option<u128>
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
@@ -276,7 +276,7 @@ impl DataRequestChange for DataRequest {
             tags: request_data.tags,
             data_type: request_data.data_type,
             creator: request_data.creator,
-            paid_fee: 0
+            paid_fee: None
         }
     }
 
@@ -407,7 +407,8 @@ trait DataRequestView {
     fn assert_can_stake_on_outcome(&self, outcome: &Outcome);
     fn assert_not_finalized(&self);
     fn assert_finalized(&self);
-    fn assert_can_finalize(&self);
+    fn assert_can_finalize(&self, gov: AccountId);
+    fn assert_can_claim_fee(&self);
     fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
     fn assert_final_arbitrator_not_invoked(&self);
@@ -470,12 +471,17 @@ impl DataRequestView for DataRequest {
         assert!(self.finalized_outcome.is_some(), "DataRequest is not finalized");
     }
 
-    fn assert_can_finalize(&self) {
-        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
+    fn assert_can_claim_fee(&self){
         assert!(self.resolution_windows.iter().count() >= 2, "No bonded outcome found");
         let last_window = self.resolution_windows.iter().last().unwrap();
-        self.assert_not_finalized();
+        assert!(self.paid_fee.is_none());
         assert!(env::block_timestamp() >= last_window.end_time, "Challenge period not ended");
+    }
+
+    fn assert_can_finalize(&self, gov: AccountId) {
+        assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
+        assert!(self.paid_fee.is_some() || env::predecessor_account_id() == gov, "Can only be finalized after fee is paid or when enforced by the DAO");
+        self.assert_not_finalized();
     }
 
     fn assert_final_arbitrator(&self) {
@@ -614,9 +620,8 @@ impl Contract {
 
         self.data_requests.push(&dr);
 
-        // forward amount minus validity bond to request interface
+        // calc amount to return to sender
         let amount_to_send = amount - validity_bond;
-        // fungible_token_transfer(config.stake_token, dr.requestor, amount_to_send);
 
         if amount > validity_bond {
             amount_to_send
@@ -698,16 +703,35 @@ impl Contract {
         }
     }
 
-    #[payable]
+    pub fn dr_claim_fee(&self, request_id: U64) -> Promise {
+        let dr = self.dr_get_expect(request_id.into());
+        let config = self.get_config();
+        dr.assert_can_claim_fee();
+
+        dr.target_contract.claim_fee(request_id, config.resolution_fee_percentage)
+    }
+
+    pub fn set_claimed_fee(&mut self, amount: u128, sender: AccountId, dr_id: u64) -> PromiseOrValue<U128> {
+        let mut dr = self.dr_get_expect(dr_id.into());
+        let config = self.configs.get(dr.global_config_id).unwrap();
+        self.assert_sender(&config.bond_token);
+        assert_eq!(sender, dr.target_contract.0, "Can only be called by the target contract");
+        dr.assert_can_claim_fee();
+
+        dr.paid_fee = Some(amount);
+        self.data_requests.replace(dr_id, &dr);
+        
+        PromiseOrValue::Value(U128(0))
+    }
+
     pub fn dr_finalize(&mut self, request_id: U64) -> PromiseOrValue<U128> {
-        let mut dr = self.dr_get_expect(request_id.into());
-        dr.assert_can_finalize();
-        dr.finalize();
+        let dr = self.dr_get_expect(request_id.into());
+        let config = self.configs.get(dr.global_config_id).unwrap();
+        dr.assert_can_finalize(config.gov);
         dr.target_contract.set_outcome(request_id, dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone(), false)
     }
 
     // TODO: handle storage
-    #[payable]
     pub fn dr_proceed_finalization(&mut self, paid_fee: u128, sender: AccountId, request_id: u64) -> PromiseOrValue<U128> {
         let initial_storage = env::storage_usage();
 
@@ -715,11 +739,11 @@ impl Contract {
         let config = self.configs.get(dr.global_config_id).unwrap();
 
         assert_eq!(sender, dr.target_contract.0, "this function can only be called by the target_contract");
-        dr.assert_can_finalize(); // prevent race conditions
+        dr.assert_can_finalize(config.gov); // prevent race conditions
 
         dr.finalize();
 
-        dr.paid_fee = paid_fee;
+        dr.paid_fee = Some(paid_fee);
         dr.return_validity_bond(config.bond_token);
 
         self.data_requests.replace(request_id, &dr);
