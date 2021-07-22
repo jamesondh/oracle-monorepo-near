@@ -39,7 +39,7 @@ impl Contract {
         updated_config.fee = new_fee_config.clone();
         self.configs.replace(self.configs.len() - 1, &updated_config);
 
-        logger::log_fee_config(&new_fee_config);
+        logger::log_oracle_config(&updated_config, self.configs.len() - 1);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }
