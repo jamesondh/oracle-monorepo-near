@@ -19,6 +19,7 @@ mod helpers;
 mod logger;
 mod upgrade;
 mod target_contract_handler;
+pub mod fee_config;
 
 /// Mocks
 mod fungible_token;
@@ -37,8 +38,7 @@ pub struct Contract {
     pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
     pub validity_bond: U128,
-    // Storage map
-    pub accounts: LookupMap<AccountId, AccountStorageBalance>
+    pub accounts: LookupMap<AccountId, AccountStorageBalance>, // storage map
 }
 
 impl Default for Contract {
@@ -52,7 +52,7 @@ impl Contract {
     #[init]
     pub fn new(
         initial_whitelist: Option<Vec<RegistryEntry>>,
-        config: oracle_config::OracleConfig
+        config: oracle_config::OracleConfig,
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());
         configs.push(&config);
@@ -69,7 +69,7 @@ impl Contract {
 }
 
 impl Contract {
-    fn assert_gov(&self) {
+    pub fn assert_gov(&self) {
         let config = self.configs.iter().last().unwrap();
         assert_eq!(
             config.gov,

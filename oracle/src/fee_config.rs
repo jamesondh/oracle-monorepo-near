@@ -1,59 +1,57 @@
 use crate::*;
-use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::serde::{ Serialize, Deserialize };
-use near_sdk::{ AccountId };
-use fee_config::FeeConfig;
+use near_sdk::serde::{ Deserialize, Serialize };
+
+const MAX_RESOLUTION_FEE_PERCENTAGE: u32 = 5000; // 5% in 1e5
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct OracleConfig {
-    pub gov: AccountId,
-    pub final_arbitrator: AccountId, // Invoked to have last say in `DataRequest`, this happens when the `challenge_bond` for a `DataRequest` is >= than `final_arbitrator_invoke_amount` / 100 % of the total supply
-    pub stake_token: AccountId,
-    pub bond_token: AccountId,
-    pub validity_bond: U128,
-    pub max_outcomes: u8,
-    pub default_challenge_window_duration: WrappedTimestamp,
-    pub min_initial_challenge_window_duration: WrappedTimestamp,
-    pub final_arbitrator_invoke_amount: U128, // Amount of tokens that when bonded in a single `ResolutionWindow` should trigger the final arbitrator
-    pub fee: FeeConfig,
+pub struct FeeConfig {
+    // total market cap of FLUX/stake_token denominated in bond_token
+    pub flux_market_cap: U128,
+    // total value staked (TVS) of all request interfaces; denominated in bond_token
+    pub total_value_staked: U128,
+    // global percentage of TVS to pay out to resolutors; denominated in 1e5 so 1 = 0.001%, 100000 = 100%
+    pub resolution_fee_percentage: u32,
 }
 
 #[near_bindgen]
 impl Contract {
-    pub fn get_config(&self) -> OracleConfig {
-        self.configs.iter().last().unwrap()
-    }
-
-    #[payable]
-    pub fn set_config(&mut self, new_config: OracleConfig) {
+    // @notice sets FLUX market cap, TVS, and fee percentage by updating current oracle config
+    // replaces the `fee` field inside oracle config with updated FeeConfig 
+    pub fn update_fee_config(
+        &mut self,
+        new_fee_config: FeeConfig,
+    ) {
         self.assert_gov();
-                
+
         let initial_storage = env::storage_usage();
 
-        self.configs.push(&new_config);
+        assert!(
+            u128::from(new_fee_config.total_value_staked) < u128::from(new_fee_config.flux_market_cap),
+            "TVS must be lower than market cap"
+        );
+        assert!(
+            new_fee_config.resolution_fee_percentage <= MAX_RESOLUTION_FEE_PERCENTAGE,
+            "Exceeds max resolution fee percentage"
+        );
 
-        logger::log_oracle_config(&new_config, self.configs.len() - 1);
+        // get current config and replace fee field
+        let mut updated_config = self.get_config();
+        updated_config.fee = new_fee_config.clone();
+        self.configs.replace(self.configs.len() - 1, &updated_config);
+
+        logger::log_oracle_config(&updated_config, self.configs.len() - 1);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
     }
 }
-
-impl Contract {
-
-    pub fn assert_sender(&self, expected_sender: &AccountId) {
-        assert_eq!(&env::predecessor_account_id(), expected_sender, "This function can only be called by {}", expected_sender);
-    }
-}
-
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-    use fee_config::FeeConfig;
+    use near_sdk::json_types::U128;
     use super::*;
-    
+
     fn alice() -> AccountId {
         "alice.near".to_string()
     }
@@ -101,7 +99,7 @@ mod mock_token_basic_tests {
             account_balance: 1000 * 10u128.pow(24),
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
-            attached_deposit: 19000000000000000000000,
+            attached_deposit: 15600000000000000000000,
             prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
@@ -111,18 +109,28 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    fn set_config_from_gov() {
+    fn g_update_fee() {
         testing_env!(get_context(gov()));
         let mut contract = Contract::new(None, config(gov()));
-        contract.set_config(config(alice()));
-        assert_eq!(contract.get_config().gov, alice());
+        let new_fee_config = FeeConfig {
+            flux_market_cap: U128(1234),
+            total_value_staked: U128(123),
+            resolution_fee_percentage: 999, // .999%
+        };
+        contract.update_fee_config(new_fee_config);
     }
-
+    
     #[test]
     #[should_panic(expected = "This method is only callable by the governance contract gov.near")]
-    fn fail_set_config_from_user() {
-        testing_env!(get_context(alice()));
+    fn g_update_fee_invalid() {
+        testing_env!(get_context(gov()));
         let mut contract = Contract::new(None, config(gov()));
-        contract.set_config(config(alice()));
+        testing_env!(get_context(bob()));
+        let new_fee_config = FeeConfig {
+            flux_market_cap: U128(1234),
+            total_value_staked: U128(123),
+            resolution_fee_percentage: 999, // .999%
+        };
+        contract.update_fee_config(new_fee_config);
     }
 }

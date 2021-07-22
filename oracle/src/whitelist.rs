@@ -106,6 +106,7 @@ impl Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
+    use fee_config::FeeConfig;
     use super::*;
 
     fn alice() -> AccountId {
@@ -148,7 +149,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(25_000_000_000_000_000_000_000_000_000_000),
-            resolution_fee_percentage: 0,
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 5000, // 5%
+            }
         }
     }
 

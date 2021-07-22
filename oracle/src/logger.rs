@@ -96,8 +96,13 @@ pub fn log_oracle_config(config: &OracleConfig, id: u64) {
                 "default_challenge_window_duration": config.default_challenge_window_duration,
                 "min_initial_challenge_window_duration": config.min_initial_challenge_window_duration,
                 "final_arbitrator_invoke_amount": config.final_arbitrator_invoke_amount,
-                "resolution_fee_percentage": config.resolution_fee_percentage,
                 
+                "fee": {
+                    "flux_market_cap": config.fee.flux_market_cap,
+                    "total_value_staked": config.fee.total_value_staked,
+                    "resolution_fee_percentage": config.fee.resolution_fee_percentage,
+                },
+
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
             }

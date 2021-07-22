@@ -255,7 +255,7 @@ impl DataRequestChange for DataRequest {
         let fee: Balance = match custom_fee {
             CustomFeeStake::Fixed(f) => f.into(),
             CustomFeeStake::Multiplier(_) | CustomFeeStake::None =>
-                config.resolution_fee_percentage as Balance * 
+                config.fee.resolution_fee_percentage as Balance * 
                 tvl_of_requestor / 
                 PERCENTAGE_DIVISOR as Balance
         };
@@ -803,6 +803,7 @@ mod mock_token_basic_tests {
     use crate::whitelist::{CustomFeeStakeArgs, RegistryEntry};
     use crate::data_request::AnswerType;
     use super::*;
+    use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -863,7 +864,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
-            resolution_fee_percentage: 10_000,
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 10_000,
+            }
         }
     }
 

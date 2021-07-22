@@ -52,6 +52,7 @@ mod mock_token_basic_tests {
     use crate::storage_manager::StorageManager;
     use crate::whitelist::CustomFeeStakeArgs;
     use crate::data_request::AnswerType;
+    use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -101,7 +102,11 @@ mod mock_token_basic_tests {
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
             final_arbitrator_invoke_amount: U128(250),
-            resolution_fee_percentage: 0,
+            fee: FeeConfig {
+                flux_market_cap: U128(50000),
+                total_value_staked: U128(10000),
+                resolution_fee_percentage: 5000, // 5%
+            }
         }
     }
 
