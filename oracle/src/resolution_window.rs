@@ -33,6 +33,15 @@ pub struct ResolutionWindow {
     pub bonded_outcome: Option<Outcome>,
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub struct ResolutionWindowSummary {
+    pub round: u16,
+    pub start_time: Timestamp,
+    pub end_time: Timestamp,
+    pub bond_size: Balance,
+    pub bonded_outcome: Option<Outcome>
+}
+
 impl ResolutionWindow {
     pub fn new(dr_id: u64, round: u16, prev_bond: Balance, challenge_period: u64, start_time: u64) -> Self {
         let new_resolution_window = Self {

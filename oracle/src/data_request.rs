@@ -53,6 +53,25 @@ pub struct DataRequest {
     pub paid_fee: Option<u128>
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub struct DataRequestSummary {
+    pub id: u64,
+    pub description: Option<String>,
+    pub sources: Vec<Source>,
+    pub outcomes: Option<Vec<String>>,
+    pub requestor: AccountId,
+    pub creator: AccountId,
+    pub finalized_outcome: Option<Outcome>,
+    pub resolution_windows: Vec<ResolutionWindowSummary>,
+    pub global_config_id: U64,
+    pub settlement_time: U64,
+    pub initial_challenge_period: U64,
+    pub final_arbitrator_triggered: bool,
+    pub target_contract: AccountId,
+    pub tags: Option<Vec<String>>,
+    pub paid_fee: Option<WrappedBalance>
+}
+
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
 pub enum CustomFeeStake {
     Multiplier(u16),
@@ -250,34 +269,6 @@ impl DataRequestChange for DataRequest {
 
         PromiseOrValue::Value(false)
     }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-pub struct ResolutionWindowSummary {
-    pub round: u16,
-    pub start_time: Timestamp,
-    pub end_time: Timestamp,
-    pub bond_size: Balance,
-    pub bonded_outcome: Option<Outcome>
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-pub struct DataRequestSummary {
-    pub id: u64,
-    pub description: Option<String>,
-    pub sources: Vec<Source>,
-    pub outcomes: Option<Vec<String>>,
-    pub requestor: AccountId,
-    pub creator: AccountId,
-    pub finalized_outcome: Option<Outcome>,
-    pub resolution_windows: Vec<ResolutionWindowSummary>,
-    pub global_config_id: U64,
-    pub settlement_time: U64,
-    pub initial_challenge_period: U64,
-    pub final_arbitrator_triggered: bool,
-    pub target_contract: AccountId,
-    pub tags: Option<Vec<String>>,
-    pub paid_fee: WrappedBalance
 }
 
 trait DataRequestView {
@@ -485,6 +476,10 @@ impl DataRequestView for DataRequest {
             resolution_windows.push(rw);
         }
 
+        let paid_fee = match self.paid_fee {
+            Some(paid_fee) => Some(U128(paid_fee)),
+            None => None
+        };
         // format data request
         DataRequestSummary {
             id: self.id,
@@ -501,7 +496,7 @@ impl DataRequestView for DataRequest {
             final_arbitrator_triggered: self.final_arbitrator_triggered,
             target_contract: self.target_contract.0.clone(),
             tags: self.tags.clone(),
-            paid_fee: U128(self.paid_fee)
+            paid_fee: paid_fee
         }
     }
 }
