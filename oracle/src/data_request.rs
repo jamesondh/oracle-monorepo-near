@@ -716,7 +716,7 @@ impl Contract {
         let config = self.get_config();
         dr.assert_can_claim_fee();
 
-        dr.target_contract.claim_fee(request_id, config.resolution_fee_percentage)
+        dr.target_contract.claim_fee(request_id, config.fee.resolution_fee_percentage)
     }
 
     pub fn set_claimed_fee(&mut self, amount: u128, sender: AccountId, dr_id: u64) -> PromiseOrValue<U128> {
