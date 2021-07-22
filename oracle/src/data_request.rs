@@ -54,7 +54,7 @@ pub struct CorrectStake {
     pub user_stake: Balance,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize)]
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Clone)]
 pub struct Source {
     pub end_point: String,
     pub source_path: String
@@ -409,6 +409,34 @@ impl DataRequestChange for DataRequest {
     }
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub struct ResolutionWindowSummary {
+    pub round: u16,
+    pub start_time: Timestamp,
+    pub end_time: Timestamp,
+    pub bond_size: Balance,
+    pub bonded_outcome: Option<Outcome>
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub struct DataRequestSummary {
+    pub id: u64,
+    pub description: Option<String>,
+    pub sources: Vec<Source>,
+    pub outcomes: Option<Vec<String>>,
+    pub requestor: AccountId,
+    pub creator: AccountId,
+    pub finalized_outcome: Option<Outcome>,
+    pub resolution_windows: Vec<ResolutionWindowSummary>,
+    pub global_config_id: U64,
+    pub settlement_time: U64,
+    pub initial_challenge_period: U64,
+    pub final_arbitrator_triggered: bool,
+    pub target_contract: AccountId,
+    pub tags: Option<Vec<String>>,
+    pub paid_fee: WrappedBalance
+}
+
 trait DataRequestView {
     fn assert_valid_outcome(&self, outcome: &Outcome);
     fn assert_valid_outcome_type(&self, outcome: &Outcome);
@@ -425,6 +453,7 @@ trait DataRequestView {
     fn calc_resolution_bond(&self) -> Balance;
     fn calc_validity_bond_to_return(&self) -> Balance;
     fn calc_resolution_fee_payout(&self) -> Balance;
+    fn summarize_dr(&self) -> DataRequestSummary;
 }
 
 impl DataRequestView for DataRequest {
@@ -593,6 +622,43 @@ impl DataRequestView for DataRequest {
             self.request_config.fee
         } else {
             self.request_config.validity_bond
+        }
+    }
+
+    /**
+     * @notice Transforms a data request struct into another struct with Serde serialization
+     */
+    fn summarize_dr(&self) -> DataRequestSummary {
+        // format resolution windows inside this data request
+        let mut resolution_windows = Vec::new();
+        for i in self.resolution_windows.iter() {
+            let rw = ResolutionWindowSummary {
+                round: i.round,
+                start_time: i.start_time,
+                end_time: i.end_time,
+                bond_size: i.bond_size,
+                bonded_outcome: i.bonded_outcome,
+            };
+            resolution_windows.push(rw);
+        }
+
+        // format data request
+        DataRequestSummary {
+            id: self.id,
+            description: self.description.clone(),
+            sources: self.sources.clone(),
+            outcomes: self.outcomes.clone(),
+            requestor: self.requestor.clone(),
+            creator: self.creator.clone(),
+            finalized_outcome: self.finalized_outcome.clone(),
+            resolution_windows: resolution_windows,
+            global_config_id: U64(self.global_config_id),
+            settlement_time: U64(self.settlement_time),
+            initial_challenge_period: U64(self.initial_challenge_period),
+            final_arbitrator_triggered: self.final_arbitrator_triggered,
+            target_contract: self.target_contract.0.clone(),
+            tags: self.tags.clone(),
+            paid_fee: U128(self.paid_fee)
         }
     }
 }
@@ -786,12 +852,35 @@ impl Contract {
 
         dr.return_validity_bond(config.bond_token)
     }
-}
 
-#[near_bindgen]
-impl Contract {
     fn dr_get_expect(&self, id: U64) -> DataRequest {
-        self.data_requests.get(id.into()).expect("DataRequest with this id does not exist")
+        self.data_requests.get(id.into()).expect("ERR_DATA_REQUEST_NOT_FOUND")
+    }
+
+    pub fn get_request_by_id(&self, id: U64) -> Option<DataRequestSummary> {
+        let dr = self.data_requests.get(id.into());
+        match dr {
+            None => None,
+            Some(d) => Some(d.summarize_dr())
+        }
+    }
+
+    pub fn get_latest_request(&self) -> Option<DataRequestSummary> {
+        if self.data_requests.len() < 1 {
+            return None;
+        }
+        let dr = self.data_requests.get(self.data_requests.len() - 1);
+        match dr {
+            None => None,
+            Some(d) => Some(d.summarize_dr())
+        }
+    }
+
+    pub fn get_requests(&self, from_index: U64, limit: U64) -> Vec<DataRequestSummary> {
+        let i: u64 = from_index.into();
+        (i..std::cmp::min(i + u64::from(limit), self.data_requests.len()))
+            .map(|index| self.data_requests.get(index).unwrap().summarize_dr())
+            .collect()
     }
 }
 
@@ -1154,7 +1243,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "DataRequest with this id does not exist")]
+    #[should_panic(expected = "ERR_DATA_REQUEST_NOT_FOUND")]
     fn dr_stake_not_existing() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1412,7 +1501,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "DataRequest with this id does not exist")]
+    #[should_panic(expected = "ERR_DATA_REQUEST_NOT_FOUND")]
     fn dr_unstake_invalid_id() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1501,7 +1590,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "DataRequest with this id does not exist")]
+    #[should_panic(expected = "ERR_DATA_REQUEST_NOT_FOUND")]
     fn dr_claim_invalid_id() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -2035,5 +2124,23 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         assert_eq!(sum_claim_res(d.claim(alice())), 75);
+    }
+
+    #[test]
+    fn dr_get_methods() {
+        testing_env!(get_context(token()));
+        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
+        let mut contract = Contract::new(whitelist, config());
+        dr_new(&mut contract);
+        dr_new(&mut contract);
+        dr_new(&mut contract);
+        
+        assert_eq!(contract.get_latest_request().unwrap().id, 2);
+        assert_eq!(contract.get_request_by_id(U64(1)).unwrap().id, 1);
+
+        assert_eq!(contract.get_requests(U64(0), U64(1))[0].id, 0);
+        assert_eq!(contract.get_requests(U64(1), U64(1)).len(), 1);
+        assert_eq!(contract.get_requests(U64(1), U64(2)).len(), 2);
+        assert_eq!(contract.get_requests(U64(0), U64(3)).len(), 3);
     }
 }
