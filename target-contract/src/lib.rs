@@ -90,7 +90,7 @@ impl TargetContract {
     pub fn claim_fee(
         &mut self,
         request_id: U64,
-        fee_percentage: u16
+        fee_percentage: u32
     ) -> Promise {
         self.assert_oracle();
         let tvl = 1_000_000_u128;
