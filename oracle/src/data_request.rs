@@ -13,7 +13,7 @@ use crate::fungible_token::{ fungible_token_transfer };
 
 pub const PERCENTAGE_DIVISOR: u16 = 10_000;
 
-pub const FINALZATION_GAS: u64 = 250_000_000_000_000;
+pub const FINALIZATION_GAS: u64 = 10_000_000_000_000;
 
 #[ext_contract]
 trait ExtSelf {
@@ -649,7 +649,7 @@ impl Contract {
                 // NEAR Params
                 &env::current_account_id(),
                 0,
-                FINALZATION_GAS
+                FINALIZATION_GAS
             )
         )
     }

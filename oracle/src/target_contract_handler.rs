@@ -14,7 +14,7 @@ pub trait TargetContractExtern {
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
 pub struct TargetContract(pub AccountId);
 
-const GAS_BASE_SET_OUTCOME: Gas = 250_000_000_000_000;
+const GAS_BASE_SET_OUTCOME: Gas = 100_000_000_000_000;
 
 impl TargetContract {
     pub fn claim_fee(

@@ -6,7 +6,7 @@ use near_sdk::serde_json::json;
 use near_sdk::serde::{ Deserialize, Serialize };
 
 near_sdk::setup_alloc!();
-const GAS_BASE_SET_OUTCOME: Gas = 200_000_000_000_000;
+const GAS_BASE_SET_OUTCOME: Gas = 35_000_000_000_000;
 pub const PERCENTAGE_DIVISOR: u16 = 10_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]

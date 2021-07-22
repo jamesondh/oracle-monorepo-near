@@ -170,7 +170,8 @@ fn dr_scenario_2() {
     let pre_outcome = init_res.alice.get_outcome(0);
     println!("Outcome on target before finalize: {:?}", pre_outcome);
     init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
-    init_res.alice.finalize(0);
+    let finalize_res = init_res.alice.finalize(0);
+    println!("Log(s) gas burnt {:?}", finalize_res.gas_burnt());
     let post_outcome = init_res.alice.get_outcome(0);
     println!("Outcome on target after finalize: {:?}", post_outcome);
 
@@ -300,7 +301,8 @@ fn dr_scenario_3() {
     println!("Vitalik has spent {} altogether on staking", pre_claim_difference_vitalik);
     
     init_res.treasurer.ft_transfer(&TARGET_CONTRACT_ID, 100_000);
-    init_res.alice.finalize(0);
+    let finalize_res = init_res.alice.finalize(0);
+    println!("Log(s) gas burnt {:?}", finalize_res.gas_burnt());
     init_res.bob.claim(0);
     init_res.carol.claim(0);
     init_res.jasper.claim(0);
