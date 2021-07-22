@@ -2,7 +2,7 @@ use crate::*;
 use near_sdk::json_types::{ U64 };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ AccountId, Gas, ext_contract, PromiseOrValue, Promise };
+use near_sdk::{ AccountId, Gas, ext_contract, Promise };
 use data_request::Outcome;
 
 #[ext_contract]
@@ -40,7 +40,7 @@ impl TargetContract {
         outcome: data_request::Outcome,
         tags: Option<Vec<String>>,
         final_arbitrator_triggered: bool
-    ) -> PromiseOrValue<U128> {
+    ) -> Promise {
         target_contract_extern::set_outcome(
             request_id,
             requestor,
@@ -51,7 +51,7 @@ impl TargetContract {
             // NEAR params
             &self.0,
             1, 
-            GAS_BASE_SET_OUTCOME,
-        ).into()
+            GAS_BASE_SET_OUTCOME / 10,
+        )
     }
 }

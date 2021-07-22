@@ -5,6 +5,7 @@ use near_sdk::{
     AccountId, 
     Balance,
     Promise,
+    PromiseResult
 };
 use crate::whitelist::CustomFeeStakeArgs;
 use crate::data_request::CustomFeeStake;
@@ -14,6 +15,19 @@ const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 construct_uint! {
     /// 256-bit unsigned integer.
     pub struct u256(4);
+}
+
+pub fn assert_one_yocto() {
+    assert_eq!(env::attached_deposit(), 1, "This function requires 1 yocto");
+}
+
+pub fn previous_promise_successful() -> bool {
+    // return wether the finalization call was successful
+    match env::promise_result(0) {
+        PromiseResult::NotReady => unreachable!(),
+        PromiseResult::Failed => false,
+        PromiseResult::Successful(_) => true
+    }
 }
 
 /*** operators that does not take decimals into account ***/

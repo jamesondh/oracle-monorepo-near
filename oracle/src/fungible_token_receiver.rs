@@ -8,7 +8,6 @@ use near_sdk::PromiseOrValue;
 pub enum Payload {
     NewDataRequest(NewDataRequestArgs),
     StakeDataRequest(StakeDataRequestArgs),
-    FinalizeDataRequest(FinalizeDataRequestArgs),
     SetPaidFee(SetPaidFeeArgs)
 }
 
@@ -33,7 +32,6 @@ impl FungibleTokenReceiver for Contract {
         let unspent = match payload {
             Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload).into(),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
-            Payload::FinalizeDataRequest(payload) => self.dr_proceed_finalization(amount.into(), sender_id.clone(), payload.request_id.into()),
             Payload::SetPaidFee(payload) => self.set_claimed_fee(amount.into(), sender_id.clone(), payload.request_id.into()),
         };
 

@@ -54,11 +54,6 @@ pub struct ChallengeDataRequestArgs {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct FinalizeDataRequestArgs {
-    pub request_id: U64,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct SetPaidFeeArgs {
     pub request_id: U64,
 }

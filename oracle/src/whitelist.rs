@@ -22,6 +22,7 @@ pub struct RegistryEntry {
     pub custom_fee: CustomFeeStakeArgs,
     pub code_base_url: Option<String>
 }
+// 
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);

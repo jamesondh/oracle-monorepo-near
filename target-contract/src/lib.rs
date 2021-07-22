@@ -1,4 +1,4 @@
-use near_sdk::{env, near_bindgen, AccountId, ext_contract, PromiseOrValue, Gas};
+use near_sdk::{env, near_bindgen, AccountId, ext_contract, Gas, Promise};
 use near_sdk::json_types::{U64, U128};
 use near_sdk::collections::LookupMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -7,6 +7,7 @@ use near_sdk::serde::{ Deserialize, Serialize };
 
 near_sdk::setup_alloc!();
 const GAS_BASE_SET_OUTCOME: Gas = 200_000_000_000_000;
+pub const PERCENTAGE_DIVISOR: u16 = 10_000;
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct AnswerNumberType {
@@ -85,6 +86,23 @@ impl TargetContract {
         }
     }
 
+    #[payable]
+    pub fn claim_fee(
+        &mut self,
+        request_id: U64,
+        fee_percentage: u16
+    ) -> Promise {
+        self.assert_oracle();
+        let tvl = 1_000_000_u128;
+        let fee = tvl * PERCENTAGE_DIVISOR as u128 / fee_percentage as u128 / PERCENTAGE_DIVISOR as u128;
+        let payload = json!({
+            "SetPaidFee": {
+                "request_id": request_id
+            }
+        }).to_string();
+        ext_token_contract::ft_transfer_call(self.oracle.to_string(), fee.into(), None, payload, &self.fee_token, 1, GAS_BASE_SET_OUTCOME)
+    }
+
     /**
      * @notice called by oracle to finalize the outcome result of a data request
      */
@@ -95,8 +113,7 @@ impl TargetContract {
         requestor: AccountId,
         outcome: Outcome,
         tags: Option<Vec<String>>,
-        final_arbitrator_triggered: bool
-    ) -> PromiseOrValue<U128> {
+    ) {
         self.assert_oracle();
         self.assert_requestor(requestor.clone());
         assert_eq!(env::attached_deposit(), 1);
@@ -110,19 +127,6 @@ impl TargetContract {
             &request_id,
             &result
         );
-
-        // forward the fee to the oracle (if not finalized by final arbitrator)
-        if !final_arbitrator_triggered {
-            let payload = json!({
-                "FinalizeDataRequest": {
-                    "request_id": request_id
-                }
-            }).to_string();
-            let fee = 100; // TODO: calc fee
-            PromiseOrValue::Promise(ext_token_contract::ft_transfer_call(self.oracle.to_string(), fee.into(), None, payload, &self.fee_token, 1, GAS_BASE_SET_OUTCOME))
-        } else {
-            PromiseOrValue::Value(0.into())
-        }
     }
 
     pub fn get_outcome(
@@ -191,8 +195,7 @@ mod tests {
             U64(0),
             requestor(),
             Outcome::Answer(AnswerType::String("outcome".to_string())),
-            None,
-            false
+            None
         );
     }
     

@@ -128,10 +128,29 @@ impl TestAccount {
         res
     }
 
+    fn claim_fee(
+        &self,
+        dr_id: u64
+    ) -> ExecutionResult {
+        let res = self.account.call(
+            ORACLE_CONTRACT_ID.to_string(), 
+            "dr_claim_fee", 
+            json!({
+                "request_id": U64(dr_id)
+            }).to_string().as_bytes(),
+            DEFAULT_GAS,
+            1
+        );
+
+        res.assert_success();
+        res
+    }
+
     pub fn finalize(
         &self,
         dr_id: u64
     ) -> ExecutionResult {
+        self.claim_fee(dr_id);
         let res = self.account.call(
             ORACLE_CONTRACT_ID.to_string(), 
             "dr_finalize", 
@@ -139,7 +158,7 @@ impl TestAccount {
                 "request_id": U64(dr_id)
             }).to_string().as_bytes(),
             DEFAULT_GAS,
-            1600000000000000000000
+            0
         );
 
         res.assert_success();

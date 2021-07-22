@@ -3,7 +3,7 @@ use crate::*;
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::json_types::{U64, U128};
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ env, Balance, AccountId, PromiseOrValue, Promise };
+use near_sdk::{ env, Balance, AccountId, PromiseOrValue, Promise, ext_contract };
 use near_sdk::collections::{ Vector, LookupMap };
 
 use crate::types::{ Timestamp, Duration };
@@ -11,6 +11,13 @@ use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
 pub const PERCENTAGE_DIVISOR: u16 = 10_000;
+
+pub const FINALZATION_GAS: u64 = 250_000_000_000_000;
+
+#[ext_contract]
+trait ExtSelf {
+    fn dr_proceed_finalization(request_id: U64, sender: AccountId);
+}
 
 pub struct ClaimRes {
     pub bond_token_payout: u128,
@@ -243,6 +250,7 @@ impl DataRequestChange for DataRequest {
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
 
+        // TODO: this has to be reworked
         // set fee to fixed fee if set, otherwise set to percentage of requestor's TVL
         let fee: Balance = match custom_fee {
             CustomFeeStake::Fixed(f) => f.into(),
@@ -581,7 +589,7 @@ impl DataRequestView for DataRequest {
      * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
      */
     fn calc_resolution_fee_payout(&self) -> Balance {
-        if self.request_config.fee > self.request_config.validity_bond {
+        if self.paid_fee.unwrap_or(0) > self.request_config.validity_bond {
             self.request_config.fee
         } else {
             self.request_config.validity_bond
@@ -680,8 +688,6 @@ impl Contract {
         logger::log_update_data_request(&dr);
         helpers::refund_storage(initial_storage, env::predecessor_account_id());
 
-        // TODO: get fee paid from dr
-
         // transfer owed stake tokens
         let prev_prom = if stake_payout.stake_token_payout > 0 {
             Some(fungible_token_transfer(config.stake_token, account_id.to_string(), stake_payout.stake_token_payout))
@@ -703,7 +709,9 @@ impl Contract {
         }
     }
 
-    pub fn dr_claim_fee(&self, request_id: U64) -> Promise {
+    #[payable]
+    pub fn dr_claim_fee(&mut self, request_id: U64) -> Promise {
+        helpers::assert_one_yocto();
         let dr = self.dr_get_expect(request_id.into());
         let config = self.get_config();
         dr.assert_can_claim_fee();
@@ -724,36 +732,38 @@ impl Contract {
         PromiseOrValue::Value(U128(0))
     }
 
-    pub fn dr_finalize(&mut self, request_id: U64) -> PromiseOrValue<U128> {
+    pub fn dr_finalize(&mut self, request_id: U64) -> Promise {
         let dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         dr.assert_can_finalize(config.gov);
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), dr.finalized_outcome.as_ref().unwrap().clone(), dr.tags.clone(), false)
+        let final_outcome = dr.get_final_outcome();
+        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), final_outcome.unwrap(), dr.tags.clone(), false)
+        .then(
+            ext_self::dr_proceed_finalization(
+                request_id,
+                env::predecessor_account_id(),
+                // NEAR Params
+                &env::current_account_id(),
+                0,
+                FINALZATION_GAS
+            )
+        )
     }
 
-    // TODO: handle storage
-    pub fn dr_proceed_finalization(&mut self, paid_fee: u128, sender: AccountId, request_id: u64) -> PromiseOrValue<U128> {
-        let initial_storage = env::storage_usage();
-
+    #[private]
+    pub fn dr_proceed_finalization(&mut self, request_id: U64, sender: AccountId) {        
         let mut dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-
-        assert_eq!(sender, dr.target_contract.0, "this function can only be called by the target_contract");
+        assert!(helpers::previous_promise_successful() || sender == config.gov, "finalization transaction failed, can only be bypassed by `gov`");
         dr.assert_can_finalize(config.gov); // prevent race conditions
 
         dr.finalize();
 
-        dr.paid_fee = Some(paid_fee);
         dr.return_validity_bond(config.bond_token);
 
-        self.data_requests.replace(request_id, &dr);
+        self.data_requests.replace(request_id.into(), &dr);
 
         logger::log_update_data_request(&dr);
-
-        let account = self.accounts.get(&sender).expect("err no storage deposit for account");
-        self.use_storage(&sender, initial_storage, account.available);
-
-        PromiseOrValue::Value(0.into())
     }
 
     #[payable]
@@ -1330,7 +1340,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Challenge period not ended")]
+    #[should_panic(expected = "Can only be finalized after fee is paid or when enforced by the DAO")]
     fn dr_finalize_active_challenge() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
