@@ -3,7 +3,7 @@ use near_sdk::json_types::{ U64 };
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Deserialize, Serialize };
 use near_sdk::{ AccountId, Gas, ext_contract, Promise };
-use data_request::Outcome;
+use types::Outcome;
 
 #[ext_contract]
 pub trait TargetContractExtern {
@@ -37,7 +37,7 @@ impl TargetContract {
         &self,
         request_id: U64,
         requestor: AccountId,
-        outcome: data_request::Outcome,
+        outcome: Outcome,
         tags: Option<Vec<String>>,
         final_arbitrator_triggered: bool
     ) -> Promise {

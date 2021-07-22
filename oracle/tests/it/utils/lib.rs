@@ -29,6 +29,7 @@ mod deposit;
 // pub use account_utils::*;
 extern crate oracle;
 pub use oracle::*;
+pub use types::*;
 pub use account_utils::*;
 use deposit::*;
 use request_interface;

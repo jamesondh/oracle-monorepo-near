@@ -51,7 +51,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
     use crate::whitelist::CustomFeeStakeArgs;
-    use crate::data_request::AnswerType;
+    use crate::types::*;
     use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
@@ -153,7 +153,7 @@ mod mock_token_basic_tests {
         let msg = serde_json::json!({
             "StakeDataRequest": {
                 "id": "0",
-                "outcome": data_request::Outcome::Answer(AnswerType::String("a".to_string()))
+                "outcome": Outcome::Answer(AnswerType::String("a".to_string()))
             }
         });
         contract.ft_on_transfer(alice(), U128(100), msg.to_string());
@@ -188,7 +188,7 @@ mod mock_token_basic_tests {
         let msg = serde_json::json!({
             "StakeDataRequest": {
                 "id": "0",
-                "outcome": data_request::Outcome::Answer(AnswerType::String("a".to_string()))
+                "outcome": Outcome::Answer(AnswerType::String("a".to_string()))
             }
         });
         contract.ft_on_transfer(alice(), U128(100), msg.to_string());

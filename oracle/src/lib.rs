@@ -7,7 +7,8 @@ use near_sdk::json_types::{ U64, U128 };
 
 near_sdk::setup_alloc!();
 
-mod types;
+pub mod types;
+mod resolution_window;
 pub mod data_request;
 mod requestor_handler;
 mod fungible_token_receiver;

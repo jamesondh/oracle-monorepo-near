@@ -32,7 +32,7 @@ fn dr_scenario_1() {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
                 let pre_stake_balance_bob = init_res.bob.get_token_balance(None);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
                 let post_stake_balance_bob = init_res.bob.get_token_balance(None);
                 // make sure no refund (bond size is exactly met)
@@ -41,7 +41,7 @@ fn dr_scenario_1() {
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
                 let pre_stake_balance_carol = init_res.carol.get_token_balance(None);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
                 let post_stake_balance_carol = init_res.carol.get_token_balance(None);
                 // make sure no refund (bond size is exactly met)
@@ -67,7 +67,7 @@ fn dr_scenario_1() {
     println!("Request interface balance before claim: {}", init_res.alice.get_token_balance(Some(REQUEST_INTERFACE_CONTRACT_ID.to_string())));
     let pre_outcome = init_res.alice.get_outcome(0);
     println!("Outcome before finalize: {:?}", pre_outcome);
-    let correct_outcome = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+    let correct_outcome = Outcome::Answer(AnswerType::String("test".to_string()));
     init_res.alice.dr_final_arbitrator_finalize(0, correct_outcome);
     let post_outcome = init_res.alice.get_outcome(0);
     println!("Outcome after finalize: {:?}", post_outcome);
@@ -135,14 +135,14 @@ fn dr_scenario_2() {
                     quarter_of_bond,
                     (quarter_of_bond*2)
                 );
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake.clone(), quarter_of_bond);
                 let _res = init_res.carol.stake(0, outcome_to_stake.clone(), quarter_of_bond);
                 let _res = init_res.jasper.stake(0, outcome_to_stake, quarter_of_bond*2);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Peter", i, bond_size);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.peter.stake(0, outcome_to_stake, bond_size);
             }
         };
@@ -251,7 +251,7 @@ fn dr_scenario_3() {
                     third_of_bond,
                     third_of_bond
                 );
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.peter.stake(0, outcome_to_stake.clone(), third_of_bond);
                 let _res = init_res.illia.stake(0, outcome_to_stake.clone(), third_of_bond);
                 let _res = init_res.vitalik.stake(0, outcome_to_stake.clone(), third_of_bond);
@@ -265,7 +265,7 @@ fn dr_scenario_3() {
                     third_of_bond,
                     third_of_bond,
                 );
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake.clone(), third_of_bond);
                 let _res = init_res.carol.stake(0, outcome_to_stake.clone(), third_of_bond);
                 let _res = init_res.jasper.stake(0, outcome_to_stake.clone(), third_of_bond);
@@ -377,12 +377,12 @@ fn dr_scenario_multiplier() {
         match i % 2 == 0 {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
             }
         };
@@ -458,12 +458,12 @@ fn dr_scenario_fixed_fee() {
         match i % 2 == 0 {
             true => {
                 println!("Round {}, bond size: {}, staking correctly with Bob", i, bond_size);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test".to_string()));
                 let _res = init_res.bob.stake(0, outcome_to_stake, bond_size);
             },
             false => {
                 println!("Round {}, bond size: {}, staking incorrectly with Carol", i, bond_size);
-                let outcome_to_stake = data_request::Outcome::Answer(data_request::AnswerType::String("test_wrong".to_string()));
+                let outcome_to_stake = Outcome::Answer(AnswerType::String("test_wrong".to_string()));
                 let _res = init_res.carol.stake(0, outcome_to_stake, bond_size);
             }
         };

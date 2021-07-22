@@ -9,13 +9,10 @@ use near_sdk::{
     serde_json::json,
 };
 
-use crate::{ 
-    data_request::{
-        DataRequest,
-        ResolutionWindow,
-        Outcome,
-        AnswerType,
-    },
+use crate::{
+    types::*,
+    data_request::DataRequest,
+    resolution_window::ResolutionWindow,
     whitelist::RegistryEntry,
     oracle_config::{
         OracleConfig

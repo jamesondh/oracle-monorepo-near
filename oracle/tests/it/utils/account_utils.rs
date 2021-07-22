@@ -1,7 +1,6 @@
 use crate::utils::*;
 use oracle::data_request::DataRequestDataType;
-use target_contract::Outcome;
-
+use oracle::types::*;
 pub fn init_balance() -> u128 {
     to_yocto("100000")
 }
@@ -114,7 +113,7 @@ impl TestAccount {
     pub fn stake(
         &self,
         dr_id: u64, 
-        outcome: data_request::Outcome,
+        outcome: Outcome,
         amount: u128
     ) -> ExecutionResult {
         let msg = json!({
@@ -168,7 +167,7 @@ impl TestAccount {
     pub fn dr_final_arbitrator_finalize(
         &self,
         dr_id: u64,
-        outcome: data_request::Outcome
+        outcome: Outcome
     ) -> ExecutionResult {
         let res = self.account.call(
             ORACLE_CONTRACT_ID.to_string(), 

@@ -1,6 +1,7 @@
 use crate::*;
 use crate::data_request::DataRequestDataType;
 use near_sdk::serde::{ Serialize, Deserialize };
+use types::*;
 
 const MAX_SOURCES: u8 = 8;
 const MIN_OUTCOMES: u8 = 2;
@@ -44,13 +45,13 @@ impl Contract {
 #[derive(Serialize, Deserialize)]
 pub struct StakeDataRequestArgs {
     pub id: U64,
-    pub outcome: data_request::Outcome,
+    pub outcome: Outcome
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ChallengeDataRequestArgs {
     pub id: U64,
-    pub answer: data_request::Outcome,
+    pub answer: Outcome
 }
 
 #[derive(Serialize, Deserialize)]

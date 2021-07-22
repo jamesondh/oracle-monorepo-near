@@ -16,8 +16,8 @@ fn dr_claim_flow() {
     
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
-    let outcome = data_request::Outcome::Answer(
-        data_request::AnswerType::String("test".to_string())
+    let outcome = Outcome::Answer(
+        AnswerType::String("test".to_string())
     );
     let _res = init_res.alice.stake(0, outcome, stake_amount);
 
@@ -51,8 +51,8 @@ fn dr_fixed_fee_flow() {
     
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
-    let outcome = data_request::Outcome::Answer(
-        data_request::AnswerType::String("test".to_string())
+    let outcome = Outcome::Answer(
+        AnswerType::String("test".to_string())
     );
     let _res = init_res.alice.stake(0, outcome, stake_amount);
 
@@ -87,8 +87,8 @@ fn dr_multiplier_flow() {
     
     let dr_exist = init_res.alice.dr_exists(0);
     assert!(dr_exist, "something went wrong during dr creation");
-    let outcome = data_request::Outcome::Answer(
-        data_request::AnswerType::String("test".to_string())
+    let outcome = Outcome::Answer(
+        AnswerType::String("test".to_string())
     );
     let _res = init_res.alice.stake(0, outcome, stake_amount);
 
