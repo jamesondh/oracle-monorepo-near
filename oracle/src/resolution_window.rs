@@ -1,14 +1,10 @@
-use crate::*;
-
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::json_types::{U64, U128};
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ env, Balance, AccountId, PromiseOrValue, Promise, ext_contract };
-use near_sdk::collections::{ Vector, LookupMap };
+use near_sdk::{ Balance, AccountId };
+use near_sdk::collections::{ LookupMap };
 
 use crate::types::*;
 use crate::logger;
-use crate::fungible_token::{ fungible_token_transfer };
 
 pub enum WindowStakeResult {
     Incorrect(Balance), // Round bonded outcome was correct
