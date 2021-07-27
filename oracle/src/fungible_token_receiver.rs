@@ -7,8 +7,7 @@ use near_sdk::PromiseOrValue;
 #[derive(Serialize, Deserialize)]
 pub enum Payload {
     NewDataRequest(NewDataRequestArgs),
-    StakeDataRequest(StakeDataRequestArgs),
-    SetPaidFee(SetPaidFeeArgs)
+    StakeDataRequest(StakeDataRequestArgs)
 }
 
 pub trait FungibleTokenReceiver {
@@ -32,7 +31,6 @@ impl FungibleTokenReceiver for Contract {
         let unspent = match payload {
             Payload::NewDataRequest(payload) => self.ft_dr_new_callback(sender_id.clone(), amount.into(), payload).into(),
             Payload::StakeDataRequest(payload) => self.dr_stake(sender_id.clone(), amount.into(), payload),
-            Payload::SetPaidFee(payload) => self.set_claimed_fee(amount.into(), sender_id.clone(), payload.request_id.into()),
         };
 
         self.use_storage(&sender_id, initial_storage_usage, account.available);
@@ -50,8 +48,7 @@ mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
     use crate::storage_manager::StorageManager;
-    use crate::whitelist::CustomFeeStakeArgs;
-    use crate::types::*;
+
     use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
@@ -86,7 +83,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            custom_fee: CustomFeeStakeArgs::None,
+            stake_multiplier: None,
             code_base_url: None
         }
     }
@@ -138,7 +135,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+        contract.dr_new(bob(), 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
@@ -165,7 +162,7 @@ mod mock_token_basic_tests {
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
 
-        contract.dr_new(bob(), 100, 5, NewDataRequestArgs{
+        contract.dr_new(bob(), 5, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),

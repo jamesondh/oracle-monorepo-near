@@ -35,7 +35,6 @@ use deposit::*;
 use request_interface;
 use target_contract;
 use token;
-use oracle::whitelist::CustomFeeStakeArgs;
 use oracle::data_request::PERCENTAGE_DIVISOR;
 use uint::construct_uint;
 
@@ -93,7 +92,7 @@ pub struct TestUtils {
 }
 
 pub struct TestSetupArgs {
-    pub custom_fee: CustomFeeStakeArgs,
+    pub stake_multiplier: Option<u16>,
     pub validity_bond: u128,
     pub final_arbitrator_invoke_amount: u128
 }
@@ -104,7 +103,7 @@ impl TestUtils {
     ) -> Self {
         let args = test_setup_args.unwrap_or(
             TestSetupArgs {
-                custom_fee: CustomFeeStakeArgs::None,
+                stake_multiplier: None,
                 validity_bond: VALIDITY_BOND,
                 final_arbitrator_invoke_amount: 2500
             }
@@ -112,7 +111,7 @@ impl TestUtils {
 
         let master_account = TestAccount::new(None, None);
         let token_init_res = token_utils::TokenUtils::new(&master_account); // Init token
-        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.custom_fee, args.validity_bond, args.final_arbitrator_invoke_amount);  // Init oracle
+        let oracle_init_res = oracle_utils::OracleUtils::new(&master_account, args.validity_bond, args.final_arbitrator_invoke_amount);  // Init oracle
         let request_interface_init_res = request_interface_utils::RequestInterfaceUtils::new(&master_account);
         let target_contract_init_res = target_contract_utils::TargetContractUtils::new(&master_account);
 

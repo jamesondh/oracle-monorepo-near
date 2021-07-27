@@ -53,8 +53,3 @@ pub struct ChallengeDataRequestArgs {
     pub id: U64,
     pub answer: Outcome
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct SetPaidFeeArgs {
-    pub request_id: U64,
-}

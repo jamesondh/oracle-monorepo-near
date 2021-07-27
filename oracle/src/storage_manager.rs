@@ -142,7 +142,6 @@ mod mock_token_basic_tests {
     use std::convert::TryInto;
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-    use crate::whitelist::CustomFeeStakeArgs;
     use fee_config::FeeConfig;
 
     fn alice() -> AccountId {
@@ -177,7 +176,7 @@ mod mock_token_basic_tests {
         RegistryEntry {
             interface_name: account.clone(),
             contract_entry: account.clone(),
-            custom_fee: CustomFeeStakeArgs::None,
+            stake_multiplier: None,
             code_base_url: None
         }
     }

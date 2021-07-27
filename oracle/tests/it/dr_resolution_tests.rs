@@ -1,6 +1,4 @@
 use crate::utils::*;
-use oracle::whitelist::CustomFeeStakeArgs;
-use near_sdk::json_types::U128;
 use oracle::data_request::PERCENTAGE_DIVISOR;
 
 #[test]
@@ -38,8 +36,9 @@ fn dr_fixed_fee_flow() {
     let custom_fee_amount = 100;
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
+
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::Fixed(U128(custom_fee_amount)),
+        stake_multiplier: None,
         validity_bond: 1,
         final_arbitrator_invoke_amount: 2500
     }));
@@ -76,7 +75,7 @@ fn dr_multiplier_flow() {
     let stake_amount = to_yocto("250");
     let dr_cost = 100;
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::Fixed(U128(100)),
+        stake_multiplier: None,
         validity_bond: 1,
         final_arbitrator_invoke_amount: 2500
     }));

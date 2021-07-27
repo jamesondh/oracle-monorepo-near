@@ -1,6 +1,4 @@
 use crate::utils::*;
-use oracle::whitelist::CustomFeeStakeArgs;
-use near_sdk::json_types::U128;
 
 // Scenario: Bob stakes correctly and Carol takes turns (incorrectly) disputing
 // until the final arbitrator is invoked and Alice must finalize
@@ -9,7 +7,7 @@ fn dr_scenario_1() {
     // configure test options and create data request
     let validity_bond = 1;
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::None,
+        stake_multiplier: None,
         validity_bond,
         final_arbitrator_invoke_amount: 2500
     }));
@@ -105,7 +103,7 @@ fn dr_scenario_2() {
     // configure test options and create data request
     let validity_bond = 2;
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::None,
+        stake_multiplier: None,
         validity_bond,
         final_arbitrator_invoke_amount: 2500
     }));
@@ -219,7 +217,7 @@ fn dr_scenario_3() {
     // configure test options and create data request
     let validity_bond = 3;
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::None,
+        stake_multiplier: None,
         validity_bond,
         final_arbitrator_invoke_amount: 2500
     }));
@@ -356,7 +354,7 @@ fn dr_scenario_multiplier() {
     let validity_bond = 1;
     let multiplier = 10500; // 105%
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::Multiplier(multiplier),
+        stake_multiplier: None,
         validity_bond,
         final_arbitrator_invoke_amount: 2500
     }));
@@ -430,9 +428,8 @@ fn dr_scenario_multiplier() {
 fn dr_scenario_fixed_fee() {
     // configure test options and create data request
     let validity_bond = 2;
-    let fee = 9999;
     let init_res = TestUtils::init(Some(TestSetupArgs {
-        custom_fee: CustomFeeStakeArgs::Fixed(U128(fee)),
+        stake_multiplier: None,
         validity_bond,
         final_arbitrator_invoke_amount: 2500
     }));

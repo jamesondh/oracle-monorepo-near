@@ -1,25 +1,24 @@
 use crate::utils::*;
 use oracle::oracle_config::OracleConfig;
-use oracle::whitelist::{RegistryEntry, CustomFeeStakeArgs};
+use oracle::whitelist::{RegistryEntry};
 use oracle::fee_config::FeeConfig;
 
 pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
 }
 
-fn new_registry_entry(contract_id: String, custom_fee: CustomFeeStakeArgs) -> RegistryEntry {
+fn new_registry_entry(contract_id: String) -> RegistryEntry {
     RegistryEntry {
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),
-        custom_fee
+        stake_multiplier: Some(0)
     }
 }
 
 impl OracleUtils {
     pub fn new(
         master_account: &TestAccount,
-        custom_fee: CustomFeeStakeArgs,
         validity_bond: u128,
         final_arbitrator_invoke_amount: u128
     ) -> Self {        
@@ -54,8 +53,8 @@ impl OracleUtils {
             // init method
             init_method: new(
                 Some(vec![
-                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string(), custom_fee), 
-                        new_registry_entry(TARGET_CONTRACT_ID.to_string(), CustomFeeStakeArgs::None)
+                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string()), 
+                        new_registry_entry(TARGET_CONTRACT_ID.to_string())
                     ]
                 ), 
                 config
