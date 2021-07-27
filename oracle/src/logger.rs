@@ -36,7 +36,6 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "requestor": request.requestor,
                 "finalized_outcome": request.finalized_outcome,
                 "initial_challenge_period": U64(request.initial_challenge_period),
-                "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
                 "fee": U128(request.request_config.fee),
@@ -66,7 +65,6 @@ pub fn log_update_data_request(request: &DataRequest) {
                 "requestor": request.requestor,
                 "finalized_outcome": request.finalized_outcome,
                 "initial_challenge_period": U64(request.initial_challenge_period),
-                "settlement_time": U64(request.settlement_time),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
             }

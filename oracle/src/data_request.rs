@@ -44,7 +44,6 @@ pub struct DataRequest {
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
     pub request_config: DataRequestConfig,
-    pub settlement_time: u64,
     pub initial_challenge_period: Duration,
     pub final_arbitrator_triggered: bool,
     pub target_contract: target_contract_handler::TargetContract,
@@ -64,7 +63,6 @@ pub struct DataRequestSummary {
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vec<ResolutionWindowSummary>,
     pub global_config_id: U64,
-    pub settlement_time: U64,
     pub initial_challenge_period: U64,
     pub final_arbitrator_triggered: bool,
     pub target_contract: AccountId,
@@ -139,7 +137,6 @@ impl DataRequestChange for DataRequest {
                 fee
             },
             initial_challenge_period: request_data.challenge_period.into(),
-            settlement_time: request_data.settlement_time.into(),
             final_arbitrator_triggered: false,
             target_contract: target_contract_handler::TargetContract(request_data.target_contract),
             description: request_data.description,
@@ -282,7 +279,6 @@ trait DataRequestView {
     fn assert_final_arbitrator(&self);
     fn assert_final_arbitrator_invoked(&self);
     fn assert_final_arbitrator_not_invoked(&self);
-    fn assert_reached_settlement_time(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn calc_resolution_bond(&self) -> Balance;
     fn calc_validity_bond_to_return(&self) -> Balance;
@@ -377,15 +373,6 @@ impl DataRequestView for DataRequest {
             !self.final_arbitrator_triggered,
             "Final arbitrator is invoked for `DataRequest` with id: {}",
             self.id
-        );
-    }
-
-    fn assert_reached_settlement_time(&self) {
-        assert!(
-            self.settlement_time <= env::block_timestamp(),
-            "Cannot stake on `DataRequest` {} until settlement time {}",
-            self.id,
-            self.settlement_time
         );
     }
 
@@ -491,7 +478,6 @@ impl DataRequestView for DataRequest {
             finalized_outcome: self.finalized_outcome.clone(),
             resolution_windows: resolution_windows,
             global_config_id: U64(self.global_config_id),
-            settlement_time: U64(self.settlement_time),
             initial_challenge_period: U64(self.initial_challenge_period),
             final_arbitrator_triggered: self.final_arbitrator_triggered,
             target_contract: self.target_contract.0.clone(),
@@ -547,7 +533,6 @@ impl Contract {
         let mut dr = self.dr_get_expect(payload.id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
         self.assert_sender(&config.stake_token);
-        dr.assert_reached_settlement_time();
         dr.assert_final_arbitrator_not_invoked();
         dr.assert_can_stake_on_outcome(&payload.outcome);
         dr.assert_valid_outcome(&payload.outcome);
