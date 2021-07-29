@@ -45,6 +45,7 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "date": U64(ns_to_ms(env::block_timestamp())),
                 "block_height": U64(env::block_index()),
                 "data_type": request.data_type,
+                "paid_fee": request.paid_fee,
                 "creator": request.creator,
             }
         })
@@ -68,6 +69,7 @@ pub fn log_update_data_request(request: &DataRequest) {
                 "initial_challenge_period": U64(request.initial_challenge_period),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
                 "target_contract": request.target_contract,
+                "paid_fee": request.paid_fee,
             }
         })
         .to_string()

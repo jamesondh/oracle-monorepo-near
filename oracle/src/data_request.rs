@@ -25,7 +25,7 @@ pub struct Source {
     pub source_path: String // data.price.usdeth
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub enum DataRequestDataType {
     Number(U128),
     String,
@@ -47,12 +47,13 @@ pub struct DataRequest {
     pub final_arbitrator_triggered: bool,
     pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
+    pub paid_fee: Option<u128>,
     pub data_type: DataRequestDataType,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct DataRequestSummary {
-    pub id: u64,
+    pub id: U64,
     pub description: Option<String>,
     pub sources: Vec<Source>,
     pub outcomes: Option<Vec<String>>,
@@ -65,6 +66,8 @@ pub struct DataRequestSummary {
     pub final_arbitrator_triggered: bool,
     pub target_contract: AccountId,
     pub tags: Option<Vec<String>>,
+    pub data_type: DataRequestDataType,
+    pub paid_fee: Option<WrappedBalance>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -412,9 +415,9 @@ impl DataRequestView for DataRequest {
         for i in self.resolution_windows.iter() {
             let rw = ResolutionWindowSummary {
                 round: i.round,
-                start_time: i.start_time,
-                end_time: i.end_time,
-                bond_size: i.bond_size,
+                start_time: U64(i.start_time),
+                end_time: U64(i.end_time),
+                bond_size: U128(i.bond_size),
                 bonded_outcome: i.bonded_outcome,
             };
             resolution_windows.push(rw);
@@ -422,7 +425,7 @@ impl DataRequestView for DataRequest {
 
         // format data request
         DataRequestSummary {
-            id: self.id,
+            id: U64(self.id),
             description: self.description.clone(),
             sources: self.sources.clone(),
             outcomes: self.outcomes.clone(),
@@ -435,6 +438,8 @@ impl DataRequestView for DataRequest {
             final_arbitrator_triggered: self.final_arbitrator_triggered,
             target_contract: self.target_contract.0.clone(),
             tags: self.tags.clone(),
+            paid_fee: paid_fee,
+            data_type: self.data_type.clone(),
         }
     }
 }

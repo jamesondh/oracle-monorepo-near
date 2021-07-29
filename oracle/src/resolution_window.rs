@@ -33,9 +33,9 @@ pub struct ResolutionWindow {
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct ResolutionWindowSummary {
     pub round: u16,
-    pub start_time: Timestamp, 
-    pub end_time: Timestamp,
-    pub bond_size: Balance,
+    pub start_time: WrappedTimestamp,
+    pub end_time: WrappedTimestamp,
+    pub bond_size: WrappedBalance,
     pub bonded_outcome: Option<Outcome>
 }
 
