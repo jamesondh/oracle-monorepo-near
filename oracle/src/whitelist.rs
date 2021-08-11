@@ -7,15 +7,16 @@ use near_sdk::collections::LookupMap;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+// TODO: change to RequestorConfiguration
 pub struct RegistryEntry {
     pub interface_name: String,
-    pub contract_entry: AccountId,
-    pub stake_multiplier: Option<u16>,
+    pub contract_entry: AccountId, // Change to account_id
+    pub stake_multiplier: Option<u16>, 
     pub code_base_url: Option<String>
 }
-
+   
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Whitelist(LookupMap<AccountId, RegistryEntry>);
+pub struct Whitelist(LookupMap<AccountId, RegistryEntry>); // maps requestor account id to requestors config
 
 impl Whitelist {
     pub fn new(initial_whitelist: Option<Vec<RegistryEntry>>) -> Self {
@@ -79,7 +80,7 @@ impl WhitelistHandler for Contract {
 }
 
 impl Contract {
-    pub (crate) fn assert_whitelisted(&self, requestor: AccountId) {
+    pub fn assert_whitelisted(&self, requestor: AccountId) {
         assert!(self.whitelist_contains(requestor), "Err predecessor is not whitelisted");
     }
 

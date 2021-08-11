@@ -29,10 +29,11 @@ pub struct ResolutionWindow {
     pub bonded_outcome: Option<Outcome>,
 }
 
+// TODO: timestamps and balances need to be wrapped
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct ResolutionWindowSummary {
     pub round: u16,
-    pub start_time: Timestamp,
+    pub start_time: Timestamp, 
     pub end_time: Timestamp,
     pub bond_size: Balance,
     pub bonded_outcome: Option<Outcome>

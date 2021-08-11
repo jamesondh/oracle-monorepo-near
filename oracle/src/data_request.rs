@@ -12,8 +12,7 @@ use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
 pub const PERCENTAGE_DIVISOR: u16 = 10_000;
-
-pub const FINALZATION_GAS: u64 = 250_000_000_000_000;
+pub const FINALIZATION_GAS: u64 = 250_000_000_000_000;
 
 #[ext_contract]
 trait ExtSelf {
@@ -22,8 +21,8 @@ trait ExtSelf {
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Clone)]
 pub struct Source {
-    pub end_point: String,
-    pub source_path: String
+    pub end_point: String, // pro.coinbase.com/USD/ETH
+    pub source_path: String // data.price.usdeth
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Deserialize, Serialize, Debug, PartialEq)]
@@ -39,12 +38,12 @@ pub struct DataRequest {
     pub sources: Vec<Source>,
     pub outcomes: Option<Vec<String>>,
     pub requestor: AccountId, // Request Interface contract
-    pub creator: AccountId, // The account that created the request (account to return validity bond to)
+    pub creator: AccountId, // TODO: should be removable The account that created the request (account to return validity bond to)
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vector<ResolutionWindow>,
     pub global_config_id: u64, // Config id
-    pub request_config: DataRequestConfig,
-    pub initial_challenge_period: Duration,
+    pub request_config: DataRequestConfig, // TODO: why seperate config?
+    pub initial_challenge_period: Duration, // TODO: overlap with default challenge window duration?
     pub final_arbitrator_triggered: bool,
     pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
@@ -473,14 +472,7 @@ impl Contract {
 
         self.data_requests.push(&dr);
 
-        // calc amount to return to sender
-        let amount_to_send = amount - validity_bond;
-
-        if amount > validity_bond {
-            amount_to_send
-        } else {
-            0
-        }
+        0
     }
 
     #[payable]
@@ -565,7 +557,7 @@ impl Contract {
                 // NEAR Params
                 &env::current_account_id(),
                 0,
-                FINALZATION_GAS
+                FINALIZATION_GAS
             )
         )
     }
@@ -677,6 +669,7 @@ mod mock_token_basic_tests {
     }
 
     fn sum_claim_res(claim_res: ClaimRes) -> u128 {
+        println!("{:?} {:?}", claim_res.bond_token_payout, claim_res.stake_token_payout);
         claim_res.bond_token_payout + claim_res.stake_token_payout
     }
 

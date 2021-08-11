@@ -38,7 +38,6 @@ pub struct Contract {
     pub whitelist: whitelist::Whitelist,
     pub configs: Vector<oracle_config::OracleConfig>,
     pub data_requests: Vector<DataRequest>,
-    pub validity_bond: U128,
     pub accounts: LookupMap<AccountId, AccountStorageBalance>, // storage map
 }
 
@@ -63,7 +62,6 @@ impl Contract {
             whitelist: whitelist::Whitelist::new(initial_whitelist),
             configs,
             data_requests: Vector::new(b"dr".to_vec()),
-            validity_bond: 1.into(),
             accounts: LookupMap::new(b"a".to_vec()),
         }
     }

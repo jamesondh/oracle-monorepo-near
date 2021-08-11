@@ -94,7 +94,7 @@ mod mock_token_basic_tests {
             final_arbitrator: alice(),
             bond_token: token(),
             stake_token: token(),
-            validity_bond: U128(100),
+            validity_bond: U128(0),
             max_outcomes: 8,
             default_challenge_window_duration: U64(1000),
             min_initial_challenge_window_duration: U64(1000),
@@ -129,7 +129,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "alice.near has 0 deposited, 3540000000000000000000 is required for this transaction")]
+    #[should_panic(expected = "alice.near has 0 deposited, 4770000000000000000000 is required for this transaction")]
     fn transfer_storage_no_funds() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
