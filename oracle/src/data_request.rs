@@ -47,7 +47,6 @@ pub struct DataRequest {
     pub final_arbitrator_triggered: bool,
     pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
-    pub paid_fee: Option<u128>,
     pub data_type: DataRequestDataType,
 }
 
@@ -67,7 +66,6 @@ pub struct DataRequestSummary {
     pub target_contract: AccountId,
     pub tags: Option<Vec<String>>,
     pub data_type: DataRequestDataType,
-    pub paid_fee: Option<WrappedBalance>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -438,7 +436,6 @@ impl DataRequestView for DataRequest {
             final_arbitrator_triggered: self.final_arbitrator_triggered,
             target_contract: self.target_contract.0.clone(),
             tags: self.tags.clone(),
-            paid_fee: paid_fee,
             data_type: self.data_type.clone(),
         }
     }

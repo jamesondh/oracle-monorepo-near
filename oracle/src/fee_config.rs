@@ -22,7 +22,6 @@ impl Contract {
         new_fee_config: FeeConfig,
     ) {
         self.assert_gov();
-
         let initial_storage = env::storage_usage();
 
         assert!(
