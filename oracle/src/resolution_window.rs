@@ -1,6 +1,6 @@
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ Balance, AccountId };
+use near_sdk::{ env, Balance, AccountId };
 use near_sdk::collections::{ LookupMap };
 
 use crate::types::*;
@@ -70,6 +70,8 @@ impl ResolutionWindow {
         } else {
             0
         };
+
+        env::log(format!("unspent: {}, bond size: {}, stake on outcome: {}", unspent, self.bond_size, stake_on_outcome).as_bytes());
 
         let staked = amount - unspent;
 

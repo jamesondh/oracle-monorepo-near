@@ -12,7 +12,7 @@ fn new_registry_entry(contract_id: String) -> RegistryEntry {
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),
-        stake_multiplier: Some(0)
+        stake_multiplier: None
     }
 }
 

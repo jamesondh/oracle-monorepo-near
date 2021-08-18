@@ -100,6 +100,11 @@ impl DataRequestChange for DataRequest {
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
 
+        match stake_multiplier {
+            Some(m) => assert!(m > 0, "stake multiplier can't be 0"),
+            _ => ()
+        };
+        
         Self {
             id,
             sources: request_data.sources,
@@ -238,13 +243,13 @@ impl DataRequestChange for DataRequest {
 
     // @notice Return what's left of validity_bond to requestor
     fn return_validity_bond(&self, token: AccountId) -> PromiseOrValue<bool> {
-        let bond_to_return = self.calc_validity_bond_to_return();
+        match self.finalized_outcome.unwrap() {
+            Outcome::Answer(_) => {
+                PromiseOrValue::Promise(fungible_token_transfer(token, self.creator.clone(), bond_to_return))
+            },
+            Outcome::Invalid => PromiseOrValue::Value(false)
 
-        if bond_to_return > 0 {
-            return PromiseOrValue::Promise(fungible_token_transfer(token, self.creator.clone(), bond_to_return))
         }
-
-        PromiseOrValue::Value(false)
     }
 }
 
@@ -260,7 +265,6 @@ trait DataRequestView {
     fn assert_final_arbitrator_not_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn calc_resolution_bond(&self) -> Balance;
-    fn calc_validity_bond_to_return(&self) -> Balance;
     fn calc_resolution_fee_payout(&self) -> Balance;
     fn summarize_dr(&self) -> DataRequestSummary;
 }
@@ -364,32 +368,15 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
+        
         let base = if self.request_config.paid_fee >= self.request_config.validity_bond {
             self.request_config.paid_fee 
         } else {
             self.request_config.validity_bond
         };
+        env::log(format!("base: {}, paid fee: {}, validity bond: {}", base, self.request_config.paid_fee, self.request_config.validity_bond).as_bytes());
         
         base * self.request_config.stake_multiplier.unwrap_or(1) as Balance
-    }
-
-     /**
-     * @notice Calculates, how much of, the `validity_bond` should be returned to the creator, if the fees accrued are less than the validity bond only return the fees accrued to the creator
-     * the rest of the bond will be paid out to resolvers. If the `DataRequest` is invalid the fees and the `validity_bond` are paid out to resolvers, the creator gets slashed.
-     * @returns How much of the `validity_bond` should be returned to the creator after resolution denominated in `stake_token`
-     */
-    fn calc_validity_bond_to_return(&self) -> Balance {
-        let outcome = self.finalized_outcome.as_ref().unwrap();
-        match outcome {
-            Outcome::Answer(_) => {
-                if self.request_config.paid_fee > self.request_config.validity_bond {
-                    self.request_config.validity_bond
-                } else {
-                    self.request_config.paid_fee
-                }
-            },
-            Outcome::Invalid => 0
-        }
     }
 
     /**

@@ -70,6 +70,8 @@ impl TestAccount {
     /*** Setters ***/
     pub fn dr_new(
         &self,
+        fee: u128,
+        custom_validity_fee: Option<u128>
     ) -> ExecutionResult {
 
         // Transfer validity bond to to the request interface contract, this way it has balance to pay for the DataRequest creation
@@ -78,7 +80,7 @@ impl TestAccount {
             "ft_transfer", 
             json!({
                 "receiver_id": REQUEST_INTERFACE_CONTRACT_ID,
-                "amount": U128(VALIDITY_BOND),
+                "amount": U128(custom_validity_fee.unwrap_or(VALIDITY_BOND) + fee),
             }).to_string().as_bytes(),
             DEFAULT_GAS,
             1
@@ -89,7 +91,7 @@ impl TestAccount {
             REQUEST_INTERFACE_CONTRACT_ID.to_string(), 
             "create_data_request", 
             json!({
-                "amount": U128(100),
+                "amount": U128(custom_validity_fee.unwrap_or(VALIDITY_BOND) + fee),
                 "payload": NewDataRequestArgs {
                     sources: vec![],
                     tags: None,
@@ -127,29 +129,10 @@ impl TestAccount {
         res
     }
 
-    fn claim_fee(
-        &self,
-        dr_id: u64
-    ) -> ExecutionResult {
-        let res = self.account.call(
-            ORACLE_CONTRACT_ID.to_string(), 
-            "dr_claim_fee", 
-            json!({
-                "request_id": U64(dr_id)
-            }).to_string().as_bytes(),
-            DEFAULT_GAS,
-            1
-        );
-
-        res.assert_success();
-        res
-    }
-
     pub fn finalize(
         &self,
         dr_id: u64
     ) -> ExecutionResult {
-        self.claim_fee(dr_id);
         let res = self.account.call(
             ORACLE_CONTRACT_ID.to_string(), 
             "dr_finalize", 
