@@ -56,16 +56,4 @@ impl RequestInterfaceContract {
         assert_eq!(self.stake_token.clone(), token_id, "ERR_INVALID_STAKE_TOKEN");
         fungible_token_transfer(self.stake_token.clone(), receiver_id.clone(), amount)
     }
-
-    pub fn get_tvl(&self) -> PromiseOrValue<U128> {
-        let tvl = fungible_token::ft_balance_of(
-            env::current_account_id(),
-            // Near params
-            &self.stake_token.clone(),
-            1,
-            GAS_BASE_TRANSFER
-        );
-
-        PromiseOrValue::Promise(tvl)
-    }
 }

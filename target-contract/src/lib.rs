@@ -85,24 +85,7 @@ impl TargetContract {
             data_requests: LookupMap::new(b"d".to_vec())
         }
     }
-
-    #[payable]
-    pub fn claim_fee(
-        &mut self,
-        request_id: U64,
-        fee_percentage: u32
-    ) -> Promise {
-        self.assert_oracle();
-        let tvl = 1_000_000_u128;
-        let fee = tvl * PERCENTAGE_DIVISOR as u128 / fee_percentage as u128 / PERCENTAGE_DIVISOR as u128;
-        let payload = json!({
-            "SetPaidFee": {
-                "request_id": request_id
-            }
-        }).to_string();
-        ext_token_contract::ft_transfer_call(self.oracle.to_string(), fee.into(), None, payload, &self.fee_token, 1, GAS_BASE_SET_OUTCOME)
-    }
-
+    
     /**
      * @notice called by oracle to finalize the outcome result of a data request
      */
