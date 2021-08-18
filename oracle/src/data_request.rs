@@ -243,9 +243,9 @@ impl DataRequestChange for DataRequest {
 
     // @notice Return what's left of validity_bond to requestor
     fn return_validity_bond(&self, token: AccountId) -> PromiseOrValue<bool> {
-        match self.finalized_outcome.unwrap() {
+        match self.finalized_outcome.as_ref().unwrap() {
             Outcome::Answer(_) => {
-                PromiseOrValue::Promise(fungible_token_transfer(token, self.creator.clone(), bond_to_return))
+                PromiseOrValue::Promise(fungible_token_transfer(token, self.creator.clone(), self.request_config.validity_bond))
             },
             Outcome::Invalid => PromiseOrValue::Value(false)
 
