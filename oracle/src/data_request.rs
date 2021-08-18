@@ -138,7 +138,7 @@ impl DataRequestChange for DataRequest {
             .unwrap_or_else( || {
                 ResolutionWindow::new(self.id, 0, self.calc_resolution_bond(), self.initial_challenge_period, env::block_timestamp())
             });
-
+        
         let unspent = window.stake(sender, outcome, amount);
 
         // If first window push it to vec, else replace updated window struct
@@ -150,6 +150,7 @@ impl DataRequestChange for DataRequest {
                 &window
             );
         }
+
         // Check if this stake is bonded for the current window and if the final arbitrator should be invoked.
         // If the final arbitrator is invoked other stake won't come through.
         if window.bonded_outcome.is_some() && !self.invoke_final_arbitrator(window.bond_size) {
@@ -163,7 +164,7 @@ impl DataRequestChange for DataRequest {
                 )
             );
         }
-
+        
         unspent
     }
 
@@ -316,9 +317,10 @@ impl DataRequestView for DataRequest {
         assert!(self.finalized_outcome.is_some(), "DataRequest is not finalized");
     }
 
-
     fn assert_can_finalize(&self) {
+        let window = self.resolution_windows.get(self.resolution_windows.len() - 1).unwrap();
         assert!(!self.final_arbitrator_triggered, "Can only be finalized by final arbitrator: {}", self.request_config.final_arbitrator);
+        assert!(env::block_timestamp() >= window.end_time, "Error can only be finalized after final dispute round has timed out");
         self.assert_not_finalized();
     }
 
@@ -348,7 +350,7 @@ impl DataRequestView for DataRequest {
     }
 
     fn get_final_outcome(&self) -> Option<Outcome> {
-        assert!(self.resolution_windows.iter().count() >= 2, "No bonded outcome found");
+        assert!(self.resolution_windows.iter().count() >= 2, "No bonded outcome found or final arbitrator triggered after first round");
         let last_bonded_window_i = self.resolution_windows.len() - 2; // Last window after end_time never has a bonded outcome
         let last_bonded_window = self.resolution_windows.get(last_bonded_window_i).unwrap();
         last_bonded_window.bonded_outcome
@@ -368,7 +370,7 @@ impl DataRequestView for DataRequest {
             self.request_config.validity_bond
         };
         
-        base * 2 * self.request_config.stake_multiplier.unwrap_or(1) as Balance
+        base * self.request_config.stake_multiplier.unwrap_or(1) as Balance
     }
 
      /**
@@ -487,8 +489,6 @@ impl Contract {
         dr.assert_not_finalized();
 
         let unspent_stake = dr.stake(sender, payload.outcome, amount);
-        let _spent_stake = amount - unspent_stake;
-
         logger::log_update_data_request(&dr);
         self.data_requests.replace(payload.id.into(), &dr);
 
@@ -669,7 +669,6 @@ mod mock_token_basic_tests {
     }
 
     fn sum_claim_res(claim_res: ClaimRes) -> u128 {
-        println!("{:?} {:?}", claim_res.bond_token_payout, claim_res.stake_token_payout);
         claim_res.bond_token_payout + claim_res.stake_token_payout
     }
 
@@ -926,26 +925,6 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    fn dr_new_success_exceed_amount() {
-        testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
-
-        let amount : Balance = contract.dr_new(bob(), 200, NewDataRequestArgs{
-            sources: Vec::new(),
-            outcomes: None,
-            challenge_period: U64(1500),
-            settlement_time: U64(0),
-            target_contract: target(),
-            description: Some("a".to_string()),
-            tags: None,
-            data_type: data_request::DataRequestDataType::String,
-            creator: bob(),
-        });
-        assert_eq!(amount, 100);
-    }
-
-    #[test]
     fn dr_new_success() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1181,7 +1160,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Can only be finalized after fee is paid or when enforced by the DAO")]
+    #[should_panic(expected = "Error can only be finalized after final dispute round has timed out")]
     fn dr_finalize_active_challenge() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1239,7 +1218,7 @@ mod mock_token_basic_tests {
     }
 
 
-    fn dr_finalize(contract : &mut Contract, outcome : Outcome) {
+    fn dr_finalize(contract: &mut Contract, outcome: Outcome) {
         contract.dr_stake(alice(), 2000, StakeDataRequestArgs{
             id: U64(0),
             outcome: outcome
@@ -1401,7 +1380,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // fees (100% of TVL)
-        assert_eq!(sum_claim_res(d.claim(alice())), 15);
+        assert_eq!(sum_claim_res(d.claim(alice())), 294);
     }
 
     #[test]
@@ -1776,31 +1755,6 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot stake on `DataRequest` 0 until settlement time 100")]
-    fn dr_stake_before_settlement_time() {
-        testing_env!(get_context(token()));
-        let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
-        let mut contract = Contract::new(whitelist, config());
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
-            sources: Vec::new(),
-            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            challenge_period: U64(1500),
-            settlement_time: U64(100),
-            target_contract: target(),
-            description: Some("a".to_string()),
-            tags: None,
-            data_type: data_request::DataRequestDataType::String,
-            creator: bob(),
-        });
-
-        contract.dr_stake(alice(), 10, StakeDataRequestArgs{
-            id: U64(0),
-            outcome: data_request::Outcome::Answer(AnswerType::String("b".to_string()))
-        });
-
-    }
-
-    #[test]
     fn dr_tvl_increases() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
@@ -1823,11 +1777,13 @@ mod mock_token_basic_tests {
             stake_multiplier: None,
             code_base_url: None,
         };
+        let fixed_fee = 20; 
         let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
         let mut config = config();
-        config.validity_bond = U128(2);
+        let validity_bond = 2;
+        config.validity_bond = U128(validity_bond);
         let mut contract = Contract::new(whitelist, config);
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
+        contract.dr_new(bob(), fixed_fee + validity_bond, NewDataRequestArgs{
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
@@ -1843,39 +1799,8 @@ mod mock_token_basic_tests {
         ));
 
         let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 19);
-    }
 
-    #[test]
-    fn dr_fixed_fee2() {
-        testing_env!(get_context(token()));
-        let bob_requestor = RegistryEntry {
-            interface_name: bob(),
-            contract_entry: bob(),
-            stake_multiplier: None,
-            code_base_url: None,
-        };
-        let whitelist = Some(vec![bob_requestor, registry_entry(carol())]);
-        let mut config = config();
-        config.validity_bond = U128(2);
-        let mut contract = Contract::new(whitelist, config);
-        contract.dr_new(bob(), 100, NewDataRequestArgs{
-            sources: Vec::new(),
-            outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
-            challenge_period: U64(1500),
-            settlement_time: U64(0),
-            target_contract: target(),
-            description: Some("a".to_string()),
-            tags: None,
-            data_type: data_request::DataRequestDataType::String,
-            creator: bob(),
-        });
-        dr_finalize(&mut contract, data_request::Outcome::Answer(
-            data_request::AnswerType::String("a".to_string())
-        ));
-
-        let mut d = contract.data_requests.get(0).unwrap();
-        assert_eq!(sum_claim_res(d.claim(alice())), 75);
+        assert_eq!(sum_claim_res(d.claim(alice())), 60);
     }
 
     #[test]
