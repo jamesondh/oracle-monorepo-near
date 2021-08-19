@@ -8,6 +8,7 @@ use near_sdk::collections::{ Vector };
 
 use crate::resolution_window::*;
 use crate::types::*;
+use crate::helpers::multiply_stake;
 use crate::logger;
 use crate::fungible_token::{ fungible_token_transfer };
 
@@ -368,15 +369,15 @@ impl DataRequestView for DataRequest {
      * @returns The size of the initial `resolution_bond` denominated in `stake_token`
      */
     fn calc_resolution_bond(&self) -> Balance {
-        
-        let base = if self.request_config.paid_fee >= self.request_config.validity_bond {
+        let base_bond = if self.request_config.paid_fee >= self.request_config.validity_bond {
             self.request_config.paid_fee 
         } else {
             self.request_config.validity_bond
         };
-        env::log(format!("base: {}, paid fee: {}, validity bond: {}", base, self.request_config.paid_fee, self.request_config.validity_bond).as_bytes());
+
+        env::log(format!("base bond: {:?} multiplier: {:?}", base_bond, self.request_config.stake_multiplier).as_bytes());
         
-        base * self.request_config.stake_multiplier.unwrap_or(1) as Balance
+        multiply_stake(base_bond, self.request_config.stake_multiplier)
     }
 
     /**

@@ -71,8 +71,6 @@ impl ResolutionWindow {
             0
         };
 
-        env::log(format!("unspent: {}, bond size: {}, stake on outcome: {}", unspent, self.bond_size, stake_on_outcome).as_bytes());
-
         let staked = amount - unspent;
 
         let new_stake_on_outcome = stake_on_outcome + staked;

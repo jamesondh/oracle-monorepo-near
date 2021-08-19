@@ -7,12 +7,12 @@ pub struct OracleUtils {
     pub contract: ContractAccount<OracleContract>
 }
 
-fn new_registry_entry(contract_id: String) -> RegistryEntry {
+fn new_registry_entry(contract_id: String, stake_multiplier: Option<u16>) -> RegistryEntry {
     RegistryEntry {
         code_base_url: None,
         contract_entry: contract_id,
         interface_name: "test".to_string(),
-        stake_multiplier: None
+        stake_multiplier
     }
 }
 
@@ -20,7 +20,8 @@ impl OracleUtils {
     pub fn new(
         master_account: &TestAccount,
         validity_bond: u128,
-        final_arbitrator_invoke_amount: u128
+        final_arbitrator_invoke_amount: u128,
+        stake_multiplier: Option<u16>
     ) -> Self {        
         let config = OracleConfig {
             gov: "alice".to_string(),
@@ -53,8 +54,8 @@ impl OracleUtils {
             // init method
             init_method: new(
                 Some(vec![
-                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string()), 
-                        new_registry_entry(TARGET_CONTRACT_ID.to_string())
+                        new_registry_entry(REQUEST_INTERFACE_CONTRACT_ID.to_string(), stake_multiplier), 
+                        new_registry_entry(TARGET_CONTRACT_ID.to_string(), stake_multiplier)
                     ]
                 ), 
                 config
