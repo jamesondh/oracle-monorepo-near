@@ -71,7 +71,7 @@ fn dr_scenario_1() {
     println!("Outcome after finalize: {:?}", post_outcome);
 
     // claim
-    let claim_res = init_res.bob.claim(0);
+    let _claim_res = init_res.bob.claim(0);
     
     // get balances and differences from after staking/before claiming and before staking
     let post_balance_alice = init_res.alice.get_token_balance(None);

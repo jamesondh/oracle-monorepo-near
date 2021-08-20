@@ -228,7 +228,7 @@ impl DataRequestChange for DataRequest {
         };
 
 
-        let fee_bond_profit = match total_correct_staked {
+        let fee_profit = match total_correct_staked {
             0 => 0,
             _ => helpers::calc_product(user_correct_stake, self.request_config.paid_fee, total_correct_staked)
         };
@@ -236,7 +236,7 @@ impl DataRequestChange for DataRequest {
         logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, stake_profit);
 
         ClaimRes {
-            payment_token_payout: self.request_config.paid_fee,
+            payment_token_payout: fee_profit,
             stake_token_payout: user_correct_stake + stake_profit
         }
     }
