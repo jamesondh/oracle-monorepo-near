@@ -227,17 +227,16 @@ impl DataRequestChange for DataRequest {
             _ => helpers::calc_product(user_correct_stake, total_incorrect_staked, total_correct_staked)
         };
 
-        let bond_token_payout = self.calc_resolution_fee_payout();
 
         let fee_bond_profit = match total_correct_staked {
             0 => 0,
-            _ => helpers::calc_product(user_correct_stake, bond_token_payout, total_correct_staked)
+            _ => helpers::calc_product(user_correct_stake, self.request_config.paid_fee, total_correct_staked)
         };
 
         logger::log_claim(&account_id, self.id, total_correct_staked, total_incorrect_staked, user_correct_stake, stake_profit);
 
         ClaimRes {
-            bond_token_payout: fee_bond_profit,
+            bond_token_payout: self.request_config.paid_fee,
             stake_token_payout: user_correct_stake + stake_profit
         }
     }
@@ -266,7 +265,6 @@ trait DataRequestView {
     fn assert_final_arbitrator_not_invoked(&self);
     fn get_final_outcome(&self) -> Option<Outcome>;
     fn calc_resolution_bond(&self) -> Balance;
-    fn calc_resolution_fee_payout(&self) -> Balance;
     fn summarize_dr(&self) -> DataRequestSummary;
 }
 
@@ -378,19 +376,6 @@ impl DataRequestView for DataRequest {
         env::log(format!("base bond: {:?} multiplier: {:?}", base_bond, self.request_config.stake_multiplier).as_bytes());
         
         multiply_stake(base_bond, self.request_config.stake_multiplier)
-    }
-
-    /**
-     * @notice Calculates the size of the resolution bond. If the accumulated fee is smaller than the validity bond, we payout the validity bond to validators, thus they have to stake double in order to be
-     * eligible for the reward, in the case that the fee is greater than the validity bond validators need to have a cumulative stake of double the fee amount
-     * @returns The size of the resolution fee paid out to resolvers denominated in `stake_token`
-     */
-    fn calc_resolution_fee_payout(&self) -> Balance {
-        if self.request_config.paid_fee > self.request_config.validity_bond {
-            self.request_config.paid_fee
-        } else {
-            self.request_config.validity_bond
-        }
     }
 
     /**
@@ -1339,7 +1324,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(alice())), 300);
+        assert_eq!(sum_claim_res(d.claim(alice())), 200);
     }
 
     #[test]
@@ -1352,7 +1337,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(alice())), 300);
+        assert_eq!(sum_claim_res(d.claim(alice())), 200);
         assert_eq!(sum_claim_res(d.claim(alice())), 0);
     }
 
@@ -1386,8 +1371,8 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(alice())), 150);
-        assert_eq!(sum_claim_res(d.claim(bob())), 150);
+        assert_eq!(sum_claim_res(d.claim(alice())), 100);
+        assert_eq!(sum_claim_res(d.claim(bob())), 100);
     }
 
     #[test]
@@ -1407,7 +1392,7 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond + round 0 stake
-        assert_eq!(sum_claim_res(d.claim(alice())), 700);
+        assert_eq!(sum_claim_res(d.claim(alice())), 600);
         assert_eq!(sum_claim_res(d.claim(bob())), 0);
     }
 
@@ -1432,9 +1417,9 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond + round 0 stake
-        assert_eq!(sum_claim_res(d.claim(alice())), 525);
+        assert_eq!(sum_claim_res(d.claim(alice())), 450);
         assert_eq!(sum_claim_res(d.claim(bob())), 0);
-        assert_eq!(sum_claim_res(d.claim(carol())), 175);
+        assert_eq!(sum_claim_res(d.claim(carol())), 150);
     }
 
     #[test]
@@ -1458,9 +1443,9 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // round 1 stake
-        assert_eq!(sum_claim_res(d.claim(alice())), 1200);
+        assert_eq!(sum_claim_res(d.claim(alice())), 1120);
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(bob())), 300);
+        assert_eq!(sum_claim_res(d.claim(bob())), 280);
         assert_eq!(sum_claim_res(d.claim(carol())), 0);
     }
 
@@ -1489,12 +1474,12 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // round 1 stake
-        assert_eq!(sum_claim_res(d.claim(alice())), 1200);
+        assert_eq!(sum_claim_res(d.claim(alice())), 1120);
         // 50% of validity bond
-        assert_eq!(sum_claim_res(d.claim(bob())), 150);
+        assert_eq!(sum_claim_res(d.claim(bob())), 140);
         assert_eq!(sum_claim_res(d.claim(carol())), 0);
         // 50% of validity bond
-        assert_eq!(sum_claim_res(d.claim(dave())), 150);
+        assert_eq!(sum_claim_res(d.claim(dave())), 140);
     }
 
     #[test]
@@ -1522,12 +1507,12 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // 5/8 of round 1 stake
-        assert_eq!(sum_claim_res(d.claim(alice())), 750);
+        assert_eq!(sum_claim_res(d.claim(alice())), 700);
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(bob())), 300);
+        assert_eq!(sum_claim_res(d.claim(bob())), 280);
         assert_eq!(sum_claim_res(d.claim(carol())), 0);
         // 3/8 of round 1 stake
-        assert_eq!(sum_claim_res(d.claim(dave())), 450);
+        assert_eq!(sum_claim_res(d.claim(dave())), 420);
     }
 
     #[test]
@@ -1586,10 +1571,10 @@ mod mock_token_basic_tests {
 
         let mut d = contract.data_requests.get(0).unwrap();
         // validity bond
-        assert_eq!(sum_claim_res(d.claim(alice())), 300);
+        assert_eq!(sum_claim_res(d.claim(alice())), 280);
         assert_eq!(sum_claim_res(d.claim(bob())), 0);
         // round 1 funds
-        assert_eq!(sum_claim_res(d.claim(carol())), 1200);
+        assert_eq!(sum_claim_res(d.claim(carol())), 1120);
     }
 
     #[test]
@@ -1622,7 +1607,7 @@ mod mock_token_basic_tests {
         let mut d = contract.data_requests.get(0).unwrap();
         assert_eq!(sum_claim_res(d.claim(alice())), 0);
         // validity bond (100), round0 (200), round2 (800)
-        assert_eq!(sum_claim_res(d.claim(bob())), 1500);
+        assert_eq!(sum_claim_res(d.claim(bob())), 1400);
         assert_eq!(sum_claim_res(d.claim(carol())), 0);
     }
 
