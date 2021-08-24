@@ -538,7 +538,6 @@ impl Contract {
     pub fn dr_proceed_finalization(&mut self, request_id: U64, sender: AccountId) {        
         let mut dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-        assert!(sender == config.gov, "finalization transaction failed, can only be bypassed by `gov`");
         dr.assert_can_finalize(); // prevent race conditions
 
         dr.finalize();
