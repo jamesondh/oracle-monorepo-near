@@ -40,6 +40,15 @@ impl Whitelist {
             _ => true
         }
     }
+
+    pub fn get_stake_multiplier(&self, requestor: &AccountId) -> Option<u16> {
+        match &self.0 {
+            Some(whitelist) => {
+                whitelist.get(requestor).expect("not whitelisted").stake_multiplier
+            },
+            None => None
+        }
+    }
 }
 
 trait WhitelistHandler {
@@ -105,10 +114,6 @@ impl Contract {
             }, 
             None => ()
         }
-    }
-
-    pub fn whitelist_get(&self, requestor: &AccountId) -> Option<RequestorConfig> {
-        self.whitelist.0.as_ref().expect("No whitelist initiated").get(requestor)
     }
 }
 
