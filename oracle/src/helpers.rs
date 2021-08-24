@@ -62,7 +62,7 @@ pub fn ns_to_ms(ns_timestamp: u64) -> u64 {
 pub fn multiply_stake(stake: u128, multiplier: Option<u16>) -> u128 {
     match multiplier {
         Some(m) => {
-            let base = 1_0000_u128;
+            let base = 10_000_u128;
             stake * m as u128 / base
         },
         None => stake
