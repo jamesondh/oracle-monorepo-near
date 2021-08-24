@@ -430,7 +430,7 @@ impl Contract {
 
         let paid_fee = amount - validity_bond;
 
-        let stake_multiplier = self.whitelist_get(&sender).unwrap().stake_multiplier;
+        let stake_multiplier = self.whitelist.get_stake_multiplier(&sender);
 
         let dr = DataRequest::new(
             sender,
