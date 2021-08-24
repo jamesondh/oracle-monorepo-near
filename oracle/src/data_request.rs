@@ -538,7 +538,7 @@ impl Contract {
     pub fn dr_proceed_finalization(&mut self, request_id: U64, sender: AccountId) {        
         let mut dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-        assert!(helpers::previous_promise_successful() || sender == config.gov, "finalization transaction failed, can only be bypassed by `gov`");
+        assert!(sender == config.gov, "finalization transaction failed, can only be bypassed by `gov`");
         dr.assert_can_finalize(); // prevent race conditions
 
         dr.finalize();
@@ -592,6 +592,12 @@ impl Contract {
             None => None,
             Some(d) => Some(d.summarize_dr())
         }
+    }
+
+    pub fn get_outcome(&self, dr_id: U64) -> Outcome {
+        self.data_requests
+        .get(dr_id.into()).expect("Data request with does not exist")
+        .finalized_outcome.expect("Data request is not yet finalized")
     }
 
     pub fn get_requests(&self, from_index: U64, limit: U64) -> Vec<DataRequestSummary> {
