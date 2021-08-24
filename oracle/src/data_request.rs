@@ -517,31 +517,16 @@ impl Contract {
         }
     }
 
-    pub fn dr_finalize(&mut self, request_id: U64) -> Promise {
-        let dr = self.dr_get_expect(request_id.into());
+    pub fn dr_finalize(&mut self, request_id: U64) {
+        let mut dr = self.dr_get_expect(request_id.into());
         dr.assert_can_finalize();
         let final_outcome = dr.get_final_outcome();
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), final_outcome.unwrap(), dr.tags.clone(), false)
-        .then(
-            ext_self::dr_proceed_finalization(
-                request_id,
-                env::predecessor_account_id(),
-                // NEAR Params
-                &env::current_account_id(),
-                0,
-                FINALIZATION_GAS
-            )
-        )
-    }
+        
+        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), final_outcome.unwrap(), dr.tags.clone(), false);
 
-    #[private]
-    pub fn dr_proceed_finalization(&mut self, request_id: U64, sender: AccountId) {        
-        let mut dr = self.dr_get_expect(request_id.into());
         let config = self.configs.get(dr.global_config_id).unwrap();
-        dr.assert_can_finalize(); // prevent race conditions
 
         dr.finalize();
-
         dr.return_validity_bond(config.payment_token);
 
         self.data_requests.replace(request_id.into(), &dr);
