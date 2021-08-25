@@ -977,7 +977,7 @@ mod mock_token_basic_tests {
 
     #[test]
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
-    fn dr_stake_finalized_settlement_time() {
+    fn dr_invalid_outcome_list() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
