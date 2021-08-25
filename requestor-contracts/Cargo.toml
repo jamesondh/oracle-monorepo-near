@@ -1,5 +1,5 @@
 [package]
-name = "target-contract"
+name = "requestor-contracts"
 version = "0.1.0"
 authors = ["Jameson Hodge <contact@jamesonhodge.com>"]
 edition = "2018"

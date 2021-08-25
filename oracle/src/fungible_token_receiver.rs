@@ -67,10 +67,6 @@ mod mock_token_basic_tests {
         "token.near".to_string()
     }
 
-    fn target() -> AccountId {
-        "target.near".to_string()
-    }
-
     fn gov() -> AccountId {
         "gov.near".to_string()
     }
@@ -79,8 +75,8 @@ mod mock_token_basic_tests {
         account.try_into().expect("invalid account")
     }
 
-    fn registry_entry(account: AccountId) -> RequestorConfig {
-        RequestorConfig {
+    fn registry_entry(account: AccountId) -> Requestor {
+        Requestor {
             interface_name: account.clone(),
             account_id: account.clone(),
             stake_multiplier: None,
@@ -139,7 +135,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -165,7 +160,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,

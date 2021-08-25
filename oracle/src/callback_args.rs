@@ -15,7 +15,6 @@ pub struct NewDataRequestArgs {
     pub description: Option<String>,
     pub outcomes: Option<Vec<String>>,
     pub challenge_period: WrappedTimestamp,
-    pub target_contract: AccountId,
     pub data_type: DataRequestDataType,
     pub creator: AccountId,
 }

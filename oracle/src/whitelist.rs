@@ -1,25 +1,15 @@
 use crate::*;
 
 use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::serde::{ Serialize, Deserialize };
 use near_sdk::AccountId;
 use near_sdk::collections::LookupMap;
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct RequestorConfig {
-    pub interface_name: String,
-    pub account_id: AccountId, // Change to account_id
-    pub stake_multiplier: Option<u16>, 
-    pub code_base_url: Option<String>
-}
    
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Whitelist(Option<LookupMap<AccountId, RequestorConfig>>); // maps requestor account id to requestors config
+pub struct Whitelist(Option<LookupMap<AccountId, Requestor>>); // maps requestor account id to requestors config
 
 impl Whitelist {
-    pub fn new(initial_whitelist: Option<Vec<RequestorConfig>>) -> Self {
-        let mut whitelist: LookupMap<AccountId, RequestorConfig> = LookupMap::new(b"wlr".to_vec());
+    pub fn new(initial_whitelist: Option<Vec<Requestor>>) -> Self {
+        let mut whitelist: LookupMap<AccountId, Requestor> = LookupMap::new(b"wlr".to_vec());
 
         match initial_whitelist {
             Some(initial_whitelist) => {
@@ -49,11 +39,20 @@ impl Whitelist {
             None => None
         }
     }
+
+    pub fn whitelist_get_expect(&self, requestor: &AccountId) -> Requestor {
+        match &self.0 {
+            Some(whitelist) => {
+                whitelist.get(requestor).expect("requestor not whitelisted")
+            }, 
+            None => Requestor::new_no_whitelist(requestor)
+        }
+    }
 }
 
 trait WhitelistHandler {
-    fn add_to_whitelist(&mut self, new_requestor: RequestorConfig);
-    fn remove_from_whitelist(&mut self, requestor: RequestorConfig);
+    fn add_to_whitelist(&mut self, new_requestor: Requestor);
+    fn remove_from_whitelist(&mut self, requestor: Requestor);
     fn whitelist_contains(&self, requestor: AccountId) -> bool;
 }
 
@@ -61,8 +60,14 @@ trait WhitelistHandler {
 impl WhitelistHandler for Contract {
     
     #[payable]
-    fn add_to_whitelist(&mut self, new_requestor: RequestorConfig) {
+    fn add_to_whitelist(&mut self, new_requestor: Requestor) {
         self.assert_gov();
+
+
+        match new_requestor.stake_multiplier {
+            Some(m) => assert!(m > 0, "stake multiplier can't be 0"),
+            _ => ()
+        };
 
         let initial_storage = env::storage_usage();
 
@@ -71,7 +76,7 @@ impl WhitelistHandler for Contract {
                 whitelist.insert(&new_requestor.account_id, &new_requestor);
             }, 
             None => {
-                let mut whitelist: LookupMap<AccountId, RequestorConfig> = LookupMap::new(b"wlr".to_vec());
+                let mut whitelist: LookupMap<AccountId, Requestor> = LookupMap::new(b"wlr".to_vec());
                 whitelist.insert(&new_requestor.account_id, &new_requestor);
                 self.whitelist = Whitelist(Some(whitelist));
             }
@@ -82,7 +87,7 @@ impl WhitelistHandler for Contract {
     }
 
     #[payable]
-    fn remove_from_whitelist(&mut self, requestor: RequestorConfig) {
+    fn remove_from_whitelist(&mut self, requestor: Requestor) {
         self.assert_gov();
 
         let initial_storage = env::storage_usage();
@@ -107,6 +112,8 @@ impl WhitelistHandler for Contract {
 }
 
 impl Contract {
+
+
     pub fn assert_whitelisted(&self, requestor: AccountId) {
         match self.whitelist.0 {
             Some(_) => {
@@ -146,8 +153,8 @@ mod mock_token_basic_tests {
         "gov.near".to_string()
     }
 
-    fn registry_entry(account: AccountId) -> RequestorConfig {
-        RequestorConfig {
+    fn registry_entry(account: AccountId) -> Requestor {
+        Requestor {
             interface_name: account.clone(),
             account_id: account.clone(),
             stake_multiplier: None,

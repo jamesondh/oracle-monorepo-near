@@ -8,6 +8,5 @@ if [ ! -d ./res ]; then
 fi
 
 cp ./target/wasm32-unknown-unknown/release/oracle.wasm ./res
-cp ./target/wasm32-unknown-unknown/release/request_interface.wasm ./res
-cp ./target/wasm32-unknown-unknown/release/target_contract.wasm ./res
+cp ./target/wasm32-unknown-unknown/release/requestor_contracts.wasm ./res
 cp ./target/wasm32-unknown-unknown/release/token.wasm ./res

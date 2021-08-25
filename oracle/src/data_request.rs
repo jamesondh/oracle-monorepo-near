@@ -38,7 +38,7 @@ pub struct DataRequest {
     pub description: Option<String>,
     pub sources: Vec<Source>,
     pub outcomes: Option<Vec<String>>,
-    pub requestor: AccountId, // Requestor contract
+    pub requestor: Requestor, // Requestor contract
     pub creator: AccountId, // Account to return the validity bond to
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vector<ResolutionWindow>,
@@ -46,7 +46,6 @@ pub struct DataRequest {
     pub request_config: DataRequestConfig, // Config enforced by global parameters
     pub initial_challenge_period: Duration, // challenge period for first resolution
     pub final_arbitrator_triggered: bool,
-    pub target_contract: target_contract_handler::TargetContract,
     pub tags: Option<Vec<String>>,
     pub data_type: DataRequestDataType,
 }
@@ -57,14 +56,13 @@ pub struct DataRequestSummary {
     pub description: Option<String>,
     pub sources: Vec<Source>,
     pub outcomes: Option<Vec<String>>,
-    pub requestor: AccountId,
+    pub requestor: Requestor,
     pub creator: AccountId,
     pub finalized_outcome: Option<Outcome>,
     pub resolution_windows: Vec<ResolutionWindowSummary>,
     pub global_config_id: U64,
     pub initial_challenge_period: U64,
     pub final_arbitrator_triggered: bool,
-    pub target_contract: AccountId,
     pub tags: Option<Vec<String>>,
     pub data_type: DataRequestDataType,
 }
@@ -80,7 +78,7 @@ pub struct DataRequestConfig {
 }
 
 trait DataRequestChange {
-    fn new(sender: AccountId, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, paid_fee: Balance, stake_multiplier: Option<u16>, request_data: NewDataRequestArgs) -> Self;
+    fn new(requestor: Requestor, id: u64, global_config_id: u64, global_config: &oracle_config::OracleConfig, paid_fee: Balance, request_data: NewDataRequestArgs) -> Self;
     fn stake(&mut self, sender: AccountId, outcome: Outcome, amount: Balance) -> Balance;
     fn unstake(&mut self, sender: AccountId, round: u16, outcome: Outcome, amount: Balance) -> Balance;
     fn finalize(&mut self);
@@ -92,26 +90,21 @@ trait DataRequestChange {
 
 impl DataRequestChange for DataRequest {
     fn new(
-        sender: AccountId,
+        requestor: Requestor,
         id: u64,
         global_config_id: u64,
         config: &oracle_config::OracleConfig,
         paid_fee: Balance, 
-        stake_multiplier: Option<u16>,
         request_data: NewDataRequestArgs
     ) -> Self {
         let resolution_windows = Vector::new(format!("rw{}", id).as_bytes().to_vec());
 
-        match stake_multiplier {
-            Some(m) => assert!(m > 0, "stake multiplier can't be 0"),
-            _ => ()
-        };
         
         Self {
             id,
             sources: request_data.sources,
             outcomes: request_data.outcomes,
-            requestor: sender,
+            requestor: requestor.clone(),
             finalized_outcome: None,
             resolution_windows,
             global_config_id,
@@ -120,12 +113,11 @@ impl DataRequestChange for DataRequest {
                 final_arbitrator_invoke_amount: config.final_arbitrator_invoke_amount.into(),
                 final_arbitrator: config.final_arbitrator.to_string(),
                 validity_bond: config.validity_bond.into(),
-                stake_multiplier,
+                stake_multiplier: requestor.stake_multiplier,
                 paid_fee
             },
             initial_challenge_period: request_data.challenge_period.into(),
             final_arbitrator_triggered: false,
-            target_contract: target_contract_handler::TargetContract(request_data.target_contract),
             description: request_data.description,
             tags: request_data.tags,
             data_type: request_data.data_type,
@@ -406,7 +398,6 @@ impl DataRequestView for DataRequest {
             global_config_id: U64(self.global_config_id),
             initial_challenge_period: U64(self.initial_challenge_period),
             final_arbitrator_triggered: self.final_arbitrator_triggered,
-            target_contract: self.target_contract.0.clone(),
             tags: self.tags.clone(),
             data_type: self.data_type.clone(),
         }
@@ -427,18 +418,15 @@ impl Contract {
         self.assert_sender(&config.payment_token);
         self.dr_validate(&payload);
         assert!(amount >= validity_bond, "Validity bond not reached");
-
         let paid_fee = amount - validity_bond;
-
-        let stake_multiplier = self.whitelist.get_stake_multiplier(&sender);
-
+        
+        let requestor = self.whitelist.whitelist_get_expect(&sender);
         let dr = DataRequest::new(
-            sender,
+            requestor,
             self.data_requests.len() as u64, // dr_id
             self.configs.len() - 1, // dr's config id
             &config,
             paid_fee,
-            stake_multiplier,
             payload
         );
 
@@ -522,7 +510,7 @@ impl Contract {
         dr.assert_can_finalize();
         let final_outcome = dr.get_final_outcome();
         
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), final_outcome.unwrap(), dr.tags.clone(), false);
+        dr.requestor.set_outcome(request_id, final_outcome.unwrap(), dr.tags.clone(), false);
 
         let config = self.configs.get(dr.global_config_id).unwrap();
 
@@ -546,7 +534,7 @@ impl Contract {
         dr.finalize_final_arbitrator(outcome.clone());
 
         let config = self.configs.get(dr.global_config_id).unwrap();
-        dr.target_contract.set_outcome(request_id, dr.requestor.clone(), outcome, dr.tags.clone(), true);
+        dr.requestor.set_outcome(request_id, outcome, dr.tags.clone(), true);
         self.data_requests.replace(request_id.into(), &dr);
 
         logger::log_update_data_request(&dr);
@@ -597,7 +585,7 @@ impl Contract {
 mod mock_token_basic_tests {
     use near_sdk::{ MockedBlockchain };
     use near_sdk::{ testing_env, VMContext };
-    use crate::whitelist::{RequestorConfig};
+    use crate::requestor_handler::{Requestor};
     use crate::data_request::AnswerType;
     use super::*;
     use fee_config::FeeConfig;
@@ -622,10 +610,6 @@ mod mock_token_basic_tests {
         "token.near".to_string()
     }
 
-    fn target() -> AccountId {
-        "target.near".to_string()
-    }
-
     fn gov() -> AccountId {
         "gov.near".to_string()
     }
@@ -634,8 +618,8 @@ mod mock_token_basic_tests {
         claim_res.payment_token_payout + claim_res.stake_token_payout
     }
 
-    fn registry_entry(account: AccountId) -> RequestorConfig {
-        RequestorConfig {
+    fn registry_entry(account: AccountId) -> Requestor {
+        Requestor {
             interface_name: account.clone(),
             account_id: account.clone(),
             stake_multiplier: None,
@@ -701,7 +685,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -720,7 +703,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(0),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -738,7 +720,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(0),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -765,7 +746,6 @@ mod mock_token_basic_tests {
             sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
             challenge_period: U64(1000),
-            target_contract: target(),
             description: None,
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -794,7 +774,6 @@ mod mock_token_basic_tests {
                 "9".to_string()
             ]),
             challenge_period: U64(1000),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -812,7 +791,6 @@ mod mock_token_basic_tests {
             sources: vec![],
             outcomes: None,
             challenge_period: U64(1000),
-            target_contract: target(),
             description: None,
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -831,7 +809,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(999),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -850,7 +827,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(3001),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -869,7 +845,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -887,7 +862,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -901,7 +875,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -986,7 +959,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
@@ -1720,7 +1692,7 @@ mod mock_token_basic_tests {
     #[test]
     fn dr_fixed_fee() {
         testing_env!(get_context(token()));
-        let bob_requestor = RequestorConfig {
+        let bob_requestor = Requestor {
             interface_name: bob(),
             account_id: bob(),
             stake_multiplier: None,
@@ -1736,7 +1708,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,

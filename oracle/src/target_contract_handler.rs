@@ -1,21 +1,21 @@
-use crate::*;
-use near_sdk::json_types::{ U64 };
-use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
-use near_sdk::serde::{ Deserialize, Serialize };
-use near_sdk::{ AccountId, Gas, ext_contract, Promise };
-use types::Outcome;
+// use crate::*;
+// use near_sdk::json_types::{ U64 };
+// use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
+// use near_sdk::serde::{ Deserialize, Serialize };
+// use near_sdk::{ AccountId, Gas, ext_contract, Promise };
+// use types::Outcome;
 
 #[ext_contract]
 pub trait TargetContractExtern {
     fn set_outcome(request_id: U64, requestor: AccountId, outcome: Outcome, tags: Option<Vec<String>>, final_arbitrator_triggered: bool);
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
-pub struct TargetContract(pub AccountId);
+// #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+// pub struct TargetContract(pub AccountId);
 
 const GAS_BASE_SET_OUTCOME: Gas = 250_000_000_000_000;
 
-impl TargetContract {
+// impl TargetContract {
     pub fn set_outcome(
         &self,
         request_id: U64,
@@ -37,4 +37,4 @@ impl TargetContract {
             GAS_BASE_SET_OUTCOME / 10,
         )
     }
-}
+// }

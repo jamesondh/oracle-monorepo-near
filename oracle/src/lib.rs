@@ -19,7 +19,6 @@ mod storage_manager;
 mod helpers;
 mod logger;
 mod upgrade;
-mod target_contract_handler;
 pub mod fee_config;
 
 /// Mocks
@@ -30,7 +29,7 @@ pub use callback_args::*;
 use types::*;
 pub use data_request::{ DataRequest, Source };
 use storage_manager::AccountStorageBalance;
-use whitelist::RequestorConfig;
+pub use requestor_handler::Requestor;
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize )]
@@ -51,7 +50,7 @@ impl Default for Contract {
 impl Contract {
     #[init]
     pub fn new(
-        initial_whitelist: Option<Vec<RequestorConfig>>,
+        initial_whitelist: Option<Vec<Requestor>>,
         config: oracle_config::OracleConfig,
     ) -> Self {
         let mut configs = Vector::new(b"c".to_vec());

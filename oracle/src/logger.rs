@@ -13,7 +13,7 @@ use crate::{
     types::*,
     data_request::DataRequest,
     resolution_window::ResolutionWindow,
-    whitelist::RequestorConfig,
+    requestor_handler::Requestor,
     oracle_config::{
         OracleConfig
     },
@@ -37,7 +37,6 @@ pub fn log_new_data_request(request: &DataRequest) {
                 "finalized_outcome": request.finalized_outcome,
                 "initial_challenge_period": U64(request.initial_challenge_period),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
-                "target_contract": request.target_contract,
                 "paid_fee": U128(request.request_config.paid_fee),
                 "stake_multiplier": request.request_config.stake_multiplier,
                 "global_config_id": U64(request.global_config_id),
@@ -67,7 +66,6 @@ pub fn log_update_data_request(request: &DataRequest) {
                 "finalized_outcome": request.finalized_outcome,
                 "initial_challenge_period": U64(request.initial_challenge_period),
                 "final_arbitrator_triggered": request.final_arbitrator_triggered,
-                "target_contract": request.target_contract,
             }
         })
         .to_string()
@@ -234,7 +232,7 @@ pub fn log_claim(
     );
 }
 
-pub fn log_whitelist(requestor: &RequestorConfig, active: bool) {
+pub fn log_whitelist(requestor: &Requestor, active: bool) {
     env::log(
         json!({
             "type": "whitelist",
