@@ -701,7 +701,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -721,7 +720,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(0),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -740,7 +738,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(0),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -768,7 +765,6 @@ mod mock_token_basic_tests {
             sources: vec![x1,x2,x3,x4,x5,x6,x7,x8,x9],
             outcomes: None,
             challenge_period: U64(1000),
-            settlement_time: U64(0),
             target_contract: target(),
             description: None,
             tags: None,
@@ -798,7 +794,6 @@ mod mock_token_basic_tests {
                 "9".to_string()
             ]),
             challenge_period: U64(1000),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -817,7 +812,6 @@ mod mock_token_basic_tests {
             sources: vec![],
             outcomes: None,
             challenge_period: U64(1000),
-            settlement_time: U64(0),
             target_contract: target(),
             description: None,
             tags: None,
@@ -837,7 +831,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(999),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -857,7 +850,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(3001),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -877,7 +869,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -896,7 +887,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: None,
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -911,7 +901,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -988,7 +977,6 @@ mod mock_token_basic_tests {
 
     #[test]
     #[should_panic(expected = "Invalid outcome list either exceeds min of: 2 or max of 8")]
-    fn dr_stake_finalized_settlement_time() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
         let mut contract = Contract::new(whitelist, config());
@@ -997,7 +985,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string()].to_vec()),
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
@@ -1748,7 +1735,6 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
-            settlement_time: U64(0),
             target_contract: target(),
             description: Some("a".to_string()),
             tags: None,
