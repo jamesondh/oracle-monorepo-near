@@ -1708,6 +1708,10 @@ mod mock_token_basic_tests {
             sources: Vec::new(),
             outcomes: Some(vec!["a".to_string(), "b".to_string()].to_vec()),
             challenge_period: U64(1500),
+<<<<<<< HEAD
+=======
+            target_contract: target(),
+>>>>>>> origin/develop
             description: Some("a".to_string()),
             tags: None,
             data_type: data_request::DataRequestDataType::String,
