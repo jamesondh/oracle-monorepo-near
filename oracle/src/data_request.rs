@@ -426,7 +426,12 @@ impl Contract {
         self.assert_whitelisted(sender.to_string());
         self.assert_sender(&config.payment_token);
         self.dr_validate(&payload);
-        assert!(amount >= validity_bond, "Validity bond not reached");
+        assert!(
+            amount >= validity_bond,
+            "Validity bond of {} not reached, received only {}",
+            validity_bond,
+            amount
+        );
 
         let paid_fee = amount - validity_bond;
 
@@ -859,7 +864,7 @@ mod mock_token_basic_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Validity bond not reached")]
+    #[should_panic(expected = "Validity bond of 100 not reached, received only 90")]
     fn dr_new_not_enough_amount() {
         testing_env!(get_context(token()));
         let whitelist = Some(vec![registry_entry(bob()), registry_entry(carol())]);
