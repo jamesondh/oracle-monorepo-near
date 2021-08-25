@@ -98,7 +98,6 @@ impl TestAccount {
                     description: Some("test description".to_string()),
                     outcomes: None,
                     challenge_period: U64(1000),
-                    settlement_time: U64(10000),
                     target_contract: TARGET_CONTRACT_ID.to_string(),
                     data_type: DataRequestDataType::String,
                     creator: self.account.account_id(),
