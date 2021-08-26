@@ -1,1 +1,0 @@
-NEAR_ENV=$1 near deploy --accountId $2 --wasmFile ./res/request_interface.wasm --initFunction new --initArgs '{"oracle": '$3', "stake_token": "v2.wnear.flux-dev"}'
