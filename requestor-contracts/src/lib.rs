@@ -1,4 +1,4 @@
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, ext_contract};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{ Deserialize, Serialize };
 use near_sdk::serde_json::json;
@@ -62,11 +62,6 @@ pub struct NewDataRequestArgs {
     pub challenge_period: WrappedTimestamp,
     pub data_type: DataRequestDataType,
     pub creator: AccountId,
-}
-
-#[ext_contract]
-trait OracleContract {
-    fn get_outcome(&self, dr_id: U64);
 }
 
 near_sdk::setup_alloc!();
@@ -175,19 +170,22 @@ impl RequestorContract {
     }
     
     /**
-     * @notice called by oracle to finalize the outcome result of a data request
+     * @notice returns locally stored outcome of a data request
      */
-    #[payable]
     pub fn get_outcome(
-        &mut self,
+        self,
         request_id: U64,
-    ) -> Promise {
-        oracle_contract::get_outcome(
-            request_id, 
-            &self.oracle.as_str(),
-            0,
-            1_000_000_000_000
-        )
+    ) -> Option<Outcome> {
+        // return outcome only if dr exists and not in pending state
+        match self.data_requests.get(&request_id) {
+            None => None,
+            Some(dr) => {
+                match dr.status {
+                    DataRequestStatus::Pending => None,
+                    DataRequestStatus::Finalized(outcome) => Some(outcome)
+                }
+            }
+        }
     }
 }
 
