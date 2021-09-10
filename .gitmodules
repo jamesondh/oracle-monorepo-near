@@ -1,0 +1,3 @@
+[submodule "requester-sample-contract"]
+	path = request-interface
+	url = git@github.com:fluxprotocol/requester-sample-contract.git

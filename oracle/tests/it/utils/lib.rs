@@ -31,7 +31,7 @@ pub use oracle::*;
 pub use types::*;
 pub use account_utils::*;
 use deposit::*;
-use requestor_contracts;
+use request_interface;
 use token;
 use oracle::data_request::PERCENTAGE_DIVISOR;
 use uint::construct_uint;
@@ -42,7 +42,7 @@ construct_uint! {
 }
 
 type OracleContract = oracle::ContractContract;
-type RequestInterfaceContract = requestor_contracts::RequestorContractContract;
+type RequestInterfaceContract = request_interface::RequestorContractContract;
 type TokenContract = token::TokenContractContract;
 
 pub const TOKEN_CONTRACT_ID: &str = "token";
@@ -66,7 +66,7 @@ pub fn calc_bond_size(validity_bond: u128, round: u32, multiplier: Option<u16>) 
 // Load in contract bytes
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     ORACLE_WASM_BYTES => "../res/oracle.wasm",
-    REQUEST_INTERFACE_WASM_BYTES => "../res/requestor_contracts.wasm",
+    REQUEST_INTERFACE_WASM_BYTES => "../res/request_interface.wasm",
     TOKEN_WASM_BYTES => "../res/token.wasm"
 }
 
