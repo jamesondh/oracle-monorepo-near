@@ -8,7 +8,7 @@ const MAX_TAGS: u8 = 8;
 const MIN_OUTCOMES: u8 = 2;
 const MIN_PERIOD_MULTIPLIER: u64 = 3;
 
-#[derive(Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 pub struct NewDataRequestArgs {
     pub sources: Vec<data_request::Source>,
     pub tags: Option<Vec<String>>,

@@ -88,7 +88,7 @@ impl TestAccount {
             1
         );
         assert!(transfer_res.is_ok(), "ft_transfer_call failed with res: {:?}", transfer_res);
-        
+
         let dr_new_res = self.account.call(
             REQUESTOR_CONTRACT_ID.to_string(), 
             "create_data_request", 
